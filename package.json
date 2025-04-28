@@ -1,0 +1,39 @@
+{
+  "name": "gpt-store",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "@stripe/react-stripe-js": "^1.13.0",
+    "@stripe/stripe-js": "^1.45.0",
+    "@types/lodash": "^4.17.16",
+    "@types/stripe": "^8.0.416",
+    "ai": "^4.3.10",
+    "lodash": "^4.17.21",
+    "lucide-react": "^0.503.0",
+    "next": "14.0.4",
+    "openai": "^4.96.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "stripe": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.10.6",
+    "@types/react": "18.2.46",
+    "@types/react-dom": "18.2.18",
+    "autoprefixer": "10.4.16",
+    "postcss": "8.4.32",
+    "tailwindcss": "3.4.0",
+    "typescript": "5.3.3"
+  }
+}
