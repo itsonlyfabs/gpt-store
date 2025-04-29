@@ -83,13 +83,25 @@ export default function ProductPage() {
     const fetchProduct = async () => {
       try {
         setLoading(true)
+        if (process.env.NODE_ENV === 'development') {
+          // In development, return mock data after a small delay
+          await new Promise(resolve => setTimeout(resolve, 500))
+          setProduct(MOCK_PRODUCT)
+          return
+        }
+
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${params.id}`)
         if (!response.ok) throw new Error('Failed to fetch product')
         const data = await response.json()
         setProduct(data)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load product')
         console.error('Product fetch error:', err)
+        if (process.env.NODE_ENV === 'development') {
+          // In development, fallback to mock data even if fetch fails
+          setProduct(MOCK_PRODUCT)
+        } else {
+          setError(err instanceof Error ? err.message : 'Failed to load product')
+        }
       } finally {
         setLoading(false)
       }

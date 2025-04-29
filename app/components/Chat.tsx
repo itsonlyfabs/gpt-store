@@ -53,7 +53,7 @@ export default function Chat({ toolId, toolName }: ChatProps) {
     const fetchHistory = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(`/api/chat/history?toolId=${toolId}`)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/history?toolId=${toolId}`)
         if (!response.ok) throw new Error('Failed to fetch chat history')
         const data = await response.json()
         setHistory(data.history || [])

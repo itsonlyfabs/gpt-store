@@ -29,7 +29,7 @@ export default function CheckoutButton({
       setDevMessage('')
 
       // Create a checkout session on the server
-      const response = await fetch(`/api/payments/checkout`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

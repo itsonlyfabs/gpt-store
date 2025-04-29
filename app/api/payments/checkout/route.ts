@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { headers } from 'next/headers'
 
-// Check if we're in development mode
-const isDevelopment = process.env.NODE_ENV === 'development'
-
-// Only initialize Stripe if we have a valid key and are not in development mode
-const stripe = !isDevelopment && process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2025-03-31.basil',
-    })
-  : null
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2023-10-16',
+})
 
 type CheckoutBody = {
   productId: string
@@ -20,6 +16,12 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { productId, priceType } = body as CheckoutBody
+    
+    // Get the host from the request headers
+    const headersList = headers();
+    const host = headersList.get('host') || process.env.NEXT_PUBLIC_APP_URL || 'localhost:3002';
+    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+    const baseUrl = `${protocol}://${host}`;
 
     // Validate request body
     if (!productId || !priceType) {
@@ -36,20 +38,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // Development mode
-    if (isDevelopment) {
-      console.log('Running in development mode - simulating Stripe checkout')
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API delay
-      
-      return NextResponse.json({
-        sessionId: `dev_session_${Date.now()}_${productId}`,
-        devMode: true,
-        message: 'Development mode: Simulating successful purchase. You will be redirected shortly.'
-      })
-    }
-
-    // Production mode - requires Stripe configuration
-    if (!stripe) {
+    // Validate Stripe configuration
+    if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json(
         { error: 'Stripe is not properly configured. Please check your environment variables.' },
         { status: 500 }
@@ -80,8 +70,8 @@ export async function POST(request: Request) {
         },
       ],
       mode: priceType === 'subscription' ? 'subscription' : 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/checkout/cancel`,
+      success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/checkout/cancel`,
       metadata: {
         productId,
       },
