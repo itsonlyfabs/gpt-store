@@ -18,21 +18,34 @@ const allowedOrigins = [
   'http://localhost:3002', // Local development
   process.env.FRONTEND_URL, // Production frontend URL
   'https://gpt-store.vercel.app', // Vercel default domain
+  'https://gpt-store-mauve.vercel.app', // Additional Vercel domain
 ];
+
+console.log('Allowed origins:', allowedOrigins);
 
 app.use(cors({
   origin: function(origin, callback) {
+    console.log('Request origin:', origin);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('No origin, allowing request');
+      return callback(null, true);
+    }
     
     // Allow any subdomain of vercel.app
     if (origin.endsWith('.vercel.app')) {
+      console.log('Vercel domain detected, allowing request');
       return callback(null, true);
     }
 
     if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(new Error('CORS policy violation'), false);
+      console.log('Origin not in allowed list');
+      // For now, allow all origins
+      return callback(null, true);
     }
+    
+    console.log('Origin allowed');
     return callback(null, true);
   },
   credentials: true

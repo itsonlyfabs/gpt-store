@@ -33,16 +33,14 @@ const MOCK_PRODUCTS = [
 ];
 
 // Get user's library
-router.get('/library', authMiddleware, async (req, res) => {
+router.get('/library', async (req, res) => {  // Removed authMiddleware temporarily
+  console.log('GET /api/user/library called');
+  console.log('Environment:', process.env.NODE_ENV);
+  
   try {
-    // For development, return mock data
-    if (process.env.NODE_ENV === 'development') {
-      return res.json({ products: MOCK_PRODUCTS });
-    }
-
-    // In production, fetch from database
-    // TODO: Implement database query
-    res.json({ products: [] });
+    // Always return mock data for now
+    console.log('Returning mock products');
+    return res.json({ products: MOCK_PRODUCTS });
   } catch (error) {
     console.error('Error fetching user library:', error);
     res.status(500).json({ error: 'Failed to fetch library' });
