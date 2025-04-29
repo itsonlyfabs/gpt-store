@@ -83,12 +83,15 @@ export default function SettingsPage() {
     if (field.includes('.')) {
       const [parent, child] = field.split('.')
       if (parent === 'notifications') {
+        const updatedNotifications = { ...settings.notifications }
+        if (child === 'email') {
+          updatedNotifications.email = value as boolean
+        } else if (child === 'push') {
+          updatedNotifications.push = value as boolean
+        }
         setSettings({
           ...settings,
-          notifications: {
-            ...settings.notifications,
-            [child]: value,
-          },
+          notifications: updatedNotifications
         })
       }
     } else {
