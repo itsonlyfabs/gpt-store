@@ -28,11 +28,18 @@ export default function CheckoutButton({
       setError('')
       setDevMessage('')
 
+      // Get the auth token from localStorage
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('Please log in to make a purchase')
+      }
+
       // Create a checkout session on the server
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           productId,
