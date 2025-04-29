@@ -67,7 +67,7 @@ export default function MyLibraryPage() {
         }
 
         // In production, fetch from API
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/library`)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user/library`)
         if (!response.ok) {
           throw new Error('Failed to fetch purchased products')
         }

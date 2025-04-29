@@ -6,6 +6,7 @@ const productsRoutes = require('./routes/products');
 const paymentsRoutes = require('./routes/payments');
 const chatRoutes = require('./routes/chat');
 const reviewsRoutes = require('./routes/reviews');
+const userRoutes = require('./routes/user');
 
 dotenv.config();
 
@@ -57,6 +58,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/reviews', reviewsRoutes);
+app.use('/api/user', userRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
