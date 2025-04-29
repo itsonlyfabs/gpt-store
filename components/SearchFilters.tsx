@@ -6,12 +6,16 @@ export interface PriceRange {
   max: number
 }
 
+export type SubscriptionType = 'subscription' | 'one-time' | 'all'
+export type SortBy = 'relevance' | 'price-asc' | 'price-desc' | 'newest'
+
 export interface SearchFiltersProps {
   priceRange: PriceRange
   onPriceRangeChange: (range: PriceRange) => void
-  subscriptionType: string
-  onSubscriptionTypeChange: (type: string) => void
-  onSortChange: (sort: string) => void
+  subscriptionType: SubscriptionType
+  onSubscriptionTypeChange: (type: SubscriptionType) => void
+  sortBy: SortBy
+  onSortChange: (sort: SortBy) => void
   className?: string
 }
 
@@ -20,6 +24,7 @@ export default function SearchFilters({
   onPriceRangeChange,
   subscriptionType,
   onSubscriptionTypeChange,
+  sortBy,
   onSortChange,
   className = ''
 }: SearchFiltersProps) {
@@ -58,7 +63,7 @@ export default function SearchFilters({
         <h3 className="text-lg font-medium mb-2">Subscription Type</h3>
         <select
           value={subscriptionType}
-          onChange={(e) => onSubscriptionTypeChange(e.target.value)}
+          onChange={(e) => onSubscriptionTypeChange(e.target.value as SubscriptionType)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md"
         >
           <option value="all">All</option>
@@ -70,7 +75,8 @@ export default function SearchFilters({
       <div>
         <h3 className="text-lg font-medium mb-2">Sort By</h3>
         <select
-          onChange={(e) => onSortChange(e.target.value)}
+          value={sortBy}
+          onChange={(e) => onSortChange(e.target.value as SortBy)}
           className="w-full px-3 py-2 border border-gray-300 rounded-md"
         >
           <option value="relevance">Most Relevant</option>

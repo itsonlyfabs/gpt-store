@@ -1,12 +1,15 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { debounce } from 'lodash'
 import SearchBar from '@/components/SearchBar'
 import Sidebar from '@/components/Sidebar'
 import ProductCard from '@/components/ProductCard'
 import SearchFilters from '@/components/SearchFilters'
 import SearchSuggestions from '@/components/SearchSuggestions'
+
+type SubscriptionType = 'subscription' | 'one-time' | 'all'
+type SortBy = 'relevance' | 'price-asc' | 'price-desc' | 'newest'
 
 interface Product {
   id: string
@@ -71,27 +74,55 @@ const categories = [
 ]
 
 export default function DiscoverPage() {
-  const [query, setQuery] = useState('')
-  const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 })
-  const [subscriptionType, setSubscriptionType] = useState<'all' | 'one-time' | 'subscription'>('all')
-  const [sortBy, setSortBy] = useState<'relevance' | 'price-asc' | 'price-desc' | 'newest'>('relevance')
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 10000 })
+  const [subscriptionType, setSubscriptionType] = useState<SubscriptionType>('all')
+  const [sortBy, setSortBy] = useState<SortBy>('relevance')
+
+  useEffect(() => {
+    fetchProducts(searchQuery)
+  }, [searchQuery, priceRange, subscriptionType, sortBy])
 
   const fetchProducts = async (query: string) => {
     try {
       setLoading(true)
-      setError(null)
-      
+      setError('')
+
+      // In development mode, return mock data
       if (process.env.NODE_ENV === 'development') {
-        // For development, filter mock products
-        const filtered = MOCK_PRODUCTS.filter(product => 
-          product.name.toLowerCase().includes(query.toLowerCase()) ||
-          product.description.toLowerCase().includes(query.toLowerCase()) ||
-          product.category.toLowerCase().includes(query.toLowerCase())
-        )
-        setProducts(filtered)
+        await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API delay
+        
+        const mockProducts: Product[] = [
+          {
+            id: '1',
+            name: 'Focus Enhancement AI',
+            description: 'Boost your concentration and productivity with AI-powered techniques.',
+            price: 2999,
+            category: 'Productivity',
+            thumbnail: 'https://images.unsplash.com/photo-1516397281156-ca07cf9746fc?auto=format&fit=crop&w=800',
+            priceType: 'subscription',
+            currency: 'USD',
+            subscriptionType: 'subscription',
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: '2',
+            name: 'Meditation Guide AI',
+            description: 'Personal AI meditation coach for mindfulness and stress relief.',
+            price: 1999,
+            category: 'Wellness',
+            thumbnail: 'https://images.unsplash.com/photo-1593811167562-9cef47bfc4d7?auto=format&fit=crop&w=800',
+            priceType: 'one_time',
+            currency: 'USD',
+            subscriptionType: 'one-time',
+            createdAt: new Date().toISOString()
+          }
+        ]
+
+        setProducts(mockProducts)
         return
       }
 
@@ -103,135 +134,107 @@ export default function DiscoverPage() {
       
       const data = await response.json()
       setProducts(data)
-    } catch (error) {
-      console.error('Error searching products:', error)
-      setError('Failed to search products. Please try again.')
-      setProducts([])
+    } catch (err) {
+      console.error('Error fetching products:', err)
+      setError('Failed to load products')
     } finally {
       setLoading(false)
     }
   }
 
-  // Debounce the search to avoid too many API calls
-  const debouncedSearch = useCallback(
-    debounce((query: string) => fetchProducts(query), 300),
-    []
-  )
-
   const handleSearch = async (newQuery: string) => {
-    setQuery(newQuery)
-    // In a real app, this would trigger an API call with all filters
-    const filtered = MOCK_PRODUCTS.filter(product => {
-      const matchesQuery = product.name.toLowerCase().includes(newQuery.toLowerCase())
-      const matchesPrice = product.price >= priceRange.min && product.price <= priceRange.max
-      const matchesType = subscriptionType === 'all' || product.subscriptionType === subscriptionType
-      return matchesQuery && matchesPrice && matchesType
-    })
-
-    let sorted = [...filtered]
-    switch (sortBy) {
-      case 'price-asc':
-        sorted.sort((a, b) => a.price - b.price)
-        break
-      case 'price-desc':
-        sorted.sort((a, b) => b.price - a.price)
-        break
-      case 'newest':
-        sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        break
-      default:
-        // relevance - keep original order
-        break
-    }
-
-    setProducts(sorted)
+    setSearchQuery(newQuery)
   }
 
-  const handleCategoryClick = (categoryName: string) => {
-    fetchProducts(categoryName)
+  const handlePriceRangeChange = (range: { min: number; max: number }) => {
+    setPriceRange(range)
+  }
+
+  const handleSubscriptionTypeChange = (type: SubscriptionType) => {
+    setSubscriptionType(type)
+  }
+
+  const handleSortChange = (sort: SortBy) => {
+    setSortBy(sort)
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center text-red-600">
+            {error}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        <div className="px-6 py-8">
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">Discover AI Tools</h1>
-            <div className="relative mb-8">
-              <SearchBar 
-                value={query}
-                onChange={setQuery}
-                onSearch={handleSearch}
-                placeholder="Search AI products..."
-                className="w-full"
-              />
-              <SearchSuggestions
-                query={query}
-                onSuggestionClick={suggestion => {
-                  setQuery(suggestion)
-                  handleSearch(suggestion)
-                }}
-                className="absolute w-full mt-1 z-10"
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Filters sidebar */}
+          <div className="w-full md:w-64 flex-shrink-0">
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <SearchFilters
+                priceRange={priceRange}
+                onPriceRangeChange={handlePriceRangeChange}
+                subscriptionType={subscriptionType}
+                onSubscriptionTypeChange={handleSubscriptionTypeChange}
+                sortBy={sortBy}
+                onSortChange={handleSortChange}
               />
             </div>
-            
-            <section className="mb-12">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-6">Categories</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {categories.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => handleCategoryClick(category.name)}
-                    className="p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
-                  >
-                    <div className="text-3xl mb-2">{category.icon}</div>
-                    <h3 className="text-lg font-medium text-gray-900">{category.name}</h3>
-                  </button>
-                ))}
-              </div>
-            </section>
+          </div>
 
-            <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-6">Available Tools</h2>
-              {loading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                </div>
-              ) : error ? (
-                <div className="text-center py-12">
-                  <p className="text-red-600">{error}</p>
-                </div>
-              ) : products.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No products found. Try a different search term.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                  <div className="lg:col-span-1">
-                    <SearchFilters
-                      priceRange={priceRange}
-                      onPriceRangeChange={setPriceRange}
-                      subscriptionType={subscriptionType}
-                      onSubscriptionTypeChange={setSubscriptionType}
-                      sortBy={sortBy}
-                      onSortChange={setSortBy}
-                    />
-                  </div>
+          {/* Main content */}
+          <div className="flex-1">
+            <div className="mb-6">
+              <SearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                onSearch={handleSearch}
+                placeholder="Search AI tools..."
+                className="max-w-2xl"
+              />
+            </div>
 
-                  <div className="lg:col-span-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {products.map((product) => (
-                        <ProductCard key={product.id} {...product} />
-                      ))}
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="bg-gray-200 h-48 rounded-t-lg"></div>
+                    <div className="bg-white p-4 rounded-b-lg">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="space-y-3 mt-4">
+                        <div className="h-4 bg-gray-200 rounded"></div>
+                        <div className="h-4 bg-gray-200 rounded"></div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </section>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    id={product.id}
+                    name={product.name}
+                    description={product.description}
+                    price={product.price}
+                    category={product.category}
+                    thumbnail={product.thumbnail}
+                    priceType={product.priceType}
+                    currency={product.currency}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 } 
