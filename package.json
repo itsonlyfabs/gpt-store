@@ -16,6 +16,7 @@
     "@anthropic-ai/sdk": "^0.40.0",
     "@stripe/react-stripe-js": "^1.13.0",
     "@stripe/stripe-js": "^1.45.0",
+    "@supabase/supabase-js": "^2.49.4",
     "@types/lodash": "^4.17.16",
     "@types/stripe": "^8.0.416",
     "ai": "^4.3.10",

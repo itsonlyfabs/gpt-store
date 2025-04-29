@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import React, { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import ProductCard from '@/components/ProductCard'
 import SearchBar from '@/components/SearchBar'
+import SearchFilters from '@/components/SearchFilters'
 
 interface Product {
   id: string
@@ -42,81 +43,107 @@ export default function BrowsePage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState({
-    category: searchParams.get('category') || '',
-    priceType: searchParams.get('priceType') || '',
-    currency: searchParams.get('currency') || 'USD',
-    priceRange: searchParams.get('priceRange') || '',
-    search: searchParams.get('search') || '',
+    priceRange: { min: 0, max: 10000 },
+    subscriptionType: 'all',
+    sort: 'relevance'
   })
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      setLoading(true)
-      setError('')
-      try {
-        // Remove empty filters
-        const activeFilters = Object.fromEntries(
-          Object.entries(filters).filter(([_, value]) => value !== '')
-        )
-        
-        const queryParams = new URLSearchParams(activeFilters).toString()
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?${queryParams}`)
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch products')
-        }
-        
-        const data = await response.json()
-        
-        // Apply price range filter client-side
-        let filteredData = [...data]
-        if (filters.priceRange) {
-          const range = priceRanges.find(r => r.id === filters.priceRange)
-          if (range) {
-            filteredData = filteredData.filter(
-              p => p.price >= range.min && p.price <= range.max
-            )
-          }
-        }
-        
-        setProducts(filteredData)
-      } catch (error) {
-        console.error('Error fetching products:', error)
-        setError('Failed to load products. Please try again.')
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchProducts()
   }, [filters])
 
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
-    // Update URL query params
-    const newParams = new URLSearchParams(searchParams.toString())
-    if (value) {
-      newParams.set(key, value)
-    } else {
-      newParams.delete(key)
+  const fetchProducts = async () => {
+    try {
+      setLoading(true)
+      // Convert filters to URL params
+      const params = new URLSearchParams({
+        min_price: filters.priceRange.min.toString(),
+        max_price: filters.priceRange.max.toString(),
+        subscription_type: filters.subscriptionType,
+        sort: filters.sort,
+        search: searchQuery
+      })
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?${params}`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch products')
+      }
+      
+      const data = await response.json()
+      setProducts(data)
+    } catch (error) {
+      console.error('Error fetching products:', error)
+      setError('Failed to load products')
+    } finally {
+      setLoading(false)
     }
-    router.push(`/browse?${newParams.toString()}`)
+  }
+
+  const handlePriceRangeChange = (range: { min: number; max: number }) => {
+    setFilters(prev => ({
+      ...prev,
+      priceRange: range
+    }))
+  }
+
+  const handleSubscriptionTypeChange = (type: string) => {
+    setFilters(prev => ({
+      ...prev,
+      subscriptionType: type
+    }))
+  }
+
+  const handleSortChange = (sort: string) => {
+    setFilters(prev => ({
+      ...prev,
+      sort
+    }))
   }
 
   const handleSearch = (query: string) => {
-    handleFilterChange('search', query)
+    setSearchQuery(query)
   }
 
   const clearFilters = () => {
     setFilters({
-      category: '',
-      priceType: '',
-      currency: 'USD',
-      priceRange: '',
-      search: '',
+      priceRange: { min: 0, max: 10000 },
+      subscriptionType: 'all',
+      sort: 'relevance'
     })
-    router.push('/browse')
+    setSearchQuery('')
+  }
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="bg-gray-200 h-48 rounded-lg mb-4"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -137,6 +164,8 @@ export default function BrowsePage() {
                 </button>
               </div>
               <SearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
                 onSearch={handleSearch}
                 placeholder="Search AI tools..."
                 className="w-full"
@@ -144,83 +173,44 @@ export default function BrowsePage() {
             </div>
 
             {/* Filters */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <select
-                value={filters.category}
-                onChange={(e) => handleFilterChange('category', e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Categories</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-              
-              <select
-                value={filters.priceType}
-                onChange={(e) => handleFilterChange('priceType', e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Price Types</option>
-                {priceTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </select>
+            <div className="flex flex-col md:flex-row gap-8">
+              <div className="w-full md:w-64 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-medium">Filters</h2>
+                  <button
+                    onClick={clearFilters}
+                    className="text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                <SearchFilters
+                  priceRange={filters.priceRange}
+                  onPriceRangeChange={handlePriceRangeChange}
+                  subscriptionType={filters.subscriptionType}
+                  onSubscriptionTypeChange={handleSubscriptionTypeChange}
+                  onSortChange={handleSortChange}
+                />
+              </div>
 
-              <select
-                value={filters.priceRange}
-                onChange={(e) => handleFilterChange('priceRange', e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Prices</option>
-                {priceRanges.map((range) => (
-                  <option key={range.id} value={range.id}>
-                    {range.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={filters.currency}
-                onChange={(e) => handleFilterChange('currency', e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {currencies.map((currency) => (
-                  <option key={currency} value={currency}>
-                    {currency}
-                  </option>
-                ))}
-              </select>
+              {/* Products Grid */}
+              <div className="flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      id={product.id}
+                      name={product.name}
+                      description={product.description}
+                      price={product.price}
+                      category={product.category}
+                      thumbnail={product.thumbnail}
+                      priceType={product.priceType}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
-
-            {/* Error State */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-8">
-                {error}
-              </div>
-            )}
-
-            {/* Loading State */}
-            {loading ? (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              </div>
-            ) : products.length === 0 ? (
-              <div className="text-center py-12">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-                <p className="text-gray-600">Try adjusting your filters or search terms</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {products.map((product) => (
-                  <ProductCard key={product.id} {...product} />
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </main>
