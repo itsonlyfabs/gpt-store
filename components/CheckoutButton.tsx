@@ -1,9 +1,6 @@
-import React, { useState } from 'react'
-import { loadStripe } from '@stripe/stripe-js'
+'use client'
 
-const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-  : null
+import React, { useState } from 'react'
 
 interface CheckoutButtonProps {
   productId: string
@@ -19,27 +16,15 @@ export default function CheckoutButton({
   className = '',
 }: CheckoutButtonProps) {
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [devMessage, setDevMessage] = useState('')
 
   const handleCheckout = async () => {
     try {
       setLoading(true)
-      setError('')
-      setDevMessage('')
 
-      // Get the auth token from localStorage
-      const token = localStorage.getItem('token')
-      if (!token) {
-        throw new Error('Please log in to make a purchase')
-      }
-
-      // Create a checkout session on the server
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           productId,
@@ -47,87 +32,54 @@ export default function CheckoutButton({
         }),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create checkout session')
+        throw new Error('Failed to create checkout session')
       }
 
-      // Handle development mode
-      if (data.devMode) {
-        setDevMessage(data.message)
-        // Simulate successful checkout after 2 seconds
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        window.location.href = '/checkout/success?session_id=' + data.sessionId
+      const data = await response.json()
+      
+      // If we're in development mode, use the success_url from the response
+      if (process.env.NODE_ENV === 'development') {
+        window.location.href = data.success_url
         return
       }
 
-      // Production mode - redirect to Stripe checkout
-      const stripe = await stripePromise
-      if (!stripe) {
-        throw new Error('Stripe is not properly configured')
+      // For production, redirect to Stripe checkout
+      const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+      if (!stripePublishableKey) {
+        throw new Error('Stripe publishable key is not configured')
       }
 
-      const { error: stripeError } = await stripe.redirectToCheckout({
+      const stripe = await import('@stripe/stripe-js').then((module) => 
+        module.loadStripe(stripePublishableKey)
+      )
+      
+      if (!stripe) {
+        throw new Error('Stripe failed to load')
+      }
+
+      const result = await stripe.redirectToCheckout({
         sessionId: data.sessionId,
       })
 
-      if (stripeError) {
-        throw stripeError
+      if (result.error) {
+        throw new Error(result.error.message)
       }
-    } catch (err) {
-      console.error('Checkout error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to initiate checkout')
+    } catch (error) {
+      console.error('Checkout error:', error)
+      alert('Failed to initiate checkout. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div>
-      {error && (
-        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
-          {error}
-        </div>
-      )}
-      {devMessage && (
-        <div className="mb-4 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
-          {devMessage}
-        </div>
-      )}
-      <button
-        onClick={handleCheckout}
-        disabled={disabled || loading}
-        className={`inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
-      >
-        {loading ? (
-          <>
-            <svg
-              className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-            Processing...
-          </>
-        ) : (
-          'Purchase Now'
-        )}
-      </button>
-    </div>
+    <button
+      onClick={handleCheckout}
+      disabled={disabled || loading}
+      className={`px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+    >
+      {loading ? 'Processing...' : 'Purchase Now'}
+    </button>
   )
 } 

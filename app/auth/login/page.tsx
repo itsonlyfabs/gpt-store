@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AuthLayout from '@/components/AuthLayout'
+import { supabase } from '@/utils/supabase'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,28 +20,14 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Invalid credentials')
+      if (signInError) {
+        throw signInError
       }
-
-      // Store the token
-      localStorage.setItem('token', data.token)
-      
-      // Store user info
-      localStorage.setItem('user', JSON.stringify(data.user))
 
       // Redirect to discover page
       router.push('/discover')

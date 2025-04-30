@@ -17,11 +17,8 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { productId, priceType } = body as CheckoutBody
     
-    // Get the host from the request headers
-    const headersList = headers();
-    const host = headersList.get('host') || process.env.NEXT_PUBLIC_APP_URL || 'localhost:3002';
-    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-    const baseUrl = `${protocol}://${host}`;
+    // Get the host from the request headers or environment variable
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002'
 
     // Validate request body
     if (!productId || !priceType) {
@@ -44,6 +41,15 @@ export async function POST(request: Request) {
         { error: 'Stripe is not properly configured. Please check your environment variables.' },
         { status: 500 }
       )
+    }
+
+    // In development mode, simulate a successful checkout
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Running in development mode - simulating Stripe checkout')
+      return NextResponse.json({ 
+        sessionId: 'dev_session_' + Date.now(),
+        success_url: `${baseUrl}/checkout/success?session_id=dev_session_${Date.now()}`
+      })
     }
 
     // In a real application, fetch the product details from your database
@@ -77,7 +83,10 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ sessionId: session.id })
+    return NextResponse.json({ 
+      sessionId: session.id,
+      success_url: session.success_url
+    })
   } catch (error) {
     console.error('Checkout error:', error)
     

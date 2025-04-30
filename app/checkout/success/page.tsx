@@ -1,61 +1,97 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
 export default function CheckoutSuccessPage() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
+  const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const [errorMessage, setErrorMessage] = useState<string>('')
 
   useEffect(() => {
-    // In a real app, you would verify the session with your backend
-    console.log('Checkout session ID:', sessionId)
+    async function verifySession() {
+      if (!sessionId) {
+        setVerificationStatus('error')
+        setErrorMessage('No session ID provided')
+        return
+      }
+
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/verify-session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}` // Send auth token if available
+          },
+          body: JSON.stringify({ sessionId })
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to verify session')
+        }
+
+        const data = await response.json()
+        setVerificationStatus('success')
+      } catch (error) {
+        console.error('Session verification failed:', error)
+        setVerificationStatus('error')
+        setErrorMessage('Failed to verify your purchase. Please contact support.')
+      }
+    }
+
+    verifySession()
   }, [sessionId])
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+  if (verificationStatus === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-green-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Payment successful!</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Thank you for your purchase. You can now access your AI tool in your library.
-          </p>
+          <h1 className="text-2xl font-bold mb-4">Verifying your purchase...</h1>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
         </div>
+      </div>
+    )
+  }
 
-        <div className="mt-8 bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <div className="space-y-6">
-            <div>
-              <div className="mt-1 flex flex-col space-y-4">
-                <Link
-                  href="/my-library"
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Go to My Library
-                </Link>
-                <Link
-                  href="/discover"
-                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Discover More Tools
-                </Link>
-              </div>
-            </div>
+  if (verificationStatus === 'error') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Oops! Something went wrong</h1>
+          <p className="text-red-600 mb-4">{errorMessage}</p>
+          <div className="space-x-4">
+            <Link href="/discover" className="text-blue-600 hover:underline">
+              Return to Discover
+            </Link>
+            <a href="mailto:support@example.com" className="text-blue-600 hover:underline">
+              Contact Support
+            </a>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold mb-4">🎉 Thank you for your purchase!</h1>
+        <p className="text-lg mb-8">Your AI tool is now ready to use in your library.</p>
+        <div className="space-x-4">
+          <Link
+            href="/my-library"
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Go to My Library
+          </Link>
+          <Link
+            href="/discover"
+            className="text-blue-600 hover:underline"
+          >
+            Discover More Tools
+          </Link>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import AuthLayout from '@/components/AuthLayout'
+import { supabase } from '@/utils/supabase'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -16,18 +17,12 @@ export default function ForgotPasswordPage() {
     setLoading(true)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to send reset email')
+      if (resetError) {
+        throw resetError
       }
 
       setSuccess(true)

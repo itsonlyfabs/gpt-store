@@ -5,7 +5,7 @@ interface AuthLayoutProps {
   children: React.ReactNode
   title: string
   subtitle: string
-  type: 'login' | 'register' | 'forgot-password'
+  type: 'login' | 'register' | 'forgot-password' | 'reset-password'
 }
 
 export default function AuthLayout({ children, title, subtitle, type }: AuthLayoutProps) {
@@ -48,6 +48,14 @@ export default function AuthLayout({ children, title, subtitle, type }: AuthLayo
               </p>
             )}
             {type === 'forgot-password' && (
+              <p className="text-center text-sm text-gray-600">
+                Remember your password?{' '}
+                <Link href="/auth/login" className="font-medium text-blue-600 hover:text-blue-500">
+                  Sign in
+                </Link>
+              </p>
+            )}
+            {type === 'reset-password' && (
               <p className="text-center text-sm text-gray-600">
                 Remember your password?{' '}
                 <Link href="/auth/login" className="font-medium text-blue-600 hover:text-blue-500">

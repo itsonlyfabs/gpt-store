@@ -206,4 +206,52 @@ router.get('/user/purchases', authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router; 
+// Add new endpoint to verify session
+router.post('/verify-session', authMiddleware, async (req, res) => {
+  const { sessionId } = req.body;
+  const userId = req.user.id;
+
+  if (!sessionId) {
+    return res.status(400).json({ error: 'Session ID is required' });
+  }
+
+  try {
+    // In development mode, simulate session verification
+    if (isDevelopment) {
+      // Add a mock purchase to the user's library
+      const mockPurchase = {
+        id: 'mock_purchase_' + Date.now(),
+        userId,
+        productId: 'mock_product',
+        createdAt: new Date(),
+        status: 'completed'
+      };
+
+      // In a real app, you would save this to your database
+      console.log('Mock purchase created:', mockPurchase);
+      
+      return res.json({ success: true });
+    }
+
+    // In production, verify the session with Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    // Verify that this session belongs to the authenticated user
+    if (session.metadata.userId !== userId) {
+      return res.status(403).json({ error: 'Unauthorized access to this session' });
+    }
+
+    // Verify the session is paid
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Payment not completed' });
+    }
+
+    // Return success
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error verifying session:', error);
+    res.status(500).json({ error: 'Failed to verify session' });
+  }
+});
+
+module.exports = router;
