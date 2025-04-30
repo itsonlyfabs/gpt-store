@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import { supabase } from '@/utils/supabase'
 
 interface PurchasedProduct {
   id: string
@@ -18,37 +20,8 @@ interface PurchasedProduct {
   }
 }
 
-// Mock data for development
-const MOCK_PRODUCTS: PurchasedProduct[] = [
-  {
-    id: '1',
-    name: 'Focus Enhancement AI',
-    description: 'AI-powered tool to help you maintain focus and concentration during work sessions.',
-    thumbnail: 'https://picsum.photos/seed/focus/800/400',
-    category: 'Focus & Concentration',
-    lastUsed: new Date(Date.now() - 86400000).toISOString(), // 24 hours ago
-    usageMetrics: {
-      totalChats: 15,
-      totalTokens: 3500,
-      lastChatDate: new Date(Date.now() - 86400000).toISOString(),
-    },
-  },
-  {
-    id: '2',
-    name: 'Meditation Guide AI',
-    description: 'Personalized meditation sessions with AI-guided breathing exercises.',
-    thumbnail: 'https://picsum.photos/seed/meditation/800/400',
-    category: 'Meditation & Mindfulness',
-    lastUsed: new Date(Date.now() - 172800000).toISOString(), // 48 hours ago
-    usageMetrics: {
-      totalChats: 8,
-      totalTokens: 2100,
-      lastChatDate: new Date(Date.now() - 172800000).toISOString(),
-    },
-  },
-]
-
 export default function MyLibraryPage() {
+  const router = useRouter()
   const [products, setProducts] = useState<PurchasedProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -59,18 +32,36 @@ export default function MyLibraryPage() {
         setLoading(true)
         setError(null)
 
-        // In development, use mock data
-        if (process.env.NODE_ENV === 'development') {
-          await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API delay
-          setProducts(MOCK_PRODUCTS)
+        // Check if user is authenticated
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          throw sessionError
+        }
+
+        if (!session) {
+          router.push('/auth/login')
           return
         }
 
-        // In production, fetch from API
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/library`)
+        // Fetch products from API with auth token
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/library`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
         if (!response.ok) {
+          if (response.status === 401) {
+            // Token expired or invalid
+            await supabase.auth.signOut()
+            router.push('/auth/login')
+            return
+          }
           throw new Error('Failed to fetch purchased products')
         }
+
         const data = await response.json()
         setProducts(data.products)
       } catch (err) {
@@ -82,7 +73,7 @@ export default function MyLibraryPage() {
     }
 
     fetchPurchasedProducts()
-  }, [])
+  }, [router])
 
   return (
     <div className="flex h-screen bg-gray-50">

@@ -20,7 +20,8 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const { data: { session }, error: signInError } = await supabase.auth.signInWithPassword({
+      // Sign in with Supabase
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       })
@@ -29,19 +30,32 @@ export default function LoginPage() {
         throw signInError
       }
 
+      if (!data?.session) {
+        throw new Error('Authentication failed. Please try again.')
+      }
+
+      // Get the session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError) {
+        throw sessionError
+      }
+
       if (!session) {
-        throw new Error('No session returned from Supabase')
+        throw new Error('Session not found after login')
       }
 
       // Store the session token
-      localStorage.setItem('token', session.access_token)
-      localStorage.setItem('user', JSON.stringify(session.user))
+      localStorage.setItem('supabase.auth.token', session.access_token)
+      
+      // Set authorization header for future requests
+      supabase.realtime.setAuth(session.access_token)
 
       // Redirect to discover page
       router.push('/discover')
     } catch (err) {
       console.error('Login error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to login')
+      setError(err instanceof Error ? err.message : 'Failed to login. Please check your credentials.')
     } finally {
       setLoading(false)
     }
