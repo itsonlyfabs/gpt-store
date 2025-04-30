@@ -1,7 +1,5 @@
 const { supabase } = require('../config/supabase');
 
-const isDevelopment = process.env.NODE_ENV === 'development';
-
 const authMiddleware = async (req, res, next) => {
   try {
     // Get token from Authorization header
@@ -11,16 +9,6 @@ const authMiddleware = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-
-    // In development mode, accept a special development token
-    if (isDevelopment && token === 'dev_token') {
-      req.user = {
-        id: 'dev_user_id',
-        email: 'dev@example.com',
-        name: 'Development User'
-      };
-      return next();
-    }
 
     // Verify token with Supabase
     const { data: { user }, error } = await supabase.auth.getUser(token);
