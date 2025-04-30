@@ -14,6 +14,15 @@ type CheckoutBody = {
 
 export async function POST(request: Request) {
   try {
+    // Verify authentication
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const { productId, priceType } = body as CheckoutBody
     

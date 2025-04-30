@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/utils/supabase'
 
 interface CheckoutButtonProps {
   productId: string
@@ -16,15 +18,24 @@ export default function CheckoutButton({
   className = '',
 }: CheckoutButtonProps) {
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
   const handleCheckout = async () => {
     try {
       setLoading(true)
 
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/auth/login')
+        return
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           productId,
@@ -33,7 +44,13 @@ export default function CheckoutButton({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to create checkout session')
+        const errorData = await response.json()
+        if (response.status === 401) {
+          // Token expired or invalid, redirect to login
+          router.push('/auth/login')
+          return
+        }
+        throw new Error(errorData.error || 'Failed to create checkout session')
       }
 
       const data = await response.json()
@@ -67,7 +84,7 @@ export default function CheckoutButton({
       }
     } catch (error) {
       console.error('Checkout error:', error)
-      alert('Failed to initiate checkout. Please try again.')
+      alert(error instanceof Error ? error.message : 'Failed to initiate checkout. Please try again.')
     } finally {
       setLoading(false)
     }

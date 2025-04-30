@@ -20,7 +20,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const { data: { session }, error: signInError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       })
@@ -28,6 +28,14 @@ export default function LoginPage() {
       if (signInError) {
         throw signInError
       }
+
+      if (!session) {
+        throw new Error('No session returned from Supabase')
+      }
+
+      // Store the session token
+      localStorage.setItem('token', session.access_token)
+      localStorage.setItem('user', JSON.stringify(session.user))
 
       // Redirect to discover page
       router.push('/discover')

@@ -15,7 +15,7 @@ const port = process.env.PORT || 3000;
 
 // CORS configuration
 const allowedOrigins = [
-  'http://localhost:3002', // Local development
+  'http://localhost:3002', // Local development frontend
   process.env.FRONTEND_URL, // Production frontend URL
   'https://gpt-store.vercel.app', // Vercel default domain
   'https://gpt-store-mauve.vercel.app', // Additional Vercel domain
@@ -33,16 +33,21 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // Allow any subdomain of vercel.app
-    if (origin.endsWith('.vercel.app')) {
+    // Allow any subdomain of vercel.app in production
+    if (process.env.NODE_ENV === 'production' && origin.endsWith('.vercel.app')) {
       console.log('Vercel domain detected, allowing request');
+      return callback(null, true);
+    }
+
+    // In development, be more permissive
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Development mode, allowing request');
       return callback(null, true);
     }
 
     if (allowedOrigins.indexOf(origin) === -1) {
       console.log('Origin not in allowed list');
-      // For now, allow all origins
-      return callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
     }
     
     console.log('Origin allowed');
@@ -75,11 +80,16 @@ app.use('/api/user', userRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('Error:', err.stack);
+  res.status(500).json({ 
+    error: process.env.NODE_ENV === 'development' 
+      ? err.message 
+      : 'Something went wrong!' 
+  });
 });
 
 // Start server
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
+  console.log('Environment:', process.env.NODE_ENV);
 });
