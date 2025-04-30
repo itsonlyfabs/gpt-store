@@ -3,11 +3,11 @@ create extension if not exists "uuid-ossp";
 
 -- Users table is handled by Supabase Auth, but we'll create a profiles table
 create table if not exists public.profiles (
-    id uuid references auth.users on delete cascade,
-    name varchar(255) not null,
+    id uuid references auth.users on delete cascade primary key,
+    name text,
+    email text unique,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-    updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
-    primary key (id)
+    updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Products table
@@ -91,7 +91,11 @@ create policy "Public profiles are viewable by everyone"
     on public.profiles for select
     using (true);
 
-create policy "Users can update own profile"
+create policy "Users can insert their own profile"
+    on public.profiles for insert
+    with check (auth.uid() = id);
+
+create policy "Users can update their own profile"
     on public.profiles for update
     using (auth.uid() = id);
 
@@ -147,4 +151,7 @@ create trigger handle_subscriptions_updated_at
 
 create trigger handle_credits_updated_at
     before update on public.credits
-    for each row execute function handle_updated_at(); 
+    for each row execute function handle_updated_at();
+
+-- Set up Row Level Security (RLS)
+alter table public.profiles force row level security; 

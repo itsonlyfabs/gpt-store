@@ -11,7 +11,7 @@ export default function RegisterPage() {
     name: '',
     email: '',
     password: '',
-    confirmPassword: '',
+    confirmPassword: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -19,45 +19,59 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
-
     setLoading(true)
 
     try {
-      // Sign up with Supabase Auth
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      // Validate passwords match
+      if (formData.password !== formData.confirmPassword) {
+        throw new Error('Passwords do not match')
+      }
+
+      // Validate password strength
+      if (formData.password.length < 8) {
+        throw new Error('Password must be at least 8 characters long')
+      }
+
+      // Sign up with Supabase
+      const { data: { user, session }, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
-            name: formData.name,
-          },
-        },
+            name: formData.name
+          }
+        }
       })
 
       if (signUpError) {
         throw signUpError
       }
 
-      // Create profile in the profiles table
+      if (!session) {
+        throw new Error('No session returned from Supabase')
+      }
+
+      // Store the session token
+      localStorage.setItem('token', session.access_token)
+      localStorage.setItem('user', JSON.stringify(user))
+
+      // Create profile in Supabase
       const { error: profileError } = await supabase
         .from('profiles')
         .insert([
           {
-            id: authData.user?.id,
+            id: user?.id,
             name: formData.name,
-          },
+            email: formData.email,
+            created_at: new Date().toISOString()
+          }
         ])
 
       if (profileError) {
-        throw profileError
+        console.error('Error creating profile:', profileError)
       }
 
-      // Redirect to the discover page on successful registration
+      // Redirect to discover page
       router.push('/discover')
     } catch (err) {
       console.error('Registration error:', err)
