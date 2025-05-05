@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const { chatWithAI } = require('../services/aiService');
+const { supabase } = require('../lib/supabase');
 
 // Rate limiting for development (in production, use Redis or a proper rate limiter)
 const rateLimits = new Map();
@@ -53,18 +54,25 @@ router.post('/:productId', authMiddleware, async (req, res) => {
       return res.status(429).json({ error: 'Too many requests. Please wait a minute.' });
     }
 
-    // In production, fetch conversation history from database
-    // For development, we'll just use the single message
+    // Fetch assistant_id for the product from Supabase
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('assistant_id')
+      .eq('id', productId)
+      .single();
+
+    if (productError || !product || !product.assistant_id) {
+      return res.status(404).json({ error: 'Product or Assistant not found' });
+    }
+
     const messages = [{
       role: 'user',
       content: message
     }];
 
-    // Get AI response
-    const response = await chatWithAI(userId, productId, messages);
+    // Pass assistant_id to chatWithAI
+    const response = await chatWithAI(userId, productId, messages, { assistant_id: product.assistant_id });
 
-    // In production, store the conversation in database
-    // For development, just return the response
     res.json({
       response: response.content,
       usage: response.usage,

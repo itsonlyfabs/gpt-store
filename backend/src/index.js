@@ -1,14 +1,12 @@
+require('dotenv').config()
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
 const productsRoutes = require('./routes/products');
 const paymentsRoutes = require('./routes/payments');
 const chatRoutes = require('./routes/chat');
 const reviewsRoutes = require('./routes/reviews');
 const userRoutes = require('./routes/user');
-
-dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -91,5 +89,5 @@ app.use((err, req, res, next) => {
 // Start server
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
-  console.log('Environment:', process.env.NODE_ENV);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
 });

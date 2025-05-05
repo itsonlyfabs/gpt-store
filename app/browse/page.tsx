@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import ProductCard from '@/components/ProductCard'
@@ -44,7 +44,7 @@ const priceRanges = [
   { id: '5000-99999', name: 'Over $50', min: 5000, max: 99999 },
 ]
 
-export default function BrowsePage() {
+function BrowsePageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
@@ -236,7 +236,6 @@ export default function BrowsePage() {
               </button>
             </div>
           </div>
-
           {/* Main content */}
           <div className="flex-1">
             <div className="mb-6">
@@ -248,7 +247,6 @@ export default function BrowsePage() {
                 className="max-w-2xl"
               />
             </div>
-
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[...Array(6)].map((_, i) => (
@@ -285,5 +283,13 @@ export default function BrowsePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function BrowsePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <BrowsePageInner />
+    </Suspense>
   )
 } 

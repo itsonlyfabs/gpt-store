@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/utils/supabase'
+import { supabase } from 'app/utils/supabase'
 
 interface CheckoutButtonProps {
   productId: string
@@ -18,9 +18,11 @@ export default function CheckoutButton({
   className = '',
 }: CheckoutButtonProps) {
   const [loading, setLoading] = useState(false)
+  const [alreadyPurchased, setAlreadyPurchased] = useState(false)
   const router = useRouter()
 
   const handleCheckout = async () => {
+    let handled = false
     try {
       setLoading(true)
 
@@ -46,31 +48,39 @@ export default function CheckoutButton({
       if (!response.ok) {
         const errorData = await response.json()
         if (response.status === 401) {
-          // Token expired or invalid, redirect to login
           router.push('/auth/login')
+          return
+        }
+        if (
+          response.status === 400 &&
+          (errorData.error?.toLowerCase().includes('already own') || errorData.code === 'ALREADY_PURCHASED')
+        ) {
+          console.log('Detected already purchased, showing custom UI')
+          setAlreadyPurchased(true)
+          handled = true
+          setTimeout(() => {
+            router.push('/my-library')
+          }, 3000)
           return
         }
         throw new Error(errorData.error || 'Failed to create checkout session')
       }
 
       const data = await response.json()
-      
-      // If we're in development mode, use the success_url from the response
+
       if (process.env.NODE_ENV === 'development') {
-        window.location.href = data.success_url
+        router.push(data.success_url)
         return
       }
 
-      // For production, redirect to Stripe checkout
       const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
       if (!stripePublishableKey) {
         throw new Error('Stripe publishable key is not configured')
       }
 
-      const stripe = await import('@stripe/stripe-js').then((module) => 
-        module.loadStripe(stripePublishableKey)
-      )
-      
+      const { loadStripe } = await import('@stripe/stripe-js')
+      const stripe = await loadStripe(stripePublishableKey)
+
       if (!stripe) {
         throw new Error('Stripe failed to load')
       }
@@ -84,10 +94,24 @@ export default function CheckoutButton({
       }
     } catch (error) {
       console.error('Checkout error:', error)
-      alert(error instanceof Error ? error.message : 'Failed to initiate checkout. Please try again.')
+      if (!alreadyPurchased && !handled) {
+        alert(error instanceof Error ? error.message : 'Failed to initiate checkout. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
+  }
+
+  if (alreadyPurchased) {
+    return (
+      <div className="min-h-[200px] flex flex-col items-center justify-center p-4">
+        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative max-w-md w-full text-center">
+          <h1 className="text-2xl font-semibold mb-2">You Already Own This Product</h1>
+          <p>This product is already in your library.</p>
+          <p className="mt-2">Redirecting you to your library...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

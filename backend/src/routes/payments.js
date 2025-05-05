@@ -2,14 +2,15 @@ const express = require('express');
 const router = express.Router();
 const Stripe = require('stripe');
 const authMiddleware = require('../middleware/auth');
+const { supabase, supabaseAdmin } = require('../lib/supabase');
 
 // Check if we're in development mode
 const isDevelopment = process.env.NODE_ENV === 'development';
 
-// Initialize Stripe only if we have a valid key and are not in development mode
-const stripe = !isDevelopment && process.env.STRIPE_SECRET_KEY
+// Initialize Stripe
+const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2025-03-31.basil',
+      apiVersion: '2023-10-16',
     })
   : null;
 
@@ -35,33 +36,78 @@ router.post('/checkout', authMiddleware, async (req, res) => {
       });
     }
 
+    // Get product details from database
+    const { data: product, error: productError } = await supabaseAdmin
+      .from('products')
+      .select('*')
+      .eq('id', productId)
+      .single();
+
+    if (productError || !product) {
+      console.error('Error fetching product:', productError);
+      return res.status(404).json({
+        error: 'Product not found'
+      });
+    }
+
+    // Check if user already owns the product
+    const { data: existingPurchase, error: checkError } = await supabaseAdmin
+      .from('purchases')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('product_id', productId)
+      .single();
+
+    if (existingPurchase) {
+      return res.status(400).json({
+        error: 'You already own this product. Check your library to access it.',
+        code: 'ALREADY_PURCHASED'
+      });
+    }
+
     // Development mode
     if (isDevelopment) {
-      console.log('Running in development mode - simulating Stripe checkout');
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+      console.log('Running in development mode - simulating Stripe checkout', { userId, productId });
+      
+      try {
+        // Create a temporary session ID
+        const sessionId = `dev_session_${Date.now()}`;
 
-      const mockPurchase = {
-        id: `dev_purchase_${Date.now()}`,
-        userId,
-        productId,
-        priceType,
-        amount: 2999, // $29.99
-        currency: 'USD',
-        status: 'completed',
-        createdAt: new Date().toISOString()
-      };
+        // Create the purchase record immediately in development mode
+        const { data: purchase, error: purchaseError } = await supabaseAdmin
+          .from('purchases')
+          .insert({
+            user_id: userId,
+            product_id: productId,
+            stripe_session_id: sessionId,
+            amount_paid: product.price,
+            currency: product.currency || 'USD',
+            status: 'completed'
+          })
+          .select()
+          .single();
 
-      if (priceType === 'subscription') {
-        subscriptions.set(mockPurchase.id, mockPurchase);
-      } else {
-        purchases.set(mockPurchase.id, mockPurchase);
+        if (purchaseError) {
+          console.error('Error creating purchase:', purchaseError);
+          return res.status(500).json({
+            error: 'Failed to create purchase record'
+          });
+        }
+
+        console.log('Created purchase:', purchase);
+
+        return res.json({
+          sessionId,
+          success_url: `/checkout/success?session_id=${sessionId}&product_id=${productId}`,
+          devMode: true,
+          purchase
+        });
+      } catch (err) {
+        console.error('Error in development checkout:', err);
+        return res.status(500).json({
+          error: 'Failed to process checkout'
+        });
       }
-
-      return res.json({
-        sessionId: `dev_session_${Date.now()}_${productId}`,
-        devMode: true,
-        message: 'Development mode: Simulating successful purchase. You will be redirected shortly.'
-      });
     }
 
     // Production mode - requires Stripe configuration
@@ -71,23 +117,17 @@ router.post('/checkout', authMiddleware, async (req, res) => {
       });
     }
 
-    // In production, fetch product details from your database
-    const product = {
-      name: 'Focus Enhancement AI',
-      description: 'AI-powered tool for improving focus and concentration',
-      price: 2999, // $29.99
-    };
-
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {
           price_data: {
-            currency: 'usd',
+            currency: product.currency || 'USD',
             product_data: {
               name: product.name,
               description: product.description,
+              images: product.thumbnail ? [product.thumbnail] : undefined,
             },
             unit_amount: product.price,
             recurring: priceType === 'subscription' ? { interval: 'month' } : undefined,
@@ -96,16 +136,20 @@ router.post('/checkout', authMiddleware, async (req, res) => {
         },
       ],
       mode: priceType === 'subscription' ? 'subscription' : 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}&product_id=${productId}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/cancel`,
       metadata: {
         userId,
         productId,
         priceType,
       },
+      customer_email: req.user.email, // Add this if you have the user's email
     });
 
-    res.json({ sessionId: session.id });
+    res.json({ 
+      sessionId: session.id,
+      devMode: false
+    });
   } catch (error) {
     console.error('Checkout error:', error);
     res.status(500).json({
@@ -119,12 +163,6 @@ router.post('/checkout', authMiddleware, async (req, res) => {
 // Webhook handler for Stripe events
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
-    // Development mode
-    if (isDevelopment) {
-      console.log('Development mode - webhook events are simulated');
-      return res.json({ received: true });
-    }
-
     if (!stripe) {
       throw new Error('Stripe is not properly configured');
     }
@@ -146,15 +184,23 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         const session = event.data.object;
         const { userId, productId, priceType } = session.metadata;
 
-        // In production, store purchase/subscription in database
-        // For now, just log the successful payment
-        console.log('Payment successful:', {
-          userId,
-          productId,
-          priceType,
-          amount: session.amount_total,
-          paymentStatus: session.payment_status,
-        });
+        // Create the purchase record
+        const { error: purchaseError } = await supabaseAdmin
+          .from('purchases')
+          .insert({
+            user_id: userId,
+            product_id: productId,
+            stripe_session_id: session.id,
+            amount_paid: session.amount_total,
+            currency: session.currency,
+            status: 'completed'
+          });
+
+        if (purchaseError) {
+          console.error('Error creating purchase record:', purchaseError);
+          return res.status(500).json({ error: 'Failed to create purchase record' });
+        }
+
         break;
       }
 
@@ -216,24 +262,52 @@ router.post('/verify-session', authMiddleware, async (req, res) => {
   }
 
   try {
-    // In development mode, simulate session verification
-    if (isDevelopment) {
-      // Add a mock purchase to the user's library
-      const mockPurchase = {
-        id: 'mock_purchase_' + Date.now(),
-        userId,
-        productId: 'mock_product',
-        createdAt: new Date(),
-        status: 'completed'
-      };
-
-      // In a real app, you would save this to your database
-      console.log('Mock purchase created:', mockPurchase);
-      
-      return res.json({ success: true });
+    // In development mode, create the purchase record
+    if (isDevelopment && sessionId.startsWith('dev_')) {
+      const productId = req.body.productId;
+      if (!productId) {
+        return res.status(400).json({ error: 'Product ID is required' });
+      }
+      // Check if already purchased
+      const { data: existingPurchase } = await supabaseAdmin
+        .from('purchases')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('product_id', productId)
+        .single();
+      if (existingPurchase) {
+        return res.status(200).json({ success: true, alreadyPurchased: true });
+      }
+      // Fetch product price/currency
+      const { data: product, error: productError } = await supabaseAdmin
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .single();
+      if (productError || !product) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+      // Create the purchase record
+      const { data: purchase, error: purchaseError } = await supabaseAdmin
+        .from('purchases')
+        .insert({
+          user_id: userId,
+          product_id: productId,
+          stripe_session_id: sessionId,
+          amount_paid: product.price,
+          currency: product.currency || 'USD',
+          status: 'completed'
+        })
+        .select()
+        .single();
+      if (purchaseError) {
+        console.error('Error creating purchase:', purchaseError);
+        return res.status(500).json({ error: 'Failed to create purchase record' });
+      }
+      return res.json({ success: true, purchase });
     }
 
-    // In production, verify the session with Stripe
+    // Production mode verification remains the same...
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     // Verify that this session belongs to the authenticated user

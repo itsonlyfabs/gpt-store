@@ -19,6 +19,27 @@ const nextConfig = {
     // Add any custom webpack configurations here
     return config
   },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: `
+              default-src 'self';
+              script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co;
+              style-src 'self' 'unsafe-inline';
+              img-src 'self' blob: data: https://*.supabase.co https://picsum.photos;
+              font-src 'self';
+              connect-src 'self' http://localhost:3000 https://*.supabase.co wss://*.supabase.co https://tcmkyzcbndmaqxfjvpfs.supabase.co https://api.supabase.co;
+              frame-ancestors 'none';
+            `.replace(/\s+/g, ' ').trim()
+          }
+        ]
+      }
+    ]
+  },
 }
 
 module.exports = nextConfig 

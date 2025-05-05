@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AuthLayout from '@/components/AuthLayout'
-import { supabase } from '@/utils/supabase'
+import { supabase } from 'app/utils/supabase'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -15,6 +15,8 @@ export default function RegisterPage() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+  const [message, setMessage] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,50 +34,58 @@ export default function RegisterPage() {
         throw new Error('Password must be at least 8 characters long')
       }
 
+      console.log('Starting signup process...')
+
       // Sign up with Supabase
-      const { data: { user, session }, error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
             name: formData.name
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`
         }
       })
 
+      console.log('Signup response:', data)
+
       if (signUpError) {
+        console.error('Signup error:', signUpError)
         throw signUpError
       }
 
-      if (!session) {
-        throw new Error('No session returned from Supabase')
+      if (!data?.user) {
+        console.error('No user data returned')
+        throw new Error('Failed to create account')
       }
 
-      // Store the session token
-      localStorage.setItem('token', session.access_token)
-      localStorage.setItem('user', JSON.stringify(user))
-
-      // Create profile in Supabase
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([
-          {
-            id: user?.id,
-            name: formData.name,
-            email: formData.email,
-            created_at: new Date().toISOString()
-          }
-        ])
-
-      if (profileError) {
-        console.error('Error creating profile:', profileError)
+      // Check if email confirmation was sent
+      if (data.user.identities?.length === 0) {
+        throw new Error('Email address already registered. Please sign in instead.')
       }
 
-      // Redirect to discover page
-      router.push('/discover')
+      if (!data.user.confirmation_sent_at) {
+        throw new Error('Failed to send verification email. Please try again.')
+      }
+
+      console.log('Signup successful, confirmation sent at:', data.user.confirmation_sent_at)
+
+      // Show success message and clear form
+      setSuccess(true)
+      setMessage('Account created successfully! Please check your email to verify your account. You will be redirected to login after verification.')
+      setFormData({
+        name: '',
+        email: '',
+        password: '',
+        confirmPassword: ''
+      })
+
+      // Note: Profile will be created after email verification in the callback route
+
     } catch (err) {
       console.error('Registration error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to register')
+      setError(err instanceof Error ? err.message : 'Failed to register. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -96,6 +106,12 @@ export default function RegisterPage() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
             {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg text-sm">
+            {message}
           </div>
         )}
 
@@ -174,10 +190,10 @@ export default function RegisterPage() {
         <div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || success}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Creating account...' : 'Create account'}
+            {loading ? 'Creating account...' : success ? 'Account created!' : 'Create account'}
           </button>
         </div>
       </form>

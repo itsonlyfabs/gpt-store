@@ -19,10 +19,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
-      "@/types/*": ["./types/*"],
-      "@/components/*": ["./components/*"],
-      "@/lib/*": ["./lib/*"]
+      "@/*": ["./app/*"],
+      "@/components/*": ["./app/components/*"],
+      "@/utils/*": ["./app/utils/*"],
+      "@/services/*": ["./app/services/*"]
     },
     "baseUrl": ".",
     "forceConsistentCasingInFileNames": true,

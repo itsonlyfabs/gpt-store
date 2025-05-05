@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import AuthLayout from '@/components/AuthLayout'
-import { supabase } from '@/utils/supabase'
+import { supabase } from 'app/utils/supabase'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')

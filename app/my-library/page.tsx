@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
-import { supabase } from '@/utils/supabase'
+import { supabase } from 'app/utils/supabase'
 
 interface PurchasedProduct {
   id: string
@@ -17,6 +17,17 @@ interface PurchasedProduct {
     totalChats: number
     totalTokens: number
     lastChatDate: string
+  }
+}
+
+interface SupabasePurchase {
+  id: string
+  product: {
+    id: string
+    name: string
+    description: string
+    thumbnail: string
+    category: string
   }
 }
 
@@ -44,26 +55,47 @@ export default function MyLibraryPage() {
           return
         }
 
-        // Fetch products from API with auth token
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/library`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        })
+        // Fetch purchased products from Supabase
+        const { data: purchases, error: purchasesError } = await supabase
+          .from('purchases')
+          .select(`
+            id,
+            product:products (
+              id,
+              name,
+              description,
+              thumbnail,
+              category
+            )
+          `)
+          .eq('user_id', session.user.id)
+          .eq('status', 'completed')
 
-        if (!response.ok) {
-          if (response.status === 401) {
-            // Token expired or invalid
-            await supabase.auth.signOut()
-            router.push('/auth/login')
-            return
-          }
-          throw new Error('Failed to fetch purchased products')
+        if (purchasesError) {
+          throw purchasesError
         }
 
-        const data = await response.json()
-        setProducts(data.products)
+        if (!purchases) {
+          setProducts([])
+          return
+        }
+
+        // Transform the data to match the expected format
+        const purchasedProducts = (purchases as unknown as SupabasePurchase[]).map(purchase => ({
+          id: purchase.product.id,
+          name: purchase.product.name,
+          description: purchase.product.description,
+          thumbnail: purchase.product.thumbnail,
+          category: purchase.product.category,
+          lastUsed: new Date().toISOString(), // This would come from chat history in production
+          usageMetrics: {
+            totalChats: 0, // These would come from actual usage metrics in production
+            totalTokens: 0,
+            lastChatDate: new Date().toISOString()
+          }
+        }))
+
+        setProducts(purchasedProducts)
       } catch (err) {
         console.error('Error fetching library:', err)
         setError(err instanceof Error ? err.message : 'Failed to load your library')

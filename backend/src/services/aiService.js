@@ -52,22 +52,50 @@ const getMockResponse = (productId, message) => {
 // Main chat function
 async function chatWithAI(userId, productId, messages, options = {}) {
   try {
-    // Development mode - return mock responses
-    if (process.env.NODE_ENV === 'development') {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
-      const lastMessage = messages[messages.length - 1];
+    // Remove development mode mock logic
+    // Always use real AI services
+    const { model = 'gpt-4', temperature = 0.7, assistant_id } = options;
+
+    // If assistant_id is provided, use OpenAI Assistants API (real implementation)
+    if (assistant_id) {
+      console.log('[chatWithAI] Calling OpenAI Assistants API with assistant_id:', assistant_id);
+      // 1. Create a new thread
+      const thread = await openai.beta.threads.create();
+
+      // 2. Add user messages to the thread
+      for (const msg of messages) {
+        await openai.beta.threads.messages.create(thread.id, {
+          role: msg.role,
+          content: msg.content,
+        });
+      }
+
+      // 3. Run the Assistant
+      const run = await openai.beta.threads.runs.create(thread.id, {
+        assistant_id,
+      });
+
+      // 4. Poll for completion
+      let runStatus;
+      do {
+        await new Promise(res => setTimeout(res, 1000)); // wait 1s
+        runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+      } while (runStatus.status !== 'completed' && runStatus.status !== 'failed');
+
+      if (runStatus.status === 'failed') {
+        console.error('[chatWithAI] OpenAI Assistant run failed:', runStatus);
+        throw new Error('OpenAI Assistant run failed');
+      }
+
+      // 5. Fetch the latest message from the assistant
+      const messagesList = await openai.beta.threads.messages.list(thread.id);
+      const lastMessage = messagesList.data.reverse().find(m => m.role === 'assistant');
+      console.log('[chatWithAI] OpenAI Assistant response:', lastMessage?.content?.[0]?.text?.value);
       return {
-        content: getMockResponse(productId, lastMessage.content),
-        usage: {
-          prompt_tokens: Math.ceil(lastMessage.content.length / 4),
-          completion_tokens: 100,
-          total_tokens: Math.ceil(lastMessage.content.length / 4) + 100
-        }
+        content: lastMessage?.content?.[0]?.text?.value || '[No response]',
+        usage: {}, // OpenAI Assistants API does not return token usage yet
       };
     }
-
-    // Production mode - use actual AI services
-    const { model = 'gpt-4', temperature = 0.7 } = options;
 
     // Determine which AI service to use
     if (model.startsWith('claude')) {
@@ -113,7 +141,7 @@ async function chatWithAI(userId, productId, messages, options = {}) {
       };
     }
   } catch (error) {
-    console.error('AI chat error:', error);
+    console.error('[chatWithAI] AI chat error:', error);
     throw new Error('Failed to generate AI response');
   }
 }

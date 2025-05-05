@@ -86,6 +86,30 @@ alter table public.reviews enable row level security;
 alter table public.subscriptions enable row level security;
 alter table public.credits enable row level security;
 
+-- Drop existing policies
+drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
+drop policy if exists "Users can insert their own profile" on public.profiles;
+drop policy if exists "Users can update their own profile" on public.profiles;
+drop policy if exists "Products are viewable by everyone" on public.products;
+drop policy if exists "Purchases are viewable by the user who made them" on public.purchases;
+drop policy if exists "Reviews are viewable by everyone" on public.reviews;
+drop policy if exists "Users can create reviews" on public.reviews;
+drop policy if exists "Users can update own reviews" on public.reviews;
+drop policy if exists "Service role can manage purchases" on public.purchases;
+drop policy if exists "Users can view their own purchases" on public.purchases;
+drop policy if exists "Users cannot modify purchases" on public.purchases;
+drop policy if exists "Users cannot delete purchases" on public.purchases;
+drop policy if exists "Anyone can view products" on public.products;
+drop policy if exists "Only service role can modify products" on public.products;
+drop policy if exists "Users can view all reviews" on public.reviews;
+drop policy if exists "Users can create reviews for purchased products" on public.reviews;
+drop policy if exists "Users can update their own reviews" on public.reviews;
+drop policy if exists "Users can delete their own reviews" on public.reviews;
+drop policy if exists "Users can view their own subscriptions" on public.subscriptions;
+drop policy if exists "Service role can manage subscriptions" on public.subscriptions;
+drop policy if exists "Users can view their own credits" on public.credits;
+drop policy if exists "Service role can manage credits" on public.credits;
+
 -- Create policies
 create policy "Public profiles are viewable by everyone"
     on public.profiles for select
@@ -119,7 +143,86 @@ create policy "Users can update own reviews"
     on public.reviews for update
     using (auth.uid() = user_id);
 
+-- Purchases policies
+create policy "Service role can manage purchases"
+    on public.purchases for all
+    using ( auth.jwt() ->> 'role' = 'service_role' )
+    with check ( auth.jwt() ->> 'role' = 'service_role' );
+
+create policy "Users can view their own purchases"
+    on public.purchases for select
+    using (auth.uid() = user_id);
+
+create policy "Users cannot modify purchases"
+    on public.purchases for update
+    using (false);
+
+create policy "Users cannot delete purchases"
+    on public.purchases for delete
+    using (false);
+
+-- Products policies
+create policy "Anyone can view products"
+    on public.products for select
+    using (true);
+
+create policy "Only service role can modify products"
+    on public.products for all
+    using ( auth.jwt() ->> 'role' = 'service_role' )
+    with check ( auth.jwt() ->> 'role' = 'service_role' );
+
+-- Reviews policies
+create policy "Users can view all reviews"
+    on public.reviews for select
+    using (true);
+
+create policy "Users can create reviews for purchased products"
+    on public.reviews for insert
+    with check (
+        exists (
+            select 1 from public.purchases
+            where purchases.user_id = auth.uid()
+            and purchases.product_id = reviews.product_id
+            and purchases.status = 'completed'
+        )
+    );
+
+create policy "Users can update their own reviews"
+    on public.reviews for update
+    using (auth.uid() = user_id);
+
+create policy "Users can delete their own reviews"
+    on public.reviews for delete
+    using (auth.uid() = user_id);
+
+-- Subscriptions policies
+create policy "Users can view their own subscriptions"
+    on public.subscriptions for select
+    using (auth.uid() = user_id);
+
+create policy "Service role can manage subscriptions"
+    on public.subscriptions for all
+    using ( auth.jwt() ->> 'role' = 'service_role' )
+    with check ( auth.jwt() ->> 'role' = 'service_role' );
+
+-- Credits policies
+create policy "Users can view their own credits"
+    on public.credits for select
+    using (auth.uid() = user_id);
+
+create policy "Service role can manage credits"
+    on public.credits for all
+    using ( auth.jwt() ->> 'role' = 'service_role' )
+    with check ( auth.jwt() ->> 'role' = 'service_role' );
+
+-- Add policy for service role to insert purchases
+create policy "Service role can insert purchases"
+    on public.purchases for insert
+    with check ( auth.jwt() ->> 'role' = 'service_role' );
+
 -- Create function to handle updated_at
+drop function if exists handle_updated_at() cascade;
+
 create or replace function handle_updated_at()
 returns trigger as $$
 begin
@@ -127,6 +230,14 @@ begin
     return new;
 end;
 $$ language plpgsql;
+
+-- Drop existing triggers
+drop trigger if exists handle_profiles_updated_at on public.profiles;
+drop trigger if exists handle_products_updated_at on public.products;
+drop trigger if exists handle_purchases_updated_at on public.purchases;
+drop trigger if exists handle_reviews_updated_at on public.reviews;
+drop trigger if exists handle_subscriptions_updated_at on public.subscriptions;
+drop trigger if exists handle_credits_updated_at on public.credits;
 
 -- Create triggers for updated_at
 create trigger handle_profiles_updated_at

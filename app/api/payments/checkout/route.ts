@@ -1,21 +1,19 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { headers } from 'next/headers'
+import { supabase } from '@/utils/supabase'
 
 // Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-03-31.basil',
 })
 
-type CheckoutBody = {
-  productId: string
-  priceType: 'subscription' | 'one_time'
-}
+const isDevelopment = process.env.NODE_ENV === 'development'
 
 export async function POST(request: Request) {
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization')
+    const authHeader = headers().get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -23,13 +21,22 @@ export async function POST(request: Request) {
       )
     }
 
-    const body = await request.json()
-    const { productId, priceType } = body as CheckoutBody
-    
-    // Get the host from the request headers or environment variable
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002'
+    // Get user session
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
 
-    // Validate request body
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Invalid authentication token' },
+        { status: 401 }
+      )
+    }
+
+    // Parse request body
+    const body = await request.json()
+    const { productId, priceType } = body
+
     if (!productId || !priceType) {
       return NextResponse.json(
         { error: 'Product ID and price type are required' },
@@ -37,75 +44,82 @@ export async function POST(request: Request) {
       )
     }
 
-    if (priceType !== 'subscription' && priceType !== 'one_time') {
+    // Get product details from your database
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', productId)
+      .single()
+
+    if (productError || !product) {
       return NextResponse.json(
-        { error: 'Invalid price type. Must be either "subscription" or "one_time"' },
+        { error: 'Product not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check if user has already purchased this product
+    const { data: existingPurchase } = await supabase
+      .from('purchases')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('product_id', productId)
+      .eq('status', 'completed')
+      .single()
+
+    if (existingPurchase) {
+      return NextResponse.json(
+        { error: 'You have already purchased this product' },
         { status: 400 }
       )
     }
 
-    // Validate Stripe configuration
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json(
-        { error: 'Stripe is not properly configured. Please check your environment variables.' },
-        { status: 500 }
-      )
-    }
-
-    // In development mode, simulate a successful checkout
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Running in development mode - simulating Stripe checkout')
-      return NextResponse.json({ 
-        sessionId: 'dev_session_' + Date.now(),
-        success_url: `${baseUrl}/checkout/success?session_id=dev_session_${Date.now()}`
-      })
-    }
-
-    // In a real application, fetch the product details from your database
-    const product = {
-      name: 'Sample Product',
-      description: 'This is a sample product description',
-      price: 2999, // $29.99
-    }
-
+    // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
+      customer_email: user.email,
+      client_reference_id: user.id,
       payment_method_types: ['card'],
+      mode: priceType === 'subscription' ? 'subscription' : 'payment',
       line_items: [
         {
           price_data: {
-            currency: 'usd',
+            currency: product.currency || 'USD',
             product_data: {
               name: product.name,
               description: product.description,
+              images: product.thumbnail ? [product.thumbnail] : undefined,
             },
             unit_amount: product.price,
-            recurring: priceType === 'subscription' ? { interval: 'month' } : undefined,
+            recurring: priceType === 'subscription' ? {
+              interval: 'month',
+            } : undefined,
           },
           quantity: 1,
         },
       ],
-      mode: priceType === 'subscription' ? 'subscription' : 'payment',
-      success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/checkout/cancel`,
       metadata: {
         productId,
+        userId: user.id,
       },
+      success_url: isDevelopment
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}&product_id=${productId}`
+        : `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}&product_id=${productId}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/product/${productId}`,
     })
 
-    return NextResponse.json({ 
-      sessionId: session.id,
-      success_url: session.success_url
+    // Create a pending purchase record
+    await supabase.from('purchases').insert({
+      user_id: user.id,
+      product_id: productId,
+      stripe_session_id: session.id,
+      amount_paid: product.price,
+      currency: product.currency || 'USD',
+      status: 'pending',
     })
+
+    return NextResponse.json({ sessionId: session.id })
   } catch (error) {
     console.error('Checkout error:', error)
-    
-    if (error instanceof Stripe.errors.StripeError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.statusCode || 500 }
-      )
-    }
-
     return NextResponse.json(
       { error: 'Failed to create checkout session' },
       { status: 500 }

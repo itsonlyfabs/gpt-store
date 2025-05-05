@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { Check, Star } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import CheckoutButton from '@/components/CheckoutButton'
 import Reviews from '@/components/Reviews'
@@ -31,7 +32,7 @@ interface Product {
 
 // Mock data for development
 const MOCK_PRODUCT: Product = {
-  id: '1',
+  id: '123e4567-e89b-12d3-a456-426614174000',
   name: 'Focus Enhancement AI',
   description: 'An AI-powered tool to help you maintain focus and concentration during work sessions.',
   price: 2999,
@@ -170,7 +171,7 @@ export default function ProductPage() {
                     <ul className="space-y-4">
                       {product.features.map((feature, index) => (
                         <li key={index} className="flex items-start">
-                          <CheckIcon className="h-6 w-6 text-green-500 flex-shrink-0" />
+                          <Check className="h-6 w-6 text-green-500 flex-shrink-0" />
                           <span className="ml-3 text-gray-600">{feature}</span>
                         </li>
                       ))}
@@ -226,33 +227,9 @@ export default function ProductPage() {
 }
 
 function CheckIcon({ className = '' }) {
-  return (
-    <svg
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-    >
-      <path
-        fillRule="evenodd"
-        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-        clipRule="evenodd"
-      />
-    </svg>
-  )
+  return <Check className={className} />
 }
 
 function StarIcon({ className = '' }) {
-  return (
-    <svg
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-    >
-      <path
-        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-      />
-    </svg>
-  )
+  return <Star className={className} fill="currentColor" />
 } 

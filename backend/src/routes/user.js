@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
-const { supabase } = require('../config/supabase');
+const { supabase } = require('../lib/supabase');
 
 // Get user's library
 router.get('/library', authMiddleware, async (req, res) => {

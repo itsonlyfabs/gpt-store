@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AuthLayout from '@/components/AuthLayout'
-import { supabase } from '@/utils/supabase'
+import { supabase } from 'app/utils/supabase'
 
 export default function ResetPasswordPage() {
   const router = useRouter()

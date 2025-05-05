@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, Suspense } from 'react'
 import { debounce } from 'lodash'
 import SearchBar from '@/components/SearchBar'
 import Sidebar from '@/components/Sidebar'
@@ -91,55 +91,7 @@ export default function DiscoverPage() {
       setLoading(true)
       setError('')
 
-      // In development mode, use mock data
-      if (process.env.NODE_ENV === 'development') {
-        await new Promise(resolve => setTimeout(resolve, 500)) // Simulate API delay
-        
-        // Filter mock products based on search query
-        let filteredProducts = MOCK_PRODUCTS
-        if (query) {
-          const searchTerms = query.toLowerCase().split(' ')
-          filteredProducts = MOCK_PRODUCTS.filter(product => {
-            const searchableText = `
-              ${product.name.toLowerCase()}
-              ${product.description.toLowerCase()}
-              ${product.category.toLowerCase()}
-            `
-            return searchTerms.every(term => searchableText.includes(term))
-          })
-        }
-
-        // Apply price range filter
-        filteredProducts = filteredProducts.filter(product => 
-          product.price >= priceRange.min && product.price <= priceRange.max
-        )
-
-        // Apply subscription type filter
-        if (subscriptionType !== 'all') {
-          filteredProducts = filteredProducts.filter(product => 
-            product.subscriptionType === subscriptionType
-          )
-        }
-
-        // Apply sorting
-        filteredProducts = [...filteredProducts].sort((a, b) => {
-          switch (sortBy) {
-            case 'price-asc':
-              return a.price - b.price
-            case 'price-desc':
-              return b.price - a.price
-            case 'newest':
-              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            default:
-              return 0
-          }
-        })
-
-        setProducts(filteredProducts)
-        return
-      }
-
-      // Production mode - call actual API
+      // Always fetch from backend API
       const searchParams = new URLSearchParams({
         ...(query && { search: query }),
         ...(subscriptionType !== 'all' && { priceType: subscriptionType === 'subscription' ? 'subscription' : 'one_time' })
@@ -190,98 +142,100 @@ export default function DiscoverPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex h-full">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Categories */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Categories</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                {categories.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => handleSearch(category.name)}
-                    className="flex flex-col items-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <span className="text-3xl mb-2">{category.icon}</span>
-                    <span className="text-sm font-medium text-gray-900 text-center">
-                      {category.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-col md:flex-row gap-8">
-              {/* Filters sidebar */}
-              <div className="w-full md:w-64 flex-shrink-0">
-                <div className="bg-white p-6 rounded-lg shadow-sm">
-                  <SearchFilters
-                    priceRange={priceRange}
-                    onPriceRangeChange={handlePriceRangeChange}
-                    subscriptionType={subscriptionType}
-                    onSubscriptionTypeChange={handleSubscriptionTypeChange}
-                    sortBy={sortBy}
-                    onSortChange={handleSortChange}
-                  />
+    <Suspense fallback={<div>Loading...</div>}>
+      <div className="min-h-screen bg-gray-50">
+        <div className="flex h-full">
+          <Sidebar />
+          <main className="flex-1 overflow-y-auto">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              {/* Categories */}
+              <div className="mb-8">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-4">Categories</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => handleSearch(category.name)}
+                      className="flex flex-col items-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <span className="text-3xl mb-2">{category.icon}</span>
+                      <span className="text-sm font-medium text-gray-900 text-center">
+                        {category.name}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Main content */}
-              <div className="flex-1">
-                <div className="mb-6">
-                  <SearchBar
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                    onSearch={handleSearch}
-                    placeholder="Search AI tools..."
-                    className="max-w-2xl"
-                  />
-                  {searchQuery && (
-                    <SearchSuggestions
-                      query={searchQuery}
-                      onSuggestionClick={handleSearch}
-                      className="mt-2"
+              <div className="flex flex-col md:flex-row gap-8">
+                {/* Filters sidebar */}
+                <div className="w-full md:w-64 flex-shrink-0">
+                  <div className="bg-white p-6 rounded-lg shadow-sm">
+                    <SearchFilters
+                      priceRange={priceRange}
+                      onPriceRangeChange={handlePriceRangeChange}
+                      subscriptionType={subscriptionType}
+                      onSubscriptionTypeChange={handleSubscriptionTypeChange}
+                      sortBy={sortBy}
+                      onSortChange={handleSortChange}
                     />
+                  </div>
+                </div>
+
+                {/* Main content */}
+                <div className="flex-1">
+                  <div className="mb-6">
+                    <SearchBar
+                      value={searchQuery}
+                      onChange={setSearchQuery}
+                      onSearch={handleSearch}
+                      placeholder="Search AI tools..."
+                      className="max-w-2xl"
+                    />
+                    {searchQuery && (
+                      <SearchSuggestions
+                        query={searchQuery}
+                        onSuggestionClick={handleSearch}
+                        className="mt-2"
+                      />
+                    )}
+                  </div>
+
+                  {loading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {[...Array(6)].map((_, i) => (
+                        <div key={i} className="animate-pulse">
+                          <div className="bg-gray-200 h-48 rounded-t-lg"></div>
+                          <div className="bg-white p-4 rounded-b-lg">
+                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {products.map((product) => (
+                        <ProductCard
+                          key={product.id}
+                          id={product.id}
+                          name={product.name}
+                          description={product.description}
+                          price={product.price}
+                          category={product.category}
+                          thumbnail={product.thumbnail}
+                          priceType={product.priceType}
+                          currency={product.currency}
+                        />
+                      ))}
+                    </div>
                   )}
                 </div>
-
-                {loading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {[...Array(6)].map((_, i) => (
-                      <div key={i} className="animate-pulse">
-                        <div className="bg-gray-200 h-48 rounded-t-lg"></div>
-                        <div className="bg-white p-4 rounded-b-lg">
-                          <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {products.map((product) => (
-                      <ProductCard
-                        key={product.id}
-                        id={product.id}
-                        name={product.name}
-                        description={product.description}
-                        price={product.price}
-                        category={product.category}
-                        thumbnail={product.thumbnail}
-                        priceType={product.priceType}
-                        currency={product.currency}
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
+    </Suspense>
   )
 } 
