@@ -17,7 +17,7 @@ export default function Home() {
         {/* Header/Navigation */}
         <header className="flex items-center justify-between py-6">
           <div className="flex items-center">
-            <span className="text-2xl font-bold text-gray-900">GPT Store</span>
+            <Image src="/genio logo dark.png" alt="Genio Logo" width={180} height={40} priority />
           </div>
           <div className="flex items-center space-x-4">
             <Link
@@ -28,7 +28,7 @@ export default function Home() {
             </Link>
             <Link
               href="/auth/register"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90"
             >
               Get started
             </Link>
@@ -40,7 +40,7 @@ export default function Home() {
           <div className="text-center">
             <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
               <span className="block">Your Personal AI</span>
-              <span className="block text-blue-600">Enhancement Suite</span>
+              <span className="block text-primary">Enhancement Suite</span>
             </h1>
             <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
               Discover a curated collection of AI tools designed to enhance your focus, productivity, and personal growth.
@@ -49,7 +49,7 @@ export default function Home() {
               <div className="rounded-md shadow">
                 <Link
                   href="/auth/register"
-                  className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 md:py-4 md:text-lg md:px-10"
+                  className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:opacity-90 md:py-4 md:text-lg md:px-10"
                 >
                   Get started
                 </Link>
@@ -78,18 +78,18 @@ export default function Home() {
         </div>
 
         {/* CTA Section */}
-        <div className="bg-blue-700 rounded-3xl my-16">
+        <div className="bg-gray-50 rounded-3xl my-16">
           <div className="max-w-2xl mx-auto text-center py-16 px-4 sm:py-20 sm:px-6 lg:px-8">
-            <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
+            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
               <span className="block">Ready to get started?</span>
               <span className="block">Start your journey today.</span>
             </h2>
-            <p className="mt-4 text-lg leading-6 text-blue-200">
+            <p className="mt-4 text-lg leading-6 text-gray-700">
               Join thousands of users who are already enhancing their mental capabilities with our AI tools.
             </p>
             <Link
               href="/auth/register"
-              className="mt-8 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 sm:w-auto"
+              className="mt-8 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:opacity-90 sm:w-auto"
             >
               Sign up for free
             </Link>

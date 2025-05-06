@@ -34,14 +34,14 @@ export default function ProductCard({
       <div className="p-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-medium text-gray-900">{name}</h3>
-          <span className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full">
+          <span className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 rounded-full">
             {category}
           </span>
         </div>
         <p className="text-gray-600 text-sm mb-4 line-clamp-2">{description}</p>
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-blue-600 font-medium">
+            <span className="text-primary font-medium">
               {new Intl.NumberFormat('en-US', {
                 style: 'currency',
                 currency: currency
@@ -53,7 +53,7 @@ export default function ProductCard({
           </div>
           <Link
             href={`/product/${id}`}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors duration-200"
           >
             View Details
           </Link>

@@ -121,7 +121,7 @@ export default function MyLibraryPage() {
             </div>
             <Link
               href="/discover"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90"
             >
               Discover More Tools
             </Link>
@@ -143,7 +143,7 @@ export default function MyLibraryPage() {
               </p>
               <Link
                 href="/discover"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90"
               >
                 Browse AI Tools
               </Link>
@@ -163,7 +163,7 @@ export default function MyLibraryPage() {
                   <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-lg font-medium text-gray-900">{product.name}</h3>
-                      <span className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full">
+                      <span className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 rounded-full">
                         {product.category}
                       </span>
                     </div>
@@ -186,7 +186,7 @@ export default function MyLibraryPage() {
                     </div>
                     <Link
                       href={`/chat/${product.id}`}
-                      className="mt-6 w-full flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                      className="mt-6 w-full flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90"
                     >
                       Open Chat
                     </Link>

@@ -27,8 +27,8 @@ export default function Sidebar() {
             className={`
               group flex items-center px-3 py-2 text-sm font-medium rounded-md
               ${isActive
-                ? 'bg-blue-50 text-blue-700'
-                : 'text-gray-700 hover:text-blue-700 hover:bg-blue-50'
+                ? 'bg-primary/10 text-primary'
+                : 'text-gray-700 hover:text-primary hover:bg-primary/10'
               }
             `}
           >

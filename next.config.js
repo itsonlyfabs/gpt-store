@@ -3,10 +3,26 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'fastly.picsum.photos',
+        port: '',
+        pathname: '/**',
+      },
+    ],
     domains: [
       'tcmkyzcbndmaqxfjvpfs.supabase.co', // Supabase storage domain
       'raw.githubusercontent.com', // For placeholder images if needed
       'images.unsplash.com', // For placeholder images if needed
+      'picsum.photos',
+      'fastly.picsum.photos',
     ],
   },
   env: {
@@ -30,7 +46,7 @@ const nextConfig = {
               default-src 'self';
               script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co;
               style-src 'self' 'unsafe-inline';
-              img-src 'self' blob: data: https://*.supabase.co https://picsum.photos;
+              img-src 'self' blob: data: https://*.supabase.co https://picsum.photos https://fastly.picsum.photos;
               font-src 'self';
               connect-src 'self' http://localhost:3000 https://*.supabase.co wss://*.supabase.co https://tcmkyzcbndmaqxfjvpfs.supabase.co https://api.supabase.co;
               frame-ancestors 'none';
