@@ -1,15 +1,53 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import SearchBar from '../components/SearchBar'
+import CategoryDropdown from '../components/CategoryDropdown'
+import RefreshButton from '../components/RefreshButton'
+import ProductCard from '../components/ProductCard'
 
 export default function Home() {
-  const featuredTemplates = [
-    { id: 'focus', name: 'Focus Enhancement AI', icon: '🎯', description: 'Enhance your concentration and mental clarity' },
-    { id: 'meditation', name: 'Meditation Guide', icon: '🧘‍♂️', description: 'Develop mindfulness and inner peace' },
-    { id: 'productivity', name: 'Productivity Boost', icon: '⚡', description: 'Boost your productivity and efficiency' },
-  ]
+  const [products, setProducts] = useState<any[]>([])
+  const [filtered, setFiltered] = useState<any[]>([])
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const fetchProducts = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/products')
+      const data = await res.json()
+      setProducts(data)
+      setFiltered(data)
+    } catch {
+      setProducts([])
+      setFiltered([])
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    fetchProducts()
+  }, [])
+
+  useEffect(() => {
+    let result = products
+    if (search) {
+      result = result.filter((p) =>
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.description.toLowerCase().includes(search.toLowerCase())
+      )
+    }
+    if (category) {
+      result = result.filter((p) => p.category === category)
+    }
+    setFiltered(result)
+  }, [search, category, products])
+
+  const categories = Array.from(new Set(products.map((p) => p.category))).filter(Boolean)
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -36,7 +74,7 @@ export default function Home() {
         </header>
 
         {/* Hero Section */}
-        <div className="py-16 sm:py-24">
+        <div className="py-12 sm:py-16">
           <div className="text-center">
             <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
               <span className="block">Your Personal AI</span>
@@ -45,36 +83,63 @@ export default function Home() {
             <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
               Discover a curated collection of AI tools designed to enhance your focus, productivity, and personal growth.
             </p>
-            <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
-              <div className="rounded-md shadow">
-                <Link
-                  href="/auth/register"
-                  className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:opacity-90 md:py-4 md:text-lg md:px-10"
-                >
-                  Get started
-                </Link>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Featured Templates */}
-        <div className="py-12">
-          <h2 className="text-3xl font-extrabold text-gray-900 text-center mb-12">
-            Featured Templates
-          </h2>
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {featuredTemplates.map((template) => (
-              <div
-                key={template.id}
-                className="relative bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out"
-              >
-                <div className="text-4xl mb-4">{template.icon}</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">{template.name}</h3>
-                <p className="text-gray-500">{template.description}</p>
-              </div>
-            ))}
+        {/* Search & Filters */}
+        <div className="flex flex-col items-center gap-4 mt-2 mb-12">
+          <div className="w-full max-w-xl">
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              onSearch={() => {}}
+              placeholder="Search collections, bundles, assistants..."
+              className=""
+            />
           </div>
+          <div className="flex w-full max-w-xl gap-2 items-center">
+            <CategoryDropdown
+              categories={categories}
+              selected={category}
+              onSelect={setCategory}
+              className="flex-1"
+            />
+            <RefreshButton onClick={fetchProducts} />
+          </div>
+        </div>
+
+        {/* Collections Grid or Mock Bundles */}
+        <div className="py-6">
+          {loading ? (
+            <div className="text-center text-gray-500 py-20">Loading...</div>
+          ) : filtered.length === 0 && products.length === 0 ? (
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Mock admin bundles */}
+              <div className="relative bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out">
+                <div className="text-4xl mb-4">🎯</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Focus Enhancement AI</h3>
+                <p className="text-gray-500">Enhance your concentration and mental clarity</p>
+              </div>
+              <div className="relative bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out">
+                <div className="text-4xl mb-4">🧘‍♂️</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Meditation Guide</h3>
+                <p className="text-gray-500">Develop mindfulness and inner peace</p>
+              </div>
+              <div className="relative bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out">
+                <div className="text-4xl mb-4">⚡</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Productivity Boost</h3>
+                <p className="text-gray-500">Boost your productivity and efficiency</p>
+              </div>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center text-gray-500 py-20">No collections found.</div>
+          ) : (
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((product) => (
+                <ProductCard key={product.id} {...product} />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* CTA Section */}
