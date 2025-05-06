@@ -14,6 +14,8 @@ export default function Home() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [loading, setLoading] = useState(false)
+  const [bundles, setBundles] = useState<any[]>([])
+  const [bundlesLoading, setBundlesLoading] = useState(false)
 
   const fetchProducts = async () => {
     setLoading(true)
@@ -46,6 +48,15 @@ export default function Home() {
     }
     setFiltered(result)
   }, [search, category, products])
+
+  useEffect(() => {
+    setBundlesLoading(true);
+    fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1") + "/bundles")
+      .then(res => res.json())
+      .then(setBundles)
+      .catch(() => setBundles([]))
+      .finally(() => setBundlesLoading(false));
+  }, []);
 
   const categories = Array.from(new Set(products.map((p) => p.category))).filter(Boolean)
 
@@ -108,35 +119,20 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Collections Grid or Mock Bundles */}
+        {/* Bundles Grid */}
         <div className="py-6">
-          {loading ? (
-            <div className="text-center text-gray-500 py-20">Loading...</div>
-          ) : filtered.length === 0 && products.length === 0 ? (
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Mock admin bundles */}
-              <div className="relative bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out">
-                <div className="text-4xl mb-4">🎯</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Focus Enhancement AI</h3>
-                <p className="text-gray-500">Enhance your concentration and mental clarity</p>
-              </div>
-              <div className="relative bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out">
-                <div className="text-4xl mb-4">🧘‍♂️</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Meditation Guide</h3>
-                <p className="text-gray-500">Develop mindfulness and inner peace</p>
-              </div>
-              <div className="relative bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out">
-                <div className="text-4xl mb-4">⚡</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Productivity Boost</h3>
-                <p className="text-gray-500">Boost your productivity and efficiency</p>
-              </div>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center text-gray-500 py-20">No collections found.</div>
+          {bundlesLoading ? (
+            <div className="text-center text-gray-500 py-10">Loading bundles...</div>
+          ) : bundles.length === 0 ? (
+            <div className="text-center text-gray-400 py-10">No bundles found.</div>
           ) : (
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((product) => (
-                <ProductCard key={product.id} {...product} />
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 mb-12">
+              {bundles.map(bundle => (
+                <div key={bundle.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center">
+                  <Image src={bundle.image} alt={bundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{bundle.name}</h3>
+                  <p className="text-gray-500">{bundle.description}</p>
+                </div>
               ))}
             </div>
           )}

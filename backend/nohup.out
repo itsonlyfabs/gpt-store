@@ -1,0 +1,26 @@
+Supabase Config: {
+  url: 'https://tcmkyzcbndmaqxfjvpfs.supabase.co',
+  hasAnonKey: true,
+  hasServiceKey: true
+}
+Allowed origins: [
+  'http://localhost:3002',
+  undefined,
+  'https://gpt-store.vercel.app',
+  'https://gpt-store-mauve.vercel.app'
+]
+Server is running on port 3000
+Environment: development
+Supabase Config: {
+  url: 'https://tcmkyzcbndmaqxfjvpfs.supabase.co',
+  hasAnonKey: true,
+  hasServiceKey: true
+}
+Allowed origins: [
+  'http://localhost:3002',
+  undefined,
+  'https://gpt-store.vercel.app',
+  'https://gpt-store-mauve.vercel.app'
+]
+Server is running on port 3000
+Environment: development

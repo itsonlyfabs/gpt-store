@@ -5,6 +5,7 @@ DROP TABLE IF EXISTS reviews;
 DROP TABLE IF EXISTS purchases;
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS bundles;
 
 -- Users table
 CREATE TABLE users (
@@ -82,6 +83,16 @@ CREATE TABLE credits (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, product_id)
+);
+
+-- Bundles table
+CREATE TABLE IF NOT EXISTS bundles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text NOT NULL,
+  image text NOT NULL,
+  product_ids uuid[] NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- Triggers to automatically update updated_at timestamp
