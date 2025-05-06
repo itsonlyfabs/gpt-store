@@ -32,11 +32,25 @@ router.post('/', async (req, res) => {
 // List all bundles
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabaseAdmin
+    // Fetch all bundles
+    const { data: bundles, error: bundlesError } = await supabaseAdmin
       .from('bundles')
       .select('*');
-    if (error) throw error;
-    res.json(data);
+    if (bundlesError) throw bundlesError;
+
+    // Fetch all products (for mapping)
+    const { data: products, error: productsError } = await supabaseAdmin
+      .from('products')
+      .select('*');
+    if (productsError) throw productsError;
+
+    // Attach product objects to each bundle
+    const bundlesWithProducts = bundles.map(bundle => ({
+      ...bundle,
+      products: (bundle.product_ids || []).map(pid => products.find(p => p.id === pid)).filter(Boolean)
+    }));
+
+    res.json(bundlesWithProducts);
   } catch (error) {
     console.error('Bundles fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch bundles' });

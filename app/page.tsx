@@ -87,6 +87,12 @@ export default function Home() {
         {/* Hero Section */}
         <div className="py-12 sm:py-16">
           <div className="text-center">
+            <div className="flex justify-center mb-4">
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/70 border border-gray-200 text-base font-medium text-primary shadow-sm backdrop-blur-sm" style={{ fontWeight: 500 }}>
+                <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5 text-primary"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                AI-powered assistants
+              </span>
+            </div>
             <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
               <span className="block">Your Personal AI</span>
               <span className="block text-primary">Enhancement Suite</span>
@@ -132,6 +138,13 @@ export default function Home() {
                   <Image src={bundle.image} alt={bundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">{bundle.name}</h3>
                   <p className="text-gray-500">{bundle.description}</p>
+                  {Array.isArray(bundle.products) && bundle.products.length > 0 && (
+                    <ul className="mt-4 text-left w-full max-w-xs mx-auto list-disc list-inside text-gray-700">
+                      {bundle.products.map((product: any) => (
+                        <li key={product.id}>{product.name}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
             </div>
