@@ -8,6 +8,9 @@ const chatRoutes = require('./routes/chat');
 const reviewsRoutes = require('./routes/reviews');
 const userRoutes = require('./routes/user');
 const bundlesRoutes = require('./routes/bundles');
+const testRoutes = require('./routes/test');
+const errorHandler = require('./middleware/errorHandler');
+const logger = require('./utils/logger');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -78,19 +81,13 @@ app.use('/api/reviews', reviewsRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/v1/bundles', bundlesRoutes);
 app.use('/api/v1/products', productsRoutes);
+app.use('/api/test', testRoutes);
 
 // Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
-  res.status(500).json({ 
-    error: process.env.NODE_ENV === 'development' 
-      ? err.message 
-      : 'Something went wrong!' 
-  });
-});
+app.use(errorHandler);
 
 // Start server
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
+  logger.info(`Server is running on port ${process.env.PORT || 3000}`);
+  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
