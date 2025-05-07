@@ -7,6 +7,7 @@ import SearchBar from '../components/SearchBar'
 import CategoryDropdown from '../components/CategoryDropdown'
 import RefreshButton from '../components/RefreshButton'
 import ProductCard from '../components/ProductCard'
+import Reviews from './components/Reviews'
 
 export default function Home() {
   const [products, setProducts] = useState<any[]>([])
@@ -16,6 +17,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [bundles, setBundles] = useState<any[]>([])
   const [bundlesLoading, setBundlesLoading] = useState(false)
+  const [selectedBundle, setSelectedBundle] = useState<any | null>(null)
+  const [showBundleModal, setShowBundleModal] = useState(false)
 
   const fetchProducts = async () => {
     setLoading(true)
@@ -59,6 +62,16 @@ export default function Home() {
   }, []);
 
   const categories = Array.from(new Set(products.map((p) => p.category))).filter(Boolean)
+
+  const handleBundleClick = (bundle: any) => {
+    setSelectedBundle(bundle)
+    setShowBundleModal(true)
+  }
+
+  const closeModal = () => {
+    setShowBundleModal(false)
+    setSelectedBundle(null)
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -134,7 +147,11 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 mb-12">
               {bundles.map(bundle => (
-                <div key={bundle.id} className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center">
+                <div
+                  key={bundle.id}
+                  className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer"
+                  onClick={() => handleBundleClick(bundle)}
+                >
                   <Image src={bundle.image} alt={bundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">{bundle.name}</h3>
                   <p className="text-gray-500">{bundle.description}</p>
@@ -150,6 +167,52 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        {/* Bundle Modal */}
+        {showBundleModal && selectedBundle && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-8 relative">
+              <button
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl"
+                onClick={closeModal}
+                aria-label="Close"
+              >
+                &times;
+              </button>
+              <div className="flex flex-col items-center text-center mb-6">
+                <Image src={selectedBundle.image} alt={selectedBundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedBundle.name}</h2>
+                <p className="text-gray-600 mb-4">{selectedBundle.description}</p>
+              </div>
+              {/* Products Grid */}
+              {Array.isArray(selectedBundle.products) && selectedBundle.products.length > 0 && (
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Included Products</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {selectedBundle.products.map((product: any) => (
+                      <div key={product.id} className="bg-gray-50 rounded-lg p-4 flex flex-col items-center shadow-sm">
+                        <Image src={product.thumbnail} alt={product.name} width={120} height={80} unoptimized className="w-full h-24 object-cover rounded mb-2" />
+                        <h4 className="text-md font-semibold text-gray-900 mb-1">{product.name}</h4>
+                        <p className="text-gray-500 text-sm mb-2 line-clamp-2">{product.description}</p>
+                        <button
+                          className="mt-auto px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:opacity-90"
+                          onClick={() => window.open(`/product/${product.id}`, '_blank')}
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Reviews Section */}
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Bundle Reviews</h3>
+                <Reviews productId={selectedBundle.id} />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* CTA Section */}
         <div className="bg-gray-50 rounded-3xl my-16">
