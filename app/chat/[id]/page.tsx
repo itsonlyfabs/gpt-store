@@ -55,13 +55,32 @@ export default function ChatPage() {
         if (!res.ok) throw new Error('Product not found')
         const prod = await res.json()
         setProduct(prod)
-        // Optionally, fetch chat history here if you implement it
-        setMessages([]) // Start with empty or fetch from backend
       } catch (error) {
         console.error('Error fetching product:', error)
       }
     }
-    if (id) fetchProduct()
+    const fetchChatHistory = async () => {
+      try {
+        // Get Supabase session
+        const { data: { session } } = await supabase.auth.getSession()
+        const accessToken = session?.access_token
+
+        const res = await fetch(`http://localhost:3000/api/chat/${id}/history`, {
+          headers: {
+            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+          }
+        })
+        if (!res.ok) throw new Error('Failed to fetch chat history')
+        const data = await res.json()
+        setMessages(data.messages || [])
+      } catch (error) {
+        console.error('Error fetching chat history:', error)
+      }
+    }
+    if (id) {
+      fetchProduct()
+      fetchChatHistory()
+    }
   }, [id])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,7 +102,7 @@ export default function ChatPage() {
       const accessToken = session?.access_token
 
       // Send message to backend with Authorization header
-      const res = await fetch(`/api/chat/${id}`, {
+      const res = await fetch(`http://localhost:3000/api/chat/${id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -73,10 +73,35 @@ router.post('/:productId', authMiddleware, async (req, res) => {
     // Pass assistant_id to chatWithAI
     const response = await chatWithAI(userId, productId, messages, { assistant_id: product.assistant_id });
 
+    // Store the conversation in Supabase
+    const convId = conversationId || Date.now().toString();
+    const { error: storeError } = await supabase
+      .from('chat_messages')
+      .insert([
+        {
+          user_id: userId,
+          product_id: productId,
+          conversation_id: convId,
+          role: 'user',
+          content: message
+        },
+        {
+          user_id: userId,
+          product_id: productId,
+          conversation_id: convId,
+          role: 'assistant',
+          content: response.content
+        }
+      ]);
+
+    if (storeError) {
+      console.error('Failed to store chat messages:', storeError);
+    }
+
     res.json({
       response: response.content,
       usage: response.usage,
-      conversationId: conversationId || Date.now().toString()
+      conversationId: convId
     });
   } catch (error) {
     console.error('Chat error:', error);
@@ -91,10 +116,25 @@ router.get('/:productId/history', authMiddleware, async (req, res) => {
     const { conversationId } = req.query;
     const userId = req.user.id;
 
-    // In production, fetch from database
-    // For development, return empty history
+    const query = supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('product_id', productId)
+      .order('created_at', { ascending: true });
+
+    if (conversationId) {
+      query.eq('conversation_id', conversationId);
+    }
+
+    const { data: messages, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
     res.json({
-      messages: [],
+      messages: messages || [],
       hasMore: false
     });
   } catch (error) {
