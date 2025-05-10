@@ -7,6 +7,7 @@ import AdminSidebar from '@/components/AdminSidebar';
 import SearchBar from '@/components/SearchBar';
 import CategoryDropdown from '../../components/CategoryDropdown';
 import RefreshButton from '../../components/RefreshButton';
+import React, { Suspense } from 'react';
 
 interface User {
   id: string;
@@ -42,7 +43,15 @@ if (typeof window !== 'undefined') {
   console.log('localStorage at page load:', window.localStorage);
 }
 
-export default function AdminPage() {
+export default function AdminPageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AdminPage />
+    </Suspense>
+  );
+}
+
+function AdminPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const section = searchParams.get('section') || 'users';
