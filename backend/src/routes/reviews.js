@@ -1,145 +1,144 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
+const { supabase } = require('../lib/supabase');
 
-// Mock reviews storage for development
-const reviews = new Map();
-
-// Helper to get reviews for a product
-const getProductReviews = (productId) => {
-  return Array.from(reviews.values()).filter(review => review.productId === productId);
-};
-
-// Get reviews for a product
+// Get reviews with pagination and sorting
 router.get('/', async (req, res) => {
   try {
-    const { productId } = req.query;
+    const { productId, page = 1, limit = 10, sort = 'created_at' } = req.query;
+    const offset = (page - 1) * limit;
 
-    if (!productId) {
-      return res.status(400).json({ error: 'Product ID is required' });
-    }
+    const { data, error, count } = await supabase
+      .from('reviews')
+      .select(`
+        *,
+        users:user_id (name, avatar_url)
+      `, { count: 'exact' })
+      .eq('product_id', productId)
+      .order(sort, { ascending: false })
+      .range(offset, offset + limit - 1);
 
-    const productReviews = getProductReviews(productId);
-    
+    if (error) throw error;
     res.json({
-      reviews: productReviews,
-      total: productReviews.length,
-      averageRating: productReviews.length > 0
-        ? productReviews.reduce((acc, review) => acc + review.rating, 0) / productReviews.length
-        : 0
+      reviews: data,
+      total: count,
+      page: parseInt(page),
+      totalPages: Math.ceil(count / limit)
     });
   } catch (error) {
-    console.error('Reviews fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch reviews' });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Add a new review
+// Add review with validation
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { productId, rating, comment } = req.body;
     const userId = req.user.id;
 
-    // Validate input
-    if (!productId || !rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ 
-        error: 'Product ID and rating (1-5) are required' 
-      });
+    // Check if user has purchased the product
+    const { data: purchase, error: purchaseError } = await supabase
+      .from('purchases')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('product_id', productId)
+      .single();
+
+    if (purchaseError || !purchase) {
+      return res.status(403).json({ error: 'You must purchase the product to review it' });
     }
 
-    // Check if user has already reviewed this product
-    const existingReview = Array.from(reviews.values()).find(
-      review => review.userId === userId && review.productId === productId
-    );
+    // Check if user already reviewed
+    const { data: existingReview } = await supabase
+      .from('reviews')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('product_id', productId)
+      .single();
 
     if (existingReview) {
-      return res.status(400).json({ 
-        error: 'You have already reviewed this product' 
-      });
+      return res.status(400).json({ error: 'You have already reviewed this product' });
     }
 
-    // Create new review
-    const review = {
-      id: Date.now().toString(),
-      userId,
-      productId,
-      rating,
-      comment: comment || '',
-      createdAt: new Date().toISOString(),
-      userName: req.user.name || 'Anonymous' // In production, fetch from user profile
-    };
+    const { data, error } = await supabase
+      .from('reviews')
+      .insert([{
+        user_id: userId,
+        product_id: productId,
+        rating,
+        comment
+      }])
+      .select()
+      .single();
 
-    // Store review
-    reviews.set(review.id, review);
-
-    res.status(201).json(review);
+    if (error) throw error;
+    res.status(201).json(data);
   } catch (error) {
-    console.error('Review creation error:', error);
-    res.status(500).json({ error: 'Failed to create review' });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Update a review
+// Update review
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { rating, comment } = req.body;
     const userId = req.user.id;
 
-    // Find the review
-    const review = reviews.get(id);
+    // Check if review exists and belongs to user
+    const { data: review, error: reviewError } = await supabase
+      .from('reviews')
+      .select('user_id')
+      .eq('id', id)
+      .single();
 
-    if (!review) {
-      return res.status(404).json({ error: 'Review not found' });
-    }
-
-    // Check ownership
-    if (review.userId !== userId) {
+    if (reviewError) throw reviewError;
+    if (!review || review.user_id !== userId) {
       return res.status(403).json({ error: 'Not authorized to update this review' });
     }
 
-    // Update review
-    const updatedReview = {
-      ...review,
-      rating: rating || review.rating,
-      comment: comment || review.comment,
-      updatedAt: new Date().toISOString()
-    };
+    const { data, error } = await supabase
+      .from('reviews')
+      .update({ rating, comment })
+      .eq('id', id)
+      .select()
+      .single();
 
-    reviews.set(id, updatedReview);
-
-    res.json(updatedReview);
+    if (error) throw error;
+    res.json(data);
   } catch (error) {
-    console.error('Review update error:', error);
-    res.status(500).json({ error: 'Failed to update review' });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Delete a review
+// Delete review
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Find the review
-    const review = reviews.get(id);
+    // Check if review exists and belongs to user
+    const { data: review, error: reviewError } = await supabase
+      .from('reviews')
+      .select('user_id')
+      .eq('id', id)
+      .single();
 
-    if (!review) {
-      return res.status(404).json({ error: 'Review not found' });
-    }
-
-    // Check ownership
-    if (review.userId !== userId) {
+    if (reviewError) throw reviewError;
+    if (!review || review.user_id !== userId) {
       return res.status(403).json({ error: 'Not authorized to delete this review' });
     }
 
-    // Delete review
-    reviews.delete(id);
+    const { error } = await supabase
+      .from('reviews')
+      .delete()
+      .eq('id', id);
 
+    if (error) throw error;
     res.json({ message: 'Review deleted successfully' });
   } catch (error) {
-    console.error('Review deletion error:', error);
-    res.status(500).json({ error: 'Failed to delete review' });
+    res.status(500).json({ error: error.message });
   }
 });
 

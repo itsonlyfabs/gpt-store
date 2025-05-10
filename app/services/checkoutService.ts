@@ -1,5 +1,7 @@
 import { loadStripe } from '@stripe/stripe-js';
-import { supabase } from '@/utils/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+
+const supabase = createClientComponentClient();
 
 interface CheckoutOptions {
   sessionId?: string;

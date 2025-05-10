@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react'
 import AuthLayout from '@/components/AuthLayout'
-import { supabase } from 'app/utils/supabase'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+
+const supabase = createClientComponentClient()
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')

@@ -3,10 +3,11 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AuthLayout from '@/components/AuthLayout'
-import { supabase } from 'app/utils/supabase'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export default function RegisterPage() {
   const router = useRouter()
+  const supabase = createClientComponentClient()
   const [formData, setFormData] = useState({
     name: '',
     email: '',

@@ -9,11 +9,19 @@ const reviewsRoutes = require('./routes/reviews');
 const userRoutes = require('./routes/user');
 const bundlesRoutes = require('./routes/bundles');
 const testRoutes = require('./routes/test');
+const adminRoutes = require('./routes/admin');
+const analyticsRoutes = require('./routes/analytics');
 const errorHandler = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Global logging middleware
+app.use((req, res, next) => {
+  console.log('INCOMING:', req.method, req.url, 'Headers:', req.headers);
+  next();
+});
 
 // CORS configuration
 const allowedOrigins = [
@@ -79,9 +87,10 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/user', userRoutes);
-app.use('/api/v1/bundles', bundlesRoutes);
-app.use('/api/v1/products', productsRoutes);
+app.use('/api/bundles', bundlesRoutes);
 app.use('/api/test', testRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

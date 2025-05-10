@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
-import { supabase } from 'app/utils/supabase'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface Message {
   id: string
@@ -34,6 +34,7 @@ function formatAssistantMessage(content: string | undefined | null) {
 
 export default function ChatPage() {
   const { id } = useParams()
+  const supabase = createClientComponentClient()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)

@@ -3,13 +3,14 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AuthLayout from '@/components/AuthLayout'
-import { supabase } from 'app/utils/supabase'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import dynamic from 'next/dynamic'
 
 function LoginForm() {
   console.log('LoginForm component mounted')
   const router = useRouter()
   const searchParams = useSearchParams()
+  const supabase = createClientComponentClient()
   const [formData, setFormData] = useState({
     email: '',
     password: '',

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Star } from 'lucide-react'
-import { supabase } from 'app/utils/supabase'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface Review {
   id: string
@@ -22,6 +22,8 @@ export default function Reviews({ productId, className = '' }: ReviewsProps) {
   const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchReviews()

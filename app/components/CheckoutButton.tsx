@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from 'app/utils/supabase'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface CheckoutButtonProps {
   productId: string
@@ -20,6 +20,7 @@ export default function CheckoutButton({
   const [loading, setLoading] = useState(false)
   const [alreadyPurchased, setAlreadyPurchased] = useState(false)
   const router = useRouter()
+  const supabase = createClientComponentClient()
 
   const handleCheckout = async () => {
     let handled = false

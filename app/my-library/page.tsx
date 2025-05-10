@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
-import { supabase } from 'app/utils/supabase'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface PurchasedProduct {
   id: string
@@ -30,6 +30,8 @@ interface SupabasePurchase {
     category: string
   }
 }
+
+const supabase = createClientComponentClient()
 
 export default function MyLibraryPage() {
   const router = useRouter()

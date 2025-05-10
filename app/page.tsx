@@ -54,7 +54,7 @@ export default function Home() {
 
   useEffect(() => {
     setBundlesLoading(true);
-    fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1") + "/bundles")
+    fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api") + "/bundles")
       .then(res => res.json())
       .then(setBundles)
       .catch(() => setBundles([]))
