@@ -5,7 +5,7 @@ const { supabase, supabaseAdmin } = require('../lib/supabase');
 // Get all products
 router.get('/', async (req, res) => {
   try {
-    const { data: products, error } = await supabase
+    const { data: products, error } = await supabaseAdmin
       .from('products')
       .select('*');
     if (error) throw error;

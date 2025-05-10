@@ -30,50 +30,6 @@ interface Product {
   }[]
 }
 
-// Mock data for development
-const MOCK_PRODUCT: Product = {
-  id: '123e4567-e89b-12d3-a456-426614174000',
-  name: 'Focus Enhancement AI',
-  description: 'An AI-powered tool to help you maintain focus and concentration during work sessions.',
-  price: 2999,
-  category: 'Focus & Concentration',
-  thumbnail: 'https://picsum.photos/800/400',
-  priceType: 'subscription',
-  currency: 'USD',
-  features: [
-    'Real-time focus tracking',
-    'Personalized concentration exercises',
-    'Break time recommendations',
-    'Progress analytics',
-  ],
-  sampleInteractions: [
-    {
-      question: 'How can I improve my focus?',
-      answer: 'I can help you create a personalized focus enhancement plan based on your work patterns and preferences.',
-    },
-    {
-      question: 'When should I take breaks?',
-      answer: 'Based on research, I recommend taking a 5-minute break every 25 minutes of focused work.',
-    },
-  ],
-  reviews: [
-    {
-      id: '1',
-      rating: 5,
-      comment: 'This tool has significantly improved my productivity!',
-      userName: 'John Doe',
-      date: '2024-03-15',
-    },
-    {
-      id: '2',
-      rating: 4,
-      comment: 'Very helpful for maintaining focus during long work sessions.',
-      userName: 'Jane Smith',
-      date: '2024-03-14',
-    },
-  ],
-}
-
 export default function ProductPage() {
   const params = useParams()
   const [product, setProduct] = useState<Product | null>(null)
@@ -84,25 +40,14 @@ export default function ProductPage() {
     const fetchProduct = async () => {
       try {
         setLoading(true)
-        if (process.env.NODE_ENV === 'development') {
-          // In development, return mock data after a small delay
-          await new Promise(resolve => setTimeout(resolve, 500))
-          setProduct(MOCK_PRODUCT)
-          return
-        }
-
+        // Always fetch from API, never use mock data
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${params.id}`)
         if (!response.ok) throw new Error('Failed to fetch product')
         const data = await response.json()
         setProduct(data)
       } catch (err) {
         console.error('Product fetch error:', err)
-        if (process.env.NODE_ENV === 'development') {
-          // In development, fallback to mock data even if fetch fails
-          setProduct(MOCK_PRODUCT)
-        } else {
-          setError(err instanceof Error ? err.message : 'Failed to load product')
-        }
+        setError(err instanceof Error ? err.message : 'Failed to load product')
       } finally {
         setLoading(false)
       }
