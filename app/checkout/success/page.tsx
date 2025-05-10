@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from 'app/utils/supabase'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 function CheckoutSuccessPageInner() {
   const router = useRouter()
@@ -11,6 +11,7 @@ function CheckoutSuccessPageInner() {
   const productId = searchParams.get('product_id')
   const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState<string>('')
+  const supabase = createClientComponentClient();
 
   useEffect(() => {
     async function verifySession() {
