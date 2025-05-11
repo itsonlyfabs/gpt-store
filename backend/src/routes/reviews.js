@@ -1,24 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
-const { supabase } = require('../lib/supabase');
+const { supabaseAdmin } = require('../lib/supabase');
 
 // Get reviews with pagination and sorting
 router.get('/', async (req, res) => {
   try {
-    const { productId, page = 1, limit = 10, sort = 'created_at' } = req.query;
+    const { productId, bundleId, page = 1, limit = 10, sort = 'created_at' } = req.query;
     const offset = (page - 1) * limit;
 
-    const { data, error, count } = await supabase
+    let query = supabaseAdmin
       .from('reviews')
-      .select(`
-        *,
-        users:user_id (name, avatar_url)
-      `, { count: 'exact' })
-      .eq('product_id', productId)
+      .select('*', { count: 'exact' })
       .order(sort, { ascending: false })
       .range(offset, offset + limit - 1);
+    if (productId) query = query.eq('product_id', productId);
+    if (bundleId) query = query.eq('bundle_id', bundleId);
 
+    const { data, error, count } = await query;
     if (error) throw error;
     res.json({
       reviews: data,
@@ -27,117 +26,73 @@ router.get('/', async (req, res) => {
       totalPages: Math.ceil(count / limit)
     });
   } catch (error) {
+    console.error('Error in GET /api/reviews:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Add review with validation
-router.post('/', authMiddleware, async (req, res) => {
+// Add review (no auth required for admin/manual entry)
+router.post('/', async (req, res) => {
   try {
-    const { productId, rating, comment } = req.body;
-    const userId = req.user.id;
-
-    // Check if user has purchased the product
-    const { data: purchase, error: purchaseError } = await supabase
-      .from('purchases')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('product_id', productId)
-      .single();
-
-    if (purchaseError || !purchase) {
-      return res.status(403).json({ error: 'You must purchase the product to review it' });
+    const { productId, bundleId, rating, comment, reviewer_name } = req.body;
+    if (!productId && !bundleId) {
+      return res.status(400).json({ error: 'Must provide productId or bundleId' });
     }
-
-    // Check if user already reviewed
-    const { data: existingReview } = await supabase
-      .from('reviews')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('product_id', productId)
-      .single();
-
-    if (existingReview) {
-      return res.status(400).json({ error: 'You have already reviewed this product' });
+    if (productId && bundleId) {
+      return res.status(400).json({ error: 'Cannot provide both productId and bundleId' });
     }
-
-    const { data, error } = await supabase
+    const insertObj = {
+      user_id: null, // Admin/manual review
+      rating: Math.round(rating), // Force integer
+      comment,
+      reviewer_name
+    };
+    if (productId) insertObj.product_id = productId;
+    if (bundleId) insertObj.bundle_id = bundleId;
+    const { data, error } = await supabaseAdmin
       .from('reviews')
-      .insert([{
-        user_id: userId,
-        product_id: productId,
-        rating,
-        comment
-      }])
+      .insert([insertObj])
       .select()
       .single();
-
     if (error) throw error;
     res.status(201).json(data);
   } catch (error) {
+    console.error('Error in POST /api/reviews:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Update review
-router.put('/:id', authMiddleware, async (req, res) => {
+// Update review (no auth required for admin/manual entry)
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { rating, comment } = req.body;
-    const userId = req.user.id;
-
-    // Check if review exists and belongs to user
-    const { data: review, error: reviewError } = await supabase
+    const { rating, comment, reviewer_name } = req.body;
+    const { data, error } = await supabaseAdmin
       .from('reviews')
-      .select('user_id')
-      .eq('id', id)
-      .single();
-
-    if (reviewError) throw reviewError;
-    if (!review || review.user_id !== userId) {
-      return res.status(403).json({ error: 'Not authorized to update this review' });
-    }
-
-    const { data, error } = await supabase
-      .from('reviews')
-      .update({ rating, comment })
+      .update({ rating: Math.round(rating), comment, reviewer_name }) // Force integer
       .eq('id', id)
       .select()
       .single();
-
     if (error) throw error;
     res.json(data);
   } catch (error) {
+    console.error('Error in PUT /api/reviews/:id:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Delete review
-router.delete('/:id', authMiddleware, async (req, res) => {
+// Delete review (no auth required for admin/manual entry)
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
-
-    // Check if review exists and belongs to user
-    const { data: review, error: reviewError } = await supabase
-      .from('reviews')
-      .select('user_id')
-      .eq('id', id)
-      .single();
-
-    if (reviewError) throw reviewError;
-    if (!review || review.user_id !== userId) {
-      return res.status(403).json({ error: 'Not authorized to delete this review' });
-    }
-
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('reviews')
       .delete()
       .eq('id', id);
-
     if (error) throw error;
     res.json({ message: 'Review deleted successfully' });
   } catch (error) {
+    console.error('Error in DELETE /api/reviews/:id:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -6,19 +6,21 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface Review {
   id: string
-  userId: string
-  userName: string
+  reviewer_name: string
   rating: number
   comment: string
-  date: string
+  created_at: string
+  product_id?: string
+  bundle_id?: string
 }
 
 interface ReviewsProps {
-  productId: string
+  productId?: string
+  bundleId?: string
   className?: string
 }
 
-export default function Reviews({ productId, className = '' }: ReviewsProps) {
+export default function Reviews({ productId, bundleId, className = '' }: ReviewsProps) {
   const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -27,51 +29,24 @@ export default function Reviews({ productId, className = '' }: ReviewsProps) {
 
   useEffect(() => {
     fetchReviews()
-  }, [productId])
+  }, [productId, bundleId])
 
   const fetchReviews = async () => {
     try {
       setLoading(true)
       setError('')
-
-      // In development mode, use mock data
-      if (process.env.NODE_ENV === 'development') {
-        await new Promise(resolve => setTimeout(resolve, 500)) // Simulate API delay
-        
-        const mockReviews: Review[] = [
-          {
-            id: '1',
-            userId: 'user1',
-            userName: 'John Doe',
-            rating: 5,
-            comment: 'This AI tool has significantly improved my focus during work sessions.',
-            date: '2024-01-15'
-          },
-          {
-            id: '2',
-            userId: 'user2',
-            userName: 'Jane Smith',
-            rating: 4,
-            comment: 'Very helpful for maintaining concentration, though there is room for improvement.',
-            date: '2024-01-10'
-          }
-        ]
-        
-        setReviews(mockReviews)
-        return
-      }
-
-      const { data, error: fetchError } = await supabase
-        .from('reviews')
-        .select('*')
-        .eq('productId', productId)
-        .order('date', { ascending: false })
-
-      if (fetchError) throw fetchError
-      setReviews(data || [])
+      let url = '/api/reviews';
+      const params = [];
+      if (productId) params.push(`productId=${productId}`);
+      if (bundleId) params.push(`bundleId=${bundleId}`);
+      if (params.length) url += `?${params.join('&')}`;
+      const res = await fetch(url)
+      if (!res.ok) throw new Error('Failed to fetch reviews')
+      const data = await res.json()
+      setReviews(data.reviews || [])
     } catch (err) {
-      console.error('Error fetching reviews:', err)
       setError('Failed to load reviews')
+      setReviews([])
     } finally {
       setLoading(false)
     }
@@ -85,6 +60,10 @@ export default function Reviews({ productId, className = '' }: ReviewsProps) {
     return <div className="text-red-600">{error}</div>
   }
 
+  if (!reviews.length) {
+    return <div className="text-gray-500">No reviews yet</div>
+  }
+
   return (
     <div className={`space-y-4 ${className}`}>
       {reviews.map((review) => (
@@ -94,18 +73,16 @@ export default function Reviews({ productId, className = '' }: ReviewsProps) {
               {[...Array(5)].map((_, i) => (
                 <Star
                   key={i}
-                  className={`h-5 w-5 ${
-                    i < review.rating ? 'text-yellow-400' : 'text-gray-300'
-                  }`}
+                  className={`h-5 w-5 ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'}`}
                   fill={i < review.rating ? 'currentColor' : 'none'}
                 />
               ))}
             </div>
-            <span className="ml-2 text-sm text-gray-600">{review.userName}</span>
+            <span className="ml-2 text-sm text-gray-600">{review.reviewer_name}</span>
           </div>
           <p className="text-gray-600">{review.comment}</p>
           <p className="text-sm text-gray-400 mt-1">
-            {new Date(review.date).toLocaleDateString()}
+            {new Date(review.created_at).toLocaleDateString()}
           </p>
         </div>
       ))}

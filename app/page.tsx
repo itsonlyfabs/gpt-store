@@ -208,7 +208,7 @@ export default function Home() {
               {/* Reviews Section */}
               <div className="mt-8">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Bundle Reviews</h3>
-                <Reviews productId={selectedBundle.id} />
+                <Reviews bundleId={selectedBundle.id} />
               </div>
             </div>
           </div>

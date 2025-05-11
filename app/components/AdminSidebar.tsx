@@ -12,7 +12,8 @@ export default function AdminSidebar() {
   const navigation = [
     { name: 'Users', href: '/admin?section=users' },
     { name: 'Products', href: '/admin?section=products' },
-    { name: 'Bundles', href: '/admin?section=bundles' }
+    { name: 'Bundles', href: '/admin?section=bundles' },
+    { name: 'Reviews', href: '/admin?section=reviews' }
   ]
 
   return (

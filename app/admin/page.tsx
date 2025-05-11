@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import AdminSidebar from '@/components/AdminSidebar';
@@ -100,6 +100,18 @@ function AdminPage() {
   const [bundleCategorySearch, setBundleCategorySearch] = useState('');
   const [selectedProductCategory, setSelectedProductCategory] = useState('');
   const [selectedBundleCategory, setSelectedBundleCategory] = useState('');
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [editingReview, setEditingReview] = useState<any | null>(null);
+  const [reviewForm, setReviewForm] = useState({
+    productOrBundle: 'product',
+    productId: '',
+    bundleId: '',
+    reviewer_name: '',
+    comment: '',
+    rating: 5
+  });
+  const reviewFormRef = useRef<HTMLFormElement>(null);
 
   console.log('AdminPage useAuth:', { user, session, loading });
 
@@ -285,6 +297,82 @@ function AdminPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete bundle');
     }
+  };
+
+  // Fetch reviews for admin
+  const fetchReviews = async () => {
+    try {
+      const res = await fetch('/api/reviews');
+      const data = await res.json();
+      setReviews(data.reviews || []);
+    } catch (err) {
+      setReviews([]);
+    }
+  };
+  useEffect(() => {
+    if (section === 'reviews') fetchReviews();
+  }, [section]);
+
+  // Handlers for review modal
+  const openCreateReview = () => {
+    setEditingReview(null);
+    setReviewForm({
+      productOrBundle: 'product',
+      productId: '',
+      bundleId: '',
+      reviewer_name: '',
+      comment: '',
+      rating: 5
+    });
+    setIsReviewModalOpen(true);
+  };
+  const openEditReview = (review: any) => {
+    setEditingReview(review);
+    setReviewForm({
+      productOrBundle: review.product_id ? 'product' : 'bundle',
+      productId: review.product_id || '',
+      bundleId: review.bundle_id || '',
+      reviewer_name: review.reviewer_name || '',
+      comment: review.comment || '',
+      rating: review.rating
+    });
+    setIsReviewModalOpen(true);
+  };
+  const handleReviewFormChange = (e: any) => {
+    const { name, value } = e.target;
+    setReviewForm((f) => ({ ...f, [name]: name === 'rating' ? parseFloat(value) : value }));
+  };
+  const handleReviewSubmit = async (e: any) => {
+    e.preventDefault();
+    const body: any = {
+      reviewer_name: reviewForm.reviewer_name,
+      comment: reviewForm.comment,
+      rating: reviewForm.rating
+    };
+    if (reviewForm.productOrBundle === 'product') body.productId = reviewForm.productId;
+    if (reviewForm.productOrBundle === 'bundle') body.bundleId = reviewForm.bundleId;
+    try {
+      if (editingReview) {
+        await fetch(`/api/reviews/${editingReview.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      } else {
+        await fetch('/api/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      }
+      setIsReviewModalOpen(false);
+      fetchReviews();
+    } catch {}
+  };
+  const handleDeleteReview = async (id: string) => {
+    if (!window.confirm('Delete this review?')) return;
+    await fetch(`/api/reviews/${id}`, { method: 'DELETE' });
+    fetchReviews();
   };
 
   useEffect(() => {
@@ -570,6 +658,104 @@ function AdminPage() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+            {/* Reviews Section */}
+            {section === 'reviews' && (
+              <div className="bg-white p-6 rounded-lg shadow">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-left">Reviews</h2>
+                  <button
+                    onClick={openCreateReview}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                  >
+                    + Add Review
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left">
+                    <thead>
+                      <tr>
+                        <th className="px-4 py-2 text-left">Type</th>
+                        <th className="px-4 py-2 text-left">Product/Bundle</th>
+                        <th className="px-4 py-2 text-left">Reviewer</th>
+                        <th className="px-4 py-2 text-left">Rating</th>
+                        <th className="px-4 py-2 text-left">Comment</th>
+                        <th className="px-4 py-2 text-left">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reviews.map((review) => (
+                        <tr key={review.id}>
+                          <td className="px-4 py-2">{review.product_id ? 'Product' : 'Bundle'}</td>
+                          <td className="px-4 py-2">
+                            {review.product_id ? (products.find(p => p.id === review.product_id)?.name || review.product_id) : (bundles.find(b => b.id === review.bundle_id)?.name || review.bundle_id)}
+                          </td>
+                          <td className="px-4 py-2">{review.reviewer_name}</td>
+                          <td className="px-4 py-2">{review.rating}</td>
+                          <td className="px-4 py-2">{review.comment}</td>
+                          <td className="px-4 py-2">
+                            <button onClick={() => openEditReview(review)} className="text-blue-600 hover:text-blue-800 mr-2">Edit</button>
+                            <button onClick={() => handleDeleteReview(review.id)} className="text-red-600 hover:text-red-800">Delete</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {isReviewModalOpen && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-xl w-full">
+                      <h2 className="text-xl font-bold mb-4">{editingReview ? 'Edit' : 'Add'} Review</h2>
+                      <form ref={reviewFormRef} onSubmit={handleReviewSubmit} className="space-y-4">
+                        <div>
+                          <label className="block font-medium mb-1">Type</label>
+                          <select name="productOrBundle" value={reviewForm.productOrBundle} onChange={handleReviewFormChange} className="w-full border p-2">
+                            <option value="product">Product</option>
+                            <option value="bundle">Bundle</option>
+                          </select>
+                        </div>
+                        {reviewForm.productOrBundle === 'product' ? (
+                          <div>
+                            <label className="block font-medium mb-1">Product</label>
+                            <select name="productId" value={reviewForm.productId} onChange={handleReviewFormChange} className="w-full border p-2">
+                              <option value="">Select a product</option>
+                              {products.map((p) => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="block font-medium mb-1">Bundle</label>
+                            <select name="bundleId" value={reviewForm.bundleId} onChange={handleReviewFormChange} className="w-full border p-2">
+                              <option value="">Select a bundle</option>
+                              {bundles.map((b) => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                        <div>
+                          <label className="block font-medium mb-1">Reviewer Name</label>
+                          <input name="reviewer_name" value={reviewForm.reviewer_name} onChange={handleReviewFormChange} className="w-full border p-2" required />
+                        </div>
+                        <div>
+                          <label className="block font-medium mb-1">Rating (1-5, decimals allowed)</label>
+                          <input name="rating" type="number" min="1" max="5" step="0.1" value={reviewForm.rating} onChange={handleReviewFormChange} className="w-full border p-2" required />
+                        </div>
+                        <div>
+                          <label className="block font-medium mb-1">Comment</label>
+                          <textarea name="comment" value={reviewForm.comment} onChange={handleReviewFormChange} className="w-full border p-2" required />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button type="button" onClick={() => setIsReviewModalOpen(false)} className="px-4 py-2 border rounded">Cancel</button>
+                          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
