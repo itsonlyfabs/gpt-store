@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       if (!acc[date]) {
         acc[date] = { chats: 0 };
       }
-      acc[date].chats += 1;
+      (acc[date]!.chats) += 1;
       return acc;
     }, {} as Record<string, DailyStats>);
 
