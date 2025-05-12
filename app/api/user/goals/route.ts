@@ -178,4 +178,52 @@ export async function PUT(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const supabase = createRouteHandlerClient({ cookies });
+    // Get the current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const body = await req.json();
+    const { title, last_feedback } = body;
+    if (!title && !last_feedback) {
+      return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+    }
+    // Find the most recent goal for this user
+    const { data: goal, error: fetchError } = await supabase
+      .from('user_goals')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (fetchError || !goal) {
+      return NextResponse.json({ error: 'No goal found to update' }, { status: 404 });
+    }
+    // Update the goal
+    const updates: any = {};
+    if (title) updates.title = title;
+    if (last_feedback) updates.last_feedback = last_feedback;
+    const { data: updated, error: updateError } = await supabase
+      .from('user_goals')
+      .update(updates)
+      .eq('id', goal.id)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+    if (updateError) {
+      throw updateError;
+    }
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error('Error patching goal:', error);
+    return NextResponse.json(
+      { error: 'Failed to update goal' },
+      { status: 500 }
+    );
+  }
 } 

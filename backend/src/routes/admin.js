@@ -253,6 +253,40 @@ router.put('/users/:id/role', [authMiddleware, adminMiddleware], async (req, res
   }
 });
 
+router.put('/users/:id/subscription', [authMiddleware, adminMiddleware], async (req, res) => {
+  try {
+    console.log('PUT /api/admin/users/:id/subscription - Request:', {
+      userId: req.params.id,
+      subscription: req.body.subscription,
+      user: req.user
+    });
+    
+    const { id } = req.params;
+    const { subscription } = req.body;
+    
+    if (!['FREE', 'PRO'].includes(subscription)) {
+      return res.status(400).json({ error: 'Invalid subscription type' });
+    }
+    
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .update({ subscription })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase error in user subscription update:', error);
+      throw error;
+    }
+    console.log('User subscription updated successfully:', data);
+    res.json(data);
+  } catch (error) {
+    console.error('Error in PUT /api/admin/users/:id/subscription:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Bundle Management
 router.get('/bundles', [authMiddleware, adminMiddleware], async (req, res) => {
   try {

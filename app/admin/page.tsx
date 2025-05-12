@@ -15,6 +15,7 @@ interface User {
   email: string;
   status: 'active' | 'suspended' | 'banned';
   role?: 'admin' | 'user';
+  subscription: 'FREE' | 'PRO';
 }
 
 interface Product {
@@ -136,6 +137,30 @@ function AdminPage() {
       ));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update user status');
+    }
+  };
+
+  const handleSubscriptionChange = async (userId: string, newSubscription: 'FREE' | 'PRO') => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/subscription`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ subscription: newSubscription })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update user subscription');
+      }
+
+      // Update local state
+      setUsers(users.map(user => 
+        user.id === userId ? { ...user, subscription: newSubscription } : user
+      ));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update user subscription');
     }
   };
 
@@ -476,6 +501,7 @@ function AdminPage() {
                         <th className="px-4 py-2 text-left">Name</th>
                         <th className="px-4 py-2 text-left">Email</th>
                         <th className="px-4 py-2 text-left">Status</th>
+                        <th className="px-4 py-2 text-left">Subscription</th>
                         <th className="px-4 py-2 text-left">Actions</th>
                       </tr>
                     </thead>
@@ -485,6 +511,16 @@ function AdminPage() {
                           <td className="px-4 py-2">{user.name}</td>
                           <td className="px-4 py-2">{user.email}</td>
                           <td className="px-4 py-2">{user.status}</td>
+                          <td className="px-4 py-2">
+                            <select
+                              value={user.subscription}
+                              onChange={(e) => handleSubscriptionChange(user.id, e.target.value as 'FREE' | 'PRO')}
+                              className="border rounded px-2 py-1"
+                            >
+                              <option value="FREE">FREE</option>
+                              <option value="PRO">PRO</option>
+                            </select>
+                          </td>
                           <td className="px-4 py-2">
                             <button
                               onClick={() => handleUserStatusChange(user.id, user.status === 'active' ? 'suspended' : 'active')}

@@ -90,12 +90,22 @@ export default function ProfilePage() {
     'Build a daily habit',
   ];
 
+  useEffect(() => {
+    // Load goal and feedback from localStorage on mount
+    const savedGoal = localStorage.getItem('currentGoal');
+    const savedFeedback = localStorage.getItem('aiFeedback');
+    if (savedGoal) setCurrentGoal(savedGoal);
+    if (savedFeedback) setAiFeedback(savedFeedback);
+  }, []);
+
   const handleSetGoal = () => {
     setSettingGoal(true);
     const goal = customGoal.trim() || selectedGoal;
     if (goal) {
       setCurrentGoal(goal);
       setAiFeedback(''); // Clear previous feedback
+      localStorage.setItem('currentGoal', goal);
+      localStorage.removeItem('aiFeedback');
     }
     setSettingGoal(false);
   };
@@ -122,11 +132,14 @@ export default function ProfilePage() {
       const data = await res.json();
       if (data.feedback) {
         setAiFeedback(data.feedback);
+        localStorage.setItem('aiFeedback', data.feedback);
       } else {
         setAiFeedback('No feedback generated.');
+        localStorage.setItem('aiFeedback', 'No feedback generated.');
       }
     } catch (err) {
       setAiFeedback('Failed to get AI feedback.');
+      localStorage.setItem('aiFeedback', 'Failed to get AI feedback.');
     } finally {
       setAiLoading(false);
     }
