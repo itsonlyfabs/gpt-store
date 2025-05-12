@@ -4,11 +4,9 @@ import { cookies } from 'next/headers';
 
 interface ChatHistory {
   created_at: string;
-  tokens_used: number;
 }
 
-interface MonthlyStats {
-  tokens: number;
+interface DailyStats {
   chats: number;
 }
 
@@ -45,41 +43,36 @@ export async function GET(req: NextRequest) {
 
     // Calculate statistics
     const totalChats = chatHistory.length;
-    const totalTokens = chatHistory.reduce((sum, chat) => sum + (chat.tokens_used || 0), 0);
     const activeTools = new Set(purchasedTools.map(tool => tool.product_id)).size;
     
-    // Calculate monthly usage
-    const monthlyUsage = (chatHistory as ChatHistory[]).reduce((acc, chat) => {
+    // Calculate monthly usage (now daily usage, only chats)
+    const dailyUsage = (chatHistory as ChatHistory[]).reduce((acc, chat) => {
+      if (!chat.created_at) return acc; // type guard
       const date = new Date(chat.created_at).toISOString().split('T')[0];
+      if (!date) return acc;
       if (!acc[date]) {
-        acc[date] = { tokens: 0, chats: 0 };
+        acc[date] = { chats: 0 };
       }
-      acc[date].tokens += chat.tokens_used || 0;
       acc[date].chats += 1;
       return acc;
-    }, {} as Record<string, MonthlyStats>);
+    }, {} as Record<string, DailyStats>);
 
     // Convert to array and sort by date
-    const monthlyUsageArray = Object.entries(monthlyUsage)
+    const dailyUsageArray = Object.entries(dailyUsage)
       .map(([date, stats]) => ({
         date,
-        tokens: stats.tokens,
         chats: stats.chats
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // Calculate productivity score (example algorithm)
+    // Calculate productivity score (example algorithm, no tokens)
     const productivityScore = Math.min(
       100,
       Math.round(
-        (totalChats * 0.4) + // 40% weight on chat activity
-        (activeTools * 20) + // 20% weight on tool usage
-        (totalTokens / 1000) // 40% weight on token usage
+        (totalChats * 0.5) + // 50% weight on chat activity
+        (activeTools * 25)   // 50% weight on tool usage
       )
     );
-
-    // Calculate cost savings (example calculation)
-    const costSavings = Math.round(totalTokens * 0.0001 * 100) / 100; // Example: $0.0001 per token
 
     // Get user's request usage for this month
     const now = new Date();
@@ -102,11 +95,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       totalChats,
-      totalTokens,
       activeTools,
-      monthlyUsage: monthlyUsageArray,
+      dailyUsage: dailyUsageArray,
       productivityScore,
-      costSavings,
       lastActive: chatHistory[0]?.created_at || new Date().toISOString(),
       requestCount,
       requestLimit,
