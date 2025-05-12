@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
@@ -71,8 +71,66 @@ export default function ProfilePage() {
   const [error, setError] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [libraryProducts, setLibraryProducts] = useState<Product[]>([])
+  const [selectedGoal, setSelectedGoal] = useState('');
+  const [customGoal, setCustomGoal] = useState('');
+  const [currentGoal, setCurrentGoal] = useState<string | null>(null);
+  const [aiFeedback, setAiFeedback] = useState<string>('');
+  const [settingGoal, setSettingGoal] = useState(false);
+  const goalInputRef = useRef<HTMLInputElement>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const supabase = createClientComponentClient()
+
+  const preMadeGoals = [
+    'Improve focus',
+    'Reduce stress',
+    'Learn a new skill',
+    'Finish a project',
+    'Boost creativity',
+    'Build a daily habit',
+  ];
+
+  const handleSetGoal = () => {
+    setSettingGoal(true);
+    const goal = customGoal.trim() || selectedGoal;
+    if (goal) {
+      setCurrentGoal(goal);
+      setAiFeedback(''); // Clear previous feedback
+    }
+    setSettingGoal(false);
+  };
+
+  const handleGetFeedback = async () => {
+    if (!currentGoal) return;
+    setAiLoading(true);
+    setAiFeedback('');
+    try {
+      // Prepare data for backend
+      const usageTrends = usageTrendsData.map(d => d.category);
+      const productivityScore = usageStats?.productivityScore || 0;
+      const products = libraryProducts.map(p => p.name);
+      const res = await fetch('/api/user/goal-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goal: currentGoal,
+          usageTrends,
+          productivityScore,
+          products,
+        }),
+      });
+      const data = await res.json();
+      if (data.feedback) {
+        setAiFeedback(data.feedback);
+      } else {
+        setAiFeedback('No feedback generated.');
+      }
+    } catch (err) {
+      setAiFeedback('Failed to get AI feedback.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -181,6 +239,60 @@ export default function ProfilePage() {
     count
   }))
 
+  // Helper to render AI feedback with formatting
+  function renderAIFeedback(feedback: string) {
+    if (!feedback) return null;
+    // Split into paragraphs
+    const lines = feedback.split(/\n+/).filter(Boolean);
+    // Detect numbered lists
+    let inList = false;
+    let listItems: string[] = [];
+    const elements: React.ReactNode[] = [];
+    lines.forEach((line, idx) => {
+      const numbered = /^\d+\./.test(line.trim());
+      if (numbered) {
+        inList = true;
+        listItems.push(line.replace(/^\d+\.\s*/, ''));
+      } else {
+        if (inList && listItems.length) {
+          elements.push(
+            <ol key={`list-${idx}`} className="ml-6 list-decimal space-y-1 text-gray-800">
+              {listItems.map((item, i) => (
+                <li key={i}>{renderBold(item)}</li>
+              ))}
+            </ol>
+          );
+          listItems = [];
+          inList = false;
+        }
+        elements.push(
+          <p key={idx} className="mb-2 text-gray-800">{renderBold(line)}</p>
+        );
+      }
+    });
+    // If the last lines were a list
+    if (inList && listItems.length) {
+      elements.push(
+        <ol key={`list-last`} className="ml-6 list-decimal space-y-1 text-gray-800">
+          {listItems.map((item, i) => (
+            <li key={i}>{renderBold(item)}</li>
+          ))}
+        </ol>
+      );
+    }
+    return elements;
+  }
+  // Helper to render **bold**
+  function renderBold(text: string) {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+      if (/^\*\*[^*]+\*\*$/.test(part)) {
+        return <strong key={i} className="font-semibold text-blue-900">{part.replace(/\*\*/g, '')}</strong>;
+      }
+      return part;
+    });
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
@@ -195,7 +307,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Usage Bar & Upgrade */}
-          {usageStats?.requestLimit && usageStats?.requestCount !== undefined && (
+          {usageStats && usageStats.requestLimit !== undefined && usageStats.requestCount !== undefined && (
             <div className="mb-8 bg-white shadow rounded-lg p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-2">Monthly Usage</h2>
               <div className="flex items-center justify-between mb-2">
@@ -233,6 +345,68 @@ export default function ProfilePage() {
             </div>
           )}
 
+          {/* Goal & AI Coach Section - moved here */}
+          <section className="bg-white shadow rounded-lg p-6 mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Your Goal & AI Coach</h2>
+            <p className="text-gray-600 mb-4">Set your main goal and use this assessment to get personalised guidance on your journey. This is designed for meaningful check-ins, not frequent use—let it help you reflect, adjust, and stay on track for real progress.</p>
+            <div className="flex flex-col md:flex-row md:items-end gap-4 mb-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Choose a goal</label>
+                <select
+                  className="w-full border rounded-lg px-3 py-2"
+                  value={selectedGoal}
+                  onChange={e => setSelectedGoal(e.target.value)}
+                  disabled={!!customGoal}
+                >
+                  <option value="">Select a pre-made goal...</option>
+                  {preMadeGoals.map(goal => (
+                    <option key={goal} value={goal}>{goal}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Or enter a custom goal</label>
+                <input
+                  ref={goalInputRef}
+                  type="text"
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="Describe your goal..."
+                  value={customGoal}
+                  onChange={e => setCustomGoal(e.target.value)}
+                  disabled={!!selectedGoal}
+                />
+              </div>
+              <button
+                className="h-10 px-6 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-150 mt-2 md:mt-0"
+                onClick={handleSetGoal}
+                disabled={settingGoal || (!customGoal.trim() && !selectedGoal)}
+              >
+                Set/Update Goal
+              </button>
+            </div>
+            {currentGoal && (
+              <div className="mb-4">
+                <div className="text-gray-700 mb-1">Current Goal:</div>
+                <div className="font-semibold text-blue-700">{currentGoal}</div>
+              </div>
+            )}
+            <div className="flex flex-col md:flex-row md:items-center gap-4">
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors duration-150"
+                onClick={handleGetFeedback}
+                disabled={!currentGoal || aiLoading}
+              >
+                {aiLoading ? 'Getting Feedback...' : 'Get New Feedback'}
+              </button>
+              {aiFeedback && (
+                <div className="flex-1 bg-gray-50 border rounded-lg p-4 text-gray-800 whitespace-pre-line">
+                  <strong className="block mb-2 text-gray-900">Your Personalised Assessment:</strong>
+                  <div className="space-y-1">{renderAIFeedback(aiFeedback)}</div>
+                </div>
+              )}
+            </div>
+          </section>
+
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             {/* Usage Statistics */}
             <section className="bg-white shadow rounded-lg p-6">
@@ -260,61 +434,6 @@ export default function ProfilePage() {
                     <Bar dataKey="count" fill="#8884d8" name="Products" />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
-            </section>
-
-            {/* Goals & Achievements */}
-            <section className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Goals & Achievements</h2>
-              
-              {/* Goals */}
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Current Goals</h3>
-                <div className="space-y-4">
-                  {goals.map((goal) => (
-                    <div key={goal.id} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-medium text-gray-900">{goal.title}</h4>
-                        <span className="text-sm text-gray-500">
-                          {goal.current}/{goal.target} {goal.unit}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: `${(goal.current / goal.target) * 100}%` }}
-                        />
-                      </div>
-                      <p className="text-sm text-gray-500 mt-2">
-                        Deadline: {new Date(goal.deadline).toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Achievements */}
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-3">Achievements</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {achievements.map((achievement) => (
-                    <div
-                      key={achievement.id}
-                      className={`p-4 rounded-lg ${
-                        achievement.unlockedAt ? 'bg-green-50' : 'bg-gray-50'
-                      }`}
-                    >
-                      <div className="text-2xl mb-2">{achievement.icon}</div>
-                      <h4 className="font-medium text-gray-900">{achievement.title}</h4>
-                      <p className="text-sm text-gray-600">{achievement.description}</p>
-                      {achievement.unlockedAt && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          Unlocked: {new Date(achievement.unlockedAt).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
               </div>
             </section>
 
