@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import ProductCard from '@/components/ProductCard'
 import SearchBar from '@/components/SearchBar'
-import SearchFilters, { PriceRange, SubscriptionType, SortBy } from '@/components/SearchFilters'
+import SearchFilters, { SubscriptionType, SortBy } from '@/components/SearchFilters'
 
 interface Product {
   id: string
@@ -24,6 +24,11 @@ interface Filters {
   subscriptionType: SubscriptionType
   sortBy: SortBy
   query: string
+}
+
+interface PriceRange {
+  min: number;
+  max: number;
 }
 
 const currencies = ['USD', 'EUR', 'GBP']
@@ -117,7 +122,7 @@ function BrowsePageInner() {
         // Filter by subscription type
         if (filters.subscriptionType !== 'all') {
           filtered = filtered.filter(product => 
-            product.priceType === filters.subscriptionType
+            product.priceType === (filters.subscriptionType === 'pro' ? 'subscription' : 'one_time')
           )
         }
 
@@ -133,17 +138,14 @@ function BrowsePageInner() {
 
         // Sort products
         switch (filters.sortBy) {
-          case 'price-asc':
-            filtered.sort((a, b) => a.price - b.price)
-            break
-          case 'price-desc':
-            filtered.sort((a, b) => b.price - a.price)
+          case 'relevance':
+            // relevance - keep default order
             break
           case 'newest':
             // In a real app, we would sort by creation date
             break
           default:
-            // relevance - keep default order
+            // Handle other cases if needed
             break
         }
 
@@ -221,8 +223,6 @@ function BrowsePageInner() {
           <div className="w-full md:w-64 flex-shrink-0">
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <SearchFilters
-                priceRange={filters.priceRange}
-                onPriceRangeChange={handlePriceRangeChange}
                 subscriptionType={filters.subscriptionType}
                 onSubscriptionTypeChange={handleSubscriptionTypeChange}
                 sortBy={filters.sortBy}
@@ -270,11 +270,8 @@ function BrowsePageInner() {
                     id={product.id}
                     name={product.name}
                     description={product.description}
-                    price={product.price}
                     category={product.category}
                     thumbnail={product.thumbnail}
-                    priceType={product.priceType}
-                    currency={product.currency}
                   />
                 ))}
               </div>
