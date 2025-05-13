@@ -29,6 +29,7 @@ interface Product {
     userName: string
     date: string
   }[]
+  tier: 'FREE' | 'PRO'
 }
 
 export default function ProductPage() {
@@ -143,11 +144,14 @@ export default function ProductPage() {
                 {/* Left column - Product info */}
                 <div className="lg:col-span-2 space-y-8">
                   <div>
-                    <img
-                      src={product.thumbnail}
-                      alt={product.name}
-                      className="w-full h-64 object-cover rounded-lg"
-                    />
+                    <div className="relative">
+                      <img
+                        src={product.thumbnail}
+                        alt={product.name}
+                        className="w-full h-64 object-cover rounded-lg"
+                      />
+                      <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${product.tier === 'FREE' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-yellow-100 text-yellow-700 border border-yellow-300'}`}>{product.tier === 'PRO' ? 'PRO' : 'FREE'}</span>
+                    </div>
                     <h1 className="mt-6 text-3xl font-bold text-gray-900">{product.name}</h1>
                     <p className="mt-2 text-gray-600">{product.description}</p>
                   </div>

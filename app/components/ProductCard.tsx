@@ -9,6 +9,7 @@ interface ProductCardProps {
   description: string
   category: string
   thumbnail: string
+  tier: 'FREE' | 'PRO'
 }
 
 export default function ProductCard({
@@ -17,14 +18,16 @@ export default function ProductCard({
   description,
   category,
   thumbnail,
+  tier,
 }: ProductCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
+    <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200 relative">
       <img
         src={thumbnail}
         alt={name}
         className="w-full h-48 object-cover"
       />
+      <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${tier === 'FREE' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-yellow-100 text-yellow-700 border border-yellow-300'}`}>{tier}</span>
       <div className="p-4">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-medium text-gray-900">{name}</h3>

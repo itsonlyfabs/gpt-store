@@ -149,10 +149,13 @@ export default function Home() {
               {bundles.map(bundle => (
                 <div
                   key={bundle.id}
-                  className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer"
+                  className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer relative"
                   onClick={() => handleBundleClick(bundle)}
                 >
-                  <Image src={bundle.image} alt={bundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
+                  <div className="relative w-full">
+                    <Image src={bundle.image} alt={bundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
+                    <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${bundle.tier === 'FREE' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-yellow-100 text-yellow-700 border border-yellow-300'}`}>{bundle.tier}</span>
+                  </div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">{bundle.name}</h3>
                   <p className="text-gray-500">{bundle.description}</p>
                   {Array.isArray(bundle.products) && bundle.products.length > 0 && (
@@ -180,7 +183,10 @@ export default function Home() {
                 &times;
               </button>
               <div className="flex flex-col items-center text-center mb-6">
-                <Image src={selectedBundle.image} alt={selectedBundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
+                <div className="relative w-full">
+                  <Image src={selectedBundle.image} alt={selectedBundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
+                  <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${selectedBundle.tier === 'FREE' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-yellow-100 text-yellow-700 border border-yellow-300'}`}>{selectedBundle.tier}</span>
+                </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedBundle.name}</h2>
                 <p className="text-gray-600 mb-4">{selectedBundle.description}</p>
               </div>

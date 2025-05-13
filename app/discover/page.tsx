@@ -19,6 +19,7 @@ interface Product {
   thumbnail: string
   subscriptionType: 'one-time' | 'subscription'
   createdAt: string
+  tier?: string
 }
 
 // Mock products for development
@@ -30,7 +31,8 @@ const MOCK_PRODUCTS: Product[] = [
     category: 'Focus & Concentration',
     thumbnail: 'https://picsum.photos/seed/focus/800/400',
     subscriptionType: 'subscription',
-    createdAt: '2024-01-01'
+    createdAt: '2024-01-01',
+    tier: 'PRO'
   },
   {
     id: '2',
@@ -39,7 +41,8 @@ const MOCK_PRODUCTS: Product[] = [
     category: 'Meditation & Mindfulness',
     thumbnail: 'https://picsum.photos/seed/meditation/800/400',
     subscriptionType: 'subscription',
-    createdAt: '2024-01-02'
+    createdAt: '2024-01-02',
+    tier: 'PRO'
   },
   {
     id: '3',
@@ -48,7 +51,8 @@ const MOCK_PRODUCTS: Product[] = [
     category: 'Productivity',
     thumbnail: 'https://picsum.photos/seed/productivity/800/400',
     subscriptionType: 'one-time',
-    createdAt: '2024-01-03'
+    createdAt: '2024-01-03',
+    tier: 'FREE'
   },
 ]
 
@@ -204,6 +208,7 @@ export default function DiscoverPage() {
                           description={product.description}
                           category={product.category}
                           thumbnail={product.thumbnail}
+                          tier={product.tier === 'PRO' ? 'PRO' : 'FREE'}
                         />
                       ))}
                     </div>
