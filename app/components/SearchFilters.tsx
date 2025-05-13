@@ -2,17 +2,10 @@
 
 import React from 'react'
 
-export interface PriceRange {
-  min: number
-  max: number
-}
-
-export type SubscriptionType = 'subscription' | 'one-time' | 'all'
-export type SortBy = 'relevance' | 'price-asc' | 'price-desc' | 'newest'
+export type SubscriptionType = 'free' | 'pro' | 'all'
+export type SortBy = 'relevance' | 'newest'
 
 interface SearchFiltersProps {
-  priceRange: PriceRange
-  onPriceRangeChange: (range: PriceRange) => void
   subscriptionType: SubscriptionType
   onSubscriptionTypeChange: (type: SubscriptionType) => void
   sortBy: SortBy
@@ -21,8 +14,6 @@ interface SearchFiltersProps {
 }
 
 export default function SearchFilters({
-  priceRange,
-  onPriceRangeChange,
   subscriptionType,
   onSubscriptionTypeChange,
   sortBy,
@@ -32,40 +23,15 @@ export default function SearchFilters({
   return (
     <div className={`space-y-6 ${className}`}>
       <div>
-        <h3 className="text-lg font-medium mb-2">Price Range</h3>
-        <div className="flex gap-4">
-          <input
-            type="number"
-            value={priceRange.min / 100}
-            onChange={(e) => onPriceRangeChange({ ...priceRange, min: Number(e.target.value) * 100 })}
-            placeholder="Min"
-            min="0"
-            step="0.01"
-            className="w-24 px-3 py-2 border border-gray-300 rounded-md"
-          />
-          <span className="self-center">to</span>
-          <input
-            type="number"
-            value={priceRange.max / 100}
-            onChange={(e) => onPriceRangeChange({ ...priceRange, max: Number(e.target.value) * 100 })}
-            placeholder="Max"
-            min="0"
-            step="0.01"
-            className="w-24 px-3 py-2 border border-gray-300 rounded-md"
-          />
-        </div>
-      </div>
-
-      <div>
         <h3 className="text-lg font-medium mb-2">Subscription Type</h3>
         <select
           value={subscriptionType}
           onChange={(e) => onSubscriptionTypeChange(e.target.value as SubscriptionType)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
         >
-          <option value="all">All</option>
-          <option value="one-time">One-time</option>
-          <option value="subscription">Subscription</option>
+          <option value="all">All Subscription Types</option>
+          <option value="free">FREE</option>
+          <option value="pro">PRO</option>
         </select>
       </div>
 
@@ -77,8 +43,6 @@ export default function SearchFilters({
           className="w-full px-3 py-2 border border-gray-300 rounded-md"
         >
           <option value="relevance">Most Relevant</option>
-          <option value="price-asc">Price: Low to High</option>
-          <option value="price-desc">Price: High to Low</option>
           <option value="newest">Newest First</option>
         </select>
       </div>

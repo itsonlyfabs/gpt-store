@@ -22,11 +22,8 @@ interface Product {
   id: string;
   name: string;
   description: string;
-  price: number;
   category: string;
   thumbnail: string;
-  price_type: 'one_time' | 'subscription';
-  currency: string;
   features: string[];
   assistant_id: string;
 }
@@ -68,21 +65,15 @@ function AdminPage() {
   const [editForm, setEditForm] = useState<{
     name: string;
     description: string;
-    price: number;
     category: string;
     thumbnail: string;
-    price_type: 'one_time' | 'subscription';
-    currency: string;
     features: string;
     assistant_id: string;
   }>({
     name: '',
     description: '',
-    price: 0,
     category: '',
     thumbnail: '',
-    price_type: 'one_time',
-    currency: 'USD',
     features: '',
     assistant_id: ''
   });
@@ -171,11 +162,8 @@ function AdminPage() {
       setEditForm({
         name: product.name,
         description: product.description || '',
-        price: product.price,
         category: product.category || '',
         thumbnail: product.thumbnail || '',
-        price_type: product.price_type || 'one_time',
-        currency: product.currency,
         features: Array.isArray(product.features) ? product.features.join(', ') : '',
         assistant_id: product.assistant_id || ''
       });
@@ -184,7 +172,7 @@ function AdminPage() {
   };
 
   const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setEditForm({ ...editForm, [e.target.name]: e.target.name === 'price' ? Number(e.target.value) : e.target.value });
+    setEditForm({ ...editForm, [e.target.name]: e.target.value });
   };
 
   const handleSaveProduct = async (productId: string) => {
@@ -593,8 +581,7 @@ function AdminPage() {
                     <thead>
                       <tr>
                         <th className="px-4 py-2 text-left">Name</th>
-                        <th className="px-4 py-2 text-left">Price</th>
-                        <th className="px-4 py-2 text-left">Currency</th>
+                        <th className="px-4 py-2 text-left">Category</th>
                         <th className="px-4 py-2 text-left">Actions</th>
                       </tr>
                     </thead>
@@ -602,8 +589,7 @@ function AdminPage() {
                       {filteredProducts.map((product) => (
                         <tr key={product.id}>
                           <td className="px-4 py-2">{product.name}</td>
-                          <td className="px-4 py-2">{product.price}</td>
-                          <td className="px-4 py-2">{product.currency}</td>
+                          <td className="px-4 py-2">{product.category}</td>
                           <td className="px-4 py-2">
                             <div className="flex flex-col space-y-1">
                               <button
@@ -804,20 +790,11 @@ function AdminPage() {
             <form onSubmit={(e) => { e.preventDefault(); handleSaveProduct(editingProductId!); }} className="space-y-4">
               <input name="name" value={editForm.name} onChange={handleEditFormChange} placeholder="Name" className="w-full border p-2" required />
               <textarea name="description" value={editForm.description} onChange={handleEditFormChange} placeholder="Description" className="w-full border p-2" required />
-              <input name="price" value={editForm.price} onChange={handleEditFormChange} placeholder="Price (cents)" type="number" className="w-full border p-2" required />
               <input name="category" value={editForm.category} onChange={handleEditFormChange} placeholder="Category" className="w-full border p-2" required />
               <input name="thumbnail" value={editForm.thumbnail} onChange={handleEditFormChange} placeholder="Thumbnail URL" className="w-full border p-2" required />
-              <select name="price_type" value={editForm.price_type} onChange={handleEditFormChange} className="w-full border p-2" required>
-                <option value="one_time">One Time</option>
-                <option value="subscription">Subscription</option>
-              </select>
-              <input name="currency" value={editForm.currency} onChange={handleEditFormChange} placeholder="Currency (USD)" className="w-full border p-2" required />
               <input name="features" value={editForm.features} onChange={handleEditFormChange} placeholder="Features (comma separated)" className="w-full border p-2" />
               <input name="assistant_id" value={editForm.assistant_id} onChange={handleEditFormChange} placeholder="Assistant ID" className="w-full border p-2" required />
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 border rounded">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
-              </div>
+              <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? "Saving..." : "Save Changes"}</button>
             </form>
           </div>
         </div>

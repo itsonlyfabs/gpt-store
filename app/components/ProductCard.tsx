@@ -7,22 +7,16 @@ interface ProductCardProps {
   id: string
   name: string
   description: string
-  price: number
   category: string
   thumbnail: string
-  priceType?: 'one_time' | 'subscription'
-  currency?: string
 }
 
 export default function ProductCard({
   id,
   name,
   description,
-  price,
   category,
   thumbnail,
-  priceType = 'one_time',
-  currency = 'USD',
 }: ProductCardProps) {
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
@@ -39,18 +33,7 @@ export default function ProductCard({
           </span>
         </div>
         <p className="text-gray-600 text-sm mb-4 line-clamp-2">{description}</p>
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="text-primary font-medium">
-              {new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: currency
-              }).format(price / 100)}
-            </span>
-            <span className="text-gray-500 text-sm ml-1">
-              {priceType === 'subscription' ? '/month' : ''}
-            </span>
-          </div>
+        <div className="flex justify-end">
           <Link
             href={`/product/${id}`}
             className="px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors duration-200"

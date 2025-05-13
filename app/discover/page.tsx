@@ -8,18 +8,15 @@ import ProductCard from '@/components/ProductCard'
 import SearchFilters from '@/components/SearchFilters'
 import SearchSuggestions from '@/components/SearchSuggestions'
 
-type SubscriptionType = 'subscription' | 'one-time' | 'all'
+type SubscriptionType = 'free' | 'pro' | 'all'
 type SortBy = 'relevance' | 'price-asc' | 'price-desc' | 'newest'
 
 interface Product {
   id: string
   name: string
   description: string
-  price: number
   category: string
   thumbnail: string
-  priceType: 'one_time' | 'subscription'
-  currency: string
   subscriptionType: 'one-time' | 'subscription'
   createdAt: string
 }
@@ -30,11 +27,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: '1',
     name: 'Focus Enhancement AI',
     description: 'An AI-powered tool to help you maintain focus and concentration during work sessions.',
-    price: 2999,
     category: 'Focus & Concentration',
     thumbnail: 'https://picsum.photos/seed/focus/800/400',
-    priceType: 'subscription',
-    currency: 'USD',
     subscriptionType: 'subscription',
     createdAt: '2024-01-01'
   },
@@ -42,11 +36,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: '2',
     name: 'Meditation Guide AI',
     description: 'Personalized meditation sessions with AI-guided breathing exercises and mindfulness techniques.',
-    price: 1999,
     category: 'Meditation & Mindfulness',
     thumbnail: 'https://picsum.photos/seed/meditation/800/400',
-    priceType: 'subscription',
-    currency: 'USD',
     subscriptionType: 'subscription',
     createdAt: '2024-01-02'
   },
@@ -54,11 +45,8 @@ const MOCK_PRODUCTS: Product[] = [
     id: '3',
     name: 'Productivity Boost AI',
     description: 'Smart task management and productivity optimization using AI-driven insights.',
-    price: 3999,
     category: 'Productivity',
     thumbnail: 'https://picsum.photos/seed/productivity/800/400',
-    priceType: 'one_time',
-    currency: 'USD',
     subscriptionType: 'one-time',
     createdAt: '2024-01-03'
   },
@@ -78,13 +66,12 @@ export default function DiscoverPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [priceRange, setPriceRange] = useState({ min: 0, max: 10000 })
   const [subscriptionType, setSubscriptionType] = useState<SubscriptionType>('all')
   const [sortBy, setSortBy] = useState<SortBy>('relevance')
 
   useEffect(() => {
     fetchProducts(searchQuery)
-  }, [searchQuery, priceRange, subscriptionType, sortBy])
+  }, [searchQuery, subscriptionType, sortBy])
 
   const fetchProducts = async (query: string) => {
     try {
@@ -115,10 +102,6 @@ export default function DiscoverPage() {
 
   const handleSearch = async (newQuery: string) => {
     setSearchQuery(newQuery)
-  }
-
-  const handlePriceRangeChange = (range: { min: number; max: number }) => {
-    setPriceRange(range)
   }
 
   const handleSubscriptionTypeChange = (type: SubscriptionType) => {
@@ -172,8 +155,6 @@ export default function DiscoverPage() {
                 <div className="w-full md:w-64 flex-shrink-0">
                   <div className="bg-white p-6 rounded-lg shadow-sm">
                     <SearchFilters
-                      priceRange={priceRange}
-                      onPriceRangeChange={handlePriceRangeChange}
                       subscriptionType={subscriptionType}
                       onSubscriptionTypeChange={handleSubscriptionTypeChange}
                       sortBy={sortBy}
@@ -221,11 +202,8 @@ export default function DiscoverPage() {
                           id={product.id}
                           name={product.name}
                           description={product.description}
-                          price={product.price}
                           category={product.category}
                           thumbnail={product.thumbnail}
-                          priceType={product.priceType}
-                          currency={product.currency}
                         />
                       ))}
                     </div>

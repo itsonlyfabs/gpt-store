@@ -6,6 +6,7 @@ import { Check, Star } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import CheckoutButton from '@/components/CheckoutButton'
 import Reviews from '@/components/Reviews'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface Product {
   id: string
@@ -35,6 +36,10 @@ export default function ProductPage() {
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [added, setAdded] = useState(false)
+  const [addError, setAddError] = useState('')
+  const [addLoading, setAddLoading] = useState(false)
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -57,6 +62,43 @@ export default function ProductPage() {
       fetchProduct()
     }
   }, [params.id])
+
+  const handleAddToLibrary = async () => {
+    console.log('[AddToLibrary] Button clicked. Product:', product?.id)
+    setAddLoading(true)
+    setAddError('')
+    try {
+      console.log('[AddToLibrary] About to get session')
+      const { data, error } = await supabase.auth.getSession()
+      console.log('[AddToLibrary] getSession result:', data, error)
+      const session = data?.session
+      if (!session) throw new Error('Not authenticated')
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+      console.log('[AddToLibrary] Sending POST to:', `${backendUrl}/user/library`)
+      const res = await fetch(`${backendUrl}/user/library`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ productId: product?.id })
+      })
+      console.log('[AddToLibrary] Response status:', res.status)
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        console.log('[AddToLibrary] Error response:', errData)
+        throw new Error(errData.error || 'Failed to add product to library')
+      }
+      setAdded(true)
+      console.log('[AddToLibrary] Product added successfully!')
+    } catch (err: any) {
+      setAddError(err.message || 'Error adding to library')
+      console.error('[AddToLibrary] Caught error:', err)
+    } finally {
+      setAddLoading(false)
+      console.log('[AddToLibrary] Done')
+    }
+  }
 
   if (loading) {
     return (
@@ -114,7 +156,7 @@ export default function ProductPage() {
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-4">Features</h2>
                     <ul className="space-y-4">
-                      {product.features.map((feature, index) => (
+                      {(product.features || []).map((feature, index) => (
                         <li key={index} className="flex items-start">
                           <Check className="h-6 w-6 text-green-500 flex-shrink-0" />
                           <span className="ml-3 text-gray-600">{feature}</span>
@@ -125,9 +167,9 @@ export default function ProductPage() {
 
                   {/* Sample Interactions */}
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Sample Interactions</h2>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">User Reviews</h2>
                     <div className="space-y-4">
-                      {product.sampleInteractions.map((interaction, index) => (
+                      {(product.sampleInteractions || []).map((interaction, index) => (
                         <div key={index} className="bg-white p-4 rounded-lg shadow-sm">
                           <p className="font-medium text-gray-900 mb-2">Q: {interaction.question}</p>
                           <p className="text-gray-600">A: {interaction.answer}</p>
@@ -140,26 +182,23 @@ export default function ProductPage() {
                   <Reviews productId={product.id} className="mt-8" />
                 </div>
 
-                {/* Right column - Pricing and actions */}
+                {/* Right column - Add to Library action */}
                 <div className="lg:col-span-1">
                   <div className="bg-white p-6 rounded-lg shadow-sm sticky top-8">
                     <div className="mb-4">
-                      <span className="text-3xl font-bold text-gray-900">
-                        {new Intl.NumberFormat('en-US', {
-                          style: 'currency',
-                          currency: product.currency
-                        }).format(product.price / 100)}
-                      </span>
-                      {product.priceType === 'subscription' && (
-                        <span className="text-gray-500 ml-2">/month</span>
+                      {added ? (
+                        <span className="text-green-600 font-medium">Added to your library!</span>
+                      ) : (
+                        <button
+                          onClick={handleAddToLibrary}
+                          className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors duration-200 disabled:opacity-60"
+                          disabled={addLoading}
+                        >
+                          {addLoading ? 'Adding...' : 'Add to My Library'}
+                        </button>
                       )}
+                      {addError && <span className="text-red-600 text-sm block mt-2">{addError}</span>}
                     </div>
-
-                    <CheckoutButton
-                      productId={product.id}
-                      priceType={product.priceType}
-                      className="w-full"
-                    />
                   </div>
                 </div>
               </div>

@@ -81,4 +81,51 @@ router.get('/library', authMiddleware, async (req, res) => {
   }
 });
 
+// Add product to user's library
+router.post('/library', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { productId } = req.body;
+    console.log('[POST /user/library] userId:', userId, 'productId:', productId);
+    if (!productId) {
+      console.log('[POST /user/library] Missing productId');
+      return res.status(400).json({ error: 'Missing productId' });
+    }
+    // Check if already purchased
+    const { data: existing, error: checkError } = await supabase
+      .from('purchases')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('product_id', productId)
+      .eq('status', 'completed')
+      .single();
+    console.log('[POST /user/library] Existing purchase:', existing, 'Error:', checkError);
+    if (existing) {
+      return res.status(400).json({ error: 'You already own this product.' });
+    }
+    // Insert new purchase with all required fields
+    const insertPayload = {
+      user_id: userId,
+      product_id: productId,
+      stripe_session_id: 'manual',
+      amount_paid: 0,
+      currency: 'USD',
+      status: 'completed',
+      created_at: new Date().toISOString(),
+    };
+    console.log('[POST /user/library] Insert payload:', insertPayload);
+    const { data, error } = await supabase
+      .from('purchases')
+      .insert(insertPayload)
+      .select()
+      .single();
+    console.log('[POST /user/library] Insert result:', data, 'Error:', error);
+    if (error) throw error;
+    res.status(201).json({ success: true, purchase: data });
+  } catch (error) {
+    console.error('Error adding product to library:', error);
+    res.status(500).json({ error: 'Failed to add product to library', details: error.message });
+  }
+});
+
 module.exports = router; 

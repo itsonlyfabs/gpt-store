@@ -5,11 +5,8 @@ export default function CreateProductPage() {
   const [form, setForm] = useState({
     name: "",
     description: "",
-    price: "",
     category: "",
     thumbnail: "",
-    price_type: "one_time",
-    currency: "USD",
     features: "",
     assistant_id: ""
   });
@@ -32,7 +29,6 @@ export default function CreateProductPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          price: parseInt(form.price, 10),
           features: form.features.split(",").map(f => f.trim())
         })
       });
@@ -44,11 +40,8 @@ export default function CreateProductPage() {
       setForm({
         name: "",
         description: "",
-        price: "",
         category: "",
         thumbnail: "",
-        price_type: "one_time",
-        currency: "USD",
         features: "",
         assistant_id: ""
       });
@@ -65,14 +58,8 @@ export default function CreateProductPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <input name="name" value={form.name} onChange={handleChange} placeholder="Name" className="w-full border p-2" required />
         <textarea name="description" value={form.description} onChange={handleChange} placeholder="Description" className="w-full border p-2" required />
-        <input name="price" value={form.price} onChange={handleChange} placeholder="Price (cents)" type="number" className="w-full border p-2" required />
         <input name="category" value={form.category} onChange={handleChange} placeholder="Category" className="w-full border p-2" required />
         <input name="thumbnail" value={form.thumbnail} onChange={handleChange} placeholder="Thumbnail URL" className="w-full border p-2" required />
-        <select name="price_type" value={form.price_type} onChange={handleChange} className="w-full border p-2" required>
-          <option value="one_time">One Time</option>
-          <option value="subscription">Subscription</option>
-        </select>
-        <input name="currency" value={form.currency} onChange={handleChange} placeholder="Currency (USD)" className="w-full border p-2" required />
         <input name="features" value={form.features} onChange={handleChange} placeholder="Features (comma separated)" className="w-full border p-2" />
         <input name="assistant_id" value={form.assistant_id} onChange={handleChange} placeholder="Assistant ID" className="w-full border p-2" required />
         <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? "Creating..." : "Create Product"}</button>
