@@ -3,7 +3,7 @@
 import React from 'react'
 
 export type SubscriptionType = 'free' | 'pro' | 'all'
-export type SortBy = 'relevance' | 'newest'
+export type SortBy = 'relevance' | 'newest' | 'price-asc' | 'price-desc'
 
 interface SearchFiltersProps {
   subscriptionType: SubscriptionType

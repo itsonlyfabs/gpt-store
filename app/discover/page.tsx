@@ -9,7 +9,7 @@ import SearchFilters from '@/components/SearchFilters'
 import SearchSuggestions from '@/components/SearchSuggestions'
 
 type SubscriptionType = 'free' | 'pro' | 'all'
-type SortBy = 'relevance' | 'price-asc' | 'price-desc' | 'newest'
+type SortBy = 'relevance' | 'newest' | 'price-asc' | 'price-desc'
 
 interface Product {
   id: string
@@ -81,7 +81,7 @@ export default function DiscoverPage() {
       // Always fetch from backend API
       const searchParams = new URLSearchParams({
         ...(query && { search: query }),
-        ...(subscriptionType !== 'all' && { priceType: subscriptionType === 'subscription' ? 'subscription' : 'one_time' })
+        ...(subscriptionType !== 'all' && { priceType: subscriptionType === 'pro' ? 'subscription' : 'one_time' })
       })
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?${searchParams}`)
