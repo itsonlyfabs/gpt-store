@@ -133,7 +133,8 @@ router.post('/products', [authMiddleware, adminMiddleware], async (req, res) => 
           price_type,
           currency,
           features: features || [],
-          assistant_id
+          assistant_id,
+          tier: 'FREE'
         }
       ])
       .select()
@@ -318,7 +319,7 @@ router.post('/bundles', [authMiddleware, adminMiddleware], async (req, res) => {
 
     const { data: bundle, error: bundleError } = await supabaseAdmin
       .from('bundles')
-      .insert([{ name, description, image, product_ids }])
+      .insert([{ name, description, image, product_ids, tier: 'FREE' }])
       .select()
       .single();
 
@@ -344,7 +345,7 @@ router.put('/bundles/:id', [authMiddleware, adminMiddleware], async (req, res) =
 
     const { data: bundle, error: bundleError } = await supabaseAdmin
       .from('bundles')
-      .update({ name, description, image, product_ids })
+      .update({ name, description, image, product_ids, tier: 'FREE' })
       .eq('id', id)
       .select()
       .single();

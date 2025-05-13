@@ -26,6 +26,7 @@ interface Product {
   thumbnail: string;
   features: string[];
   assistant_id: string;
+  tier: 'FREE' | 'PRO';
 }
 
 interface Bundle {
@@ -34,6 +35,7 @@ interface Bundle {
   description: string;
   image: string;
   product_ids: string[];
+  tier: 'FREE' | 'PRO';
 }
 
 if (typeof window !== 'undefined') {
@@ -69,24 +71,28 @@ function AdminPage() {
     thumbnail: string;
     features: string;
     assistant_id: string;
+    tier: 'FREE' | 'PRO';
   }>({
     name: '',
     description: '',
     category: '',
     thumbnail: '',
     features: '',
-    assistant_id: ''
+    assistant_id: '',
+    tier: 'FREE'
   });
   const [editBundleForm, setEditBundleForm] = useState<{
     name: string;
     description: string;
     image: string;
     product_ids: string[];
+    tier: 'FREE' | 'PRO';
   }>({
     name: '',
     description: '',
     image: '',
-    product_ids: []
+    product_ids: [],
+    tier: 'FREE'
   });
   const [productCategorySearch, setProductCategorySearch] = useState('');
   const [bundleCategorySearch, setBundleCategorySearch] = useState('');
@@ -165,7 +171,8 @@ function AdminPage() {
         category: product.category || '',
         thumbnail: product.thumbnail || '',
         features: Array.isArray(product.features) ? product.features.join(', ') : '',
-        assistant_id: product.assistant_id || ''
+        assistant_id: product.assistant_id || '',
+        tier: product.tier || 'FREE'
       });
       setIsEditModalOpen(true);
     }
@@ -244,7 +251,8 @@ function AdminPage() {
         name: bundle.name,
         description: bundle.description || '',
         image: bundle.image || '',
-        product_ids: bundle.product_ids || []
+        product_ids: bundle.product_ids || [],
+        tier: bundle.tier || 'FREE'
       });
       setIsEditBundleModalOpen(true);
     }
@@ -582,6 +590,7 @@ function AdminPage() {
                       <tr>
                         <th className="px-4 py-2 text-left">Name</th>
                         <th className="px-4 py-2 text-left">Category</th>
+                        <th className="px-4 py-2 text-left">Tier</th>
                         <th className="px-4 py-2 text-left">Actions</th>
                       </tr>
                     </thead>
@@ -590,6 +599,7 @@ function AdminPage() {
                         <tr key={product.id}>
                           <td className="px-4 py-2">{product.name}</td>
                           <td className="px-4 py-2">{product.category}</td>
+                          <td className="px-4 py-2">{product.tier}</td>
                           <td className="px-4 py-2">
                             <div className="flex flex-col space-y-1">
                               <button
@@ -650,6 +660,7 @@ function AdminPage() {
                         <th className="px-4 py-2 text-left">Name</th>
                         <th className="px-4 py-2 text-left">Description</th>
                         <th className="px-4 py-2 text-left">Products</th>
+                        <th className="px-4 py-2 text-left">Tier</th>
                         <th className="px-4 py-2 text-left">Actions</th>
                       </tr>
                     </thead>
@@ -661,6 +672,7 @@ function AdminPage() {
                           <td className="px-4 py-2">
                             {bundle.product_ids.length} products
                           </td>
+                          <td className="px-4 py-2">{bundle.tier}</td>
                           <td className="px-4 py-2">
                             <button
                               onClick={() => handleEditBundle(bundle.id)}
@@ -794,6 +806,7 @@ function AdminPage() {
               <input name="thumbnail" value={editForm.thumbnail} onChange={handleEditFormChange} placeholder="Thumbnail URL" className="w-full border p-2" required />
               <input name="features" value={editForm.features} onChange={handleEditFormChange} placeholder="Features (comma separated)" className="w-full border p-2" />
               <input name="assistant_id" value={editForm.assistant_id} onChange={handleEditFormChange} placeholder="Assistant ID" className="w-full border p-2" required />
+              <input name="tier" value={editForm.tier} onChange={handleEditFormChange} placeholder="Tier" className="w-full border p-2" required />
               <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? "Saving..." : "Save Changes"}</button>
             </form>
           </div>
@@ -848,6 +861,14 @@ function AdminPage() {
                   </label>
                 ))}
               </div>
+              <input
+                name="tier"
+                value={editBundleForm.tier}
+                onChange={handleEditBundleFormChange}
+                placeholder="Tier"
+                className="w-full border p-2"
+                required
+              />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"

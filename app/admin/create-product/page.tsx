@@ -8,7 +8,8 @@ export default function CreateProductPage() {
     category: "",
     thumbnail: "",
     features: "",
-    assistant_id: ""
+    assistant_id: "",
+    tier: "FREE"
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
@@ -43,7 +44,8 @@ export default function CreateProductPage() {
         category: "",
         thumbnail: "",
         features: "",
-        assistant_id: ""
+        assistant_id: "",
+        tier: "FREE"
       });
     } catch (err: any) {
       setError(err.message);
@@ -62,6 +64,10 @@ export default function CreateProductPage() {
         <input name="thumbnail" value={form.thumbnail} onChange={handleChange} placeholder="Thumbnail URL" className="w-full border p-2" required />
         <input name="features" value={form.features} onChange={handleChange} placeholder="Features (comma separated)" className="w-full border p-2" />
         <input name="assistant_id" value={form.assistant_id} onChange={handleChange} placeholder="Assistant ID" className="w-full border p-2" required />
+        <select name="tier" value={form.tier} onChange={handleChange} className="w-full border p-2" required>
+          <option value="FREE">FREE</option>
+          <option value="PRO">PRO</option>
+        </select>
         <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? "Creating..." : "Create Product"}</button>
         {success && <div className="text-green-600">{success}</div>}
         {error && <div className="text-red-600">{error}</div>}

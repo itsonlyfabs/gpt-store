@@ -7,7 +7,8 @@ export default function CreateBundlePage() {
   const [form, setForm] = useState({
     name: "",
     description: "",
-    image: ""
+    image: "",
+    tier: "FREE"
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
@@ -26,7 +27,7 @@ export default function CreateBundlePage() {
       .catch(() => setBundles([]));
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -36,7 +37,7 @@ export default function CreateBundlePage() {
 
   const handleEdit = (bundle: any) => {
     setEditing(bundle);
-    setForm({ name: bundle.name, description: bundle.description, image: bundle.image });
+    setForm({ name: bundle.name, description: bundle.description, image: bundle.image, tier: bundle.tier || 'FREE' });
     setSelected(bundle.products.map((p: any) => p.id));
     setSuccess("");
     setError("");
@@ -78,7 +79,7 @@ export default function CreateBundlePage() {
         throw new Error(data.error || `Failed to ${editing ? "edit" : "create"} bundle`);
       }
       setSuccess(`Bundle ${editing ? "updated" : "created"} successfully!`);
-      setForm({ name: "", description: "", image: "" });
+      setForm({ name: "", description: "", image: "", tier: "FREE" });
       setSelected([]);
       setEditing(null);
       // Refresh bundles list
@@ -100,6 +101,10 @@ export default function CreateBundlePage() {
         <input name="name" value={form.name} onChange={handleChange} placeholder="Bundle Name" className="w-full border p-2" required />
         <textarea name="description" value={form.description} onChange={handleChange} placeholder="Description" className="w-full border p-2" required />
         <input name="image" value={form.image} onChange={handleChange} placeholder="Image URL" className="w-full border p-2" required />
+        <select name="tier" value={form.tier} onChange={handleChange} className="w-full border p-2" required>
+          <option value="FREE">FREE</option>
+          <option value="PRO">PRO</option>
+        </select>
         <div>
           <div className="font-semibold mb-2">Select Products for this Bundle:</div>
           <div className="max-h-48 overflow-y-auto border rounded p-2 bg-gray-50">
@@ -119,7 +124,7 @@ export default function CreateBundlePage() {
           </div>
         </div>
         <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? (editing ? "Saving..." : "Creating...") : (editing ? "Save Changes" : "Create Bundle")}</button>
-        {editing && <button type="button" className="ml-2 px-4 py-2 rounded border" onClick={() => { setEditing(null); setForm({ name: "", description: "", image: "" }); setSelected([]); }}>Cancel</button>}
+        {editing && <button type="button" className="ml-2 px-4 py-2 rounded border" onClick={() => { setEditing(null); setForm({ name: "", description: "", image: "", tier: "FREE" }); setSelected([]); }}>Cancel</button>}
         {success && <div className="text-green-600">{success}</div>}
         {error && <div className="text-red-600">{error}</div>}
       </form>
