@@ -272,6 +272,7 @@ function BrowsePageInner() {
                     description={product.description}
                     category={product.category}
                     thumbnail={product.thumbnail}
+                    tier={product.priceType === 'subscription' ? 'PRO' : 'FREE'}
                   />
                 ))}
               </div>
