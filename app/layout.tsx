@@ -1,5 +1,6 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
+import ChatWidget from './components/ChatWidget'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -18,6 +19,7 @@ export default function RootLayout({
       <body className={`${inter.className} h-full antialiased`}>
         <div className="min-h-screen bg-gray-50">
           {children}
+          <ChatWidget />
         </div>
       </body>
     </html>

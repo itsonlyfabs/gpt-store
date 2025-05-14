@@ -5,6 +5,8 @@ import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { Avatar, Box, Button, Grid, Paper, Typography, TextField, CircularProgress } from '@mui/material'
+import type { Session } from '@supabase/auth-helpers-nextjs'
 
 interface UsageStats {
   totalChats: number
@@ -78,6 +80,8 @@ export default function ProfilePage() {
   const [settingGoal, setSettingGoal] = useState(false);
   const goalInputRef = useRef<HTMLInputElement>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [formData, setFormData] = useState({ name: '', email: '' });
 
   const supabase = createClientComponentClient()
 
@@ -188,6 +192,7 @@ export default function ProfilePage() {
         const libraryData = await libraryResponse.json()
         console.log('Fetched library data:', libraryData)
         setLibraryProducts(libraryData.products || [])
+        setSession(session)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred')
       } finally {
@@ -197,6 +202,19 @@ export default function ProfilePage() {
 
     fetchData()
   }, [])
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    // Handle form submission
+  };
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = event.target;
+    setFormData(prevData => ({
+      ...prevData,
+      [id]: value
+    }));
+  };
 
   if (loading) {
     return (
@@ -420,71 +438,33 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-            {/* Usage Statistics */}
-            <section className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Usage Statistics</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-600 font-medium">Total Assistants</p>
-                  <p className="text-2xl font-bold text-blue-900">{totalAssistants}</p>
-                </div>
-                <div className="p-4 bg-yellow-50 rounded-lg">
-                  <p className="text-sm text-yellow-600 font-medium">Productivity Score</p>
-                  <p className="text-2xl font-bold text-yellow-900">{usageStats?.productivityScore}%</p>
-                </div>
+          {/* Usage Statistics */}
+          <section className="bg-white shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Usage Statistics</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-600 font-medium">Total Assistants</p>
+                <p className="text-2xl font-bold text-blue-900">{totalAssistants}</p>
               </div>
-              
-              {/* Usage Trends Chart */}
-              <div className="mt-6 h-64">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Usage Trends</h3>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={usageTrendsData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="category" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#8884d8" name="Products" />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="p-4 bg-yellow-50 rounded-lg">
+                <p className="text-sm text-yellow-600 font-medium">Productivity Score</p>
+                <p className="text-2xl font-bold text-yellow-900">{usageStats?.productivityScore}%</p>
               </div>
-            </section>
-
-            {/* Quick Actions */}
-            <section className="bg-white shadow rounded-lg p-6 lg:col-span-2">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Link
-                  href="/settings"
-                  className="flex flex-col items-center p-4 text-center text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-150"
-                >
-                  <span className="text-xl mb-2">⚙️</span>
-                  Update Settings
-                </Link>
-                <Link
-                  href="/billing"
-                  className="flex flex-col items-center p-4 text-center text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-150"
-                >
-                  <span className="text-xl mb-2">💳</span>
-                  Manage Billing
-                </Link>
-                <Link
-                  href="/my-library"
-                  className="flex flex-col items-center p-4 text-center text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-150"
-                >
-                  <span className="text-xl mb-2">📚</span>
-                  View Library
-                </Link>
-                <Link
-                  href="/support"
-                  className="flex flex-col items-center p-4 text-center text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-150"
-                >
-                  <span className="text-xl mb-2">💬</span>
-                  Get Support
-                </Link>
-              </div>
-            </section>
-          </div>
+            </div>
+            {/* Usage Trends Chart */}
+            <div className="mt-6 h-64">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Usage Trends</h3>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={usageTrendsData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="category" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#8884d8" name="Products" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
         </div>
       </main>
     </div>

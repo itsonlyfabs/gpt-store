@@ -16,6 +16,7 @@
     "@anthropic-ai/sdk": "^0.40.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^7.1.0",
     "@mui/material": "^7.1.0",
     "@nivo/bar": "^0.96.0",
     "@nivo/line": "^0.96.0",
