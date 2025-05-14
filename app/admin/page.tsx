@@ -8,6 +8,7 @@ import SearchBar from '@/components/SearchBar';
 import CategoryDropdown from '../../components/CategoryDropdown';
 import RefreshButton from '../../components/RefreshButton';
 import React, { Suspense } from 'react';
+import AdminAnalyticsDashboard from '../components/AdminAnalyticsDashboard';
 
 interface User {
   id: string;
@@ -486,6 +487,12 @@ function AdminPage() {
         <div className="max-w-6xl px-8 py-8 mx-auto">
           <h1 className="text-2xl font-bold mb-6 text-left">Admin Dashboard</h1>
           <div className="grid grid-cols-1 gap-6">
+            {/* Analytics Section */}
+            {section === 'analytics' && (
+              <div className="bg-white p-6 rounded-lg shadow">
+                <AdminAnalyticsDashboard />
+              </div>
+            )}
             {/* Users Section */}
             {section === 'users' && (
               <div className="bg-white p-6 rounded-lg shadow">

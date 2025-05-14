@@ -10,6 +10,7 @@ export default function AdminSidebar() {
   const currentSection = searchParams.get('section') || 'users';
 
   const navigation = [
+    { name: 'Analytics', href: '/admin?section=analytics' },
     { name: 'Users', href: '/admin?section=users' },
     { name: 'Products', href: '/admin?section=products' },
     { name: 'Bundles', href: '/admin?section=bundles' },

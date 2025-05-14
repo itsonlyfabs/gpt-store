@@ -4,6 +4,9 @@ const authMiddleware = require('../middleware/auth');
 const adminMiddleware = require('../middleware/admin');
 const { supabase, supabaseAdmin } = require('../lib/supabase');
 
+// Apply authentication middleware to all routes
+router.use(authMiddleware);
+
 // Product Management
 router.put('/products/:id', [authMiddleware, adminMiddleware], async (req, res) => {
   try {
@@ -384,6 +387,125 @@ router.delete('/bundles/:id', [authMiddleware, adminMiddleware], async (req, res
   } catch (error) {
     console.error('Error in DELETE /api/admin/bundles/:id:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Get analytics data
+router.get('/analytics', [authMiddleware, adminMiddleware], async (req, res) => {
+  console.error('ANALYTICS ROUTE HIT');
+  console.log('HIT /api/admin/analytics');
+  try {
+    console.log('Fetching total users...');
+    const { count: totalUsers, error: usersError } = await supabaseAdmin
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+    if (usersError) console.error('Supabase users error:', usersError);
+    console.log('Total users:', totalUsers);
+
+    console.log('Fetching active users...');
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const { count: activeUsers, error: activeUsersError } = await supabaseAdmin
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gte('last_login', thirtyDaysAgo.toISOString());
+    if (activeUsersError) console.error('Supabase active users error:', activeUsersError);
+    console.log('Active users:', activeUsers);
+
+    console.log('Fetching total revenue...');
+    const { data: revenueData, error: revenueError } = await supabaseAdmin
+      .from('payments')
+      .select('amount')
+      .eq('status', 'completed');
+    if (revenueError) console.error('Supabase revenue error:', revenueError);
+    console.log('Revenue data:', revenueData);
+
+    const totalRevenue = revenueData.reduce((sum, payment) => sum + payment.amount, 0);
+    console.log('Total revenue:', totalRevenue);
+
+    console.log('Fetching monthly revenue...');
+    const { data: monthlyRevenue, error: monthlyRevenueError } = await supabaseAdmin
+      .from('payments')
+      .select('amount, created_at')
+      .eq('status', 'completed')
+      .order('created_at', { ascending: true });
+    if (monthlyRevenueError) console.error('Supabase monthly revenue error:', monthlyRevenueError);
+    console.log('Monthly revenue data:', monthlyRevenue);
+
+    const monthlyRevenueData = monthlyRevenue.reduce((acc, payment) => {
+      const month = new Date(payment.created_at).toLocaleString('default', { month: 'short' });
+      if (!acc[month]) {
+        acc[month] = 0;
+      }
+      acc[month] += payment.amount;
+      return acc;
+    }, {});
+    const monthlyRevenueArray = Object.entries(monthlyRevenueData).map(([month, amount]) => ({
+      month,
+      amount
+    }));
+    console.log('Monthly revenue array:', monthlyRevenueArray);
+
+    console.log('Fetching product usage...');
+    const { data: productUsage, error: productUsageError } = await supabaseAdmin
+      .from('product_usage')
+      .select('product_id, count')
+      .order('count', { ascending: false })
+      .limit(5);
+    if (productUsageError) console.error('Supabase product usage error:', productUsageError);
+    console.log('Product usage data:', productUsage);
+
+    const { data: products, error: productsError } = await supabaseAdmin
+      .from('products')
+      .select('id, name')
+      .in('id', productUsage.map(p => p.product_id));
+    if (productsError) console.error('Supabase products error:', productsError);
+    console.log('Products data:', products);
+
+    const productUsageData = productUsage.map(usage => {
+      const product = products.find(p => p.id === usage.product_id);
+      return {
+        id: product ? product.name : usage.product_id,
+        label: product ? product.name : usage.product_id,
+        value: usage.count
+      };
+    });
+    console.log('Product usage array:', productUsageData);
+
+    console.log('Fetching user growth...');
+    const { data: userGrowth, error: userGrowthError } = await supabaseAdmin
+      .from('users')
+      .select('created_at, last_login')
+      .order('created_at', { ascending: true });
+    if (userGrowthError) console.error('Supabase user growth error:', userGrowthError);
+    console.log('User growth data:', userGrowth);
+
+    // User growth: count new users per month using created_at only
+    const userGrowthData = (userGrowth || []).reduce((acc, user) => {
+      const month = new Date(user.created_at).toLocaleString('default', { month: 'short' });
+      if (!acc[month]) {
+        acc[month] = { newUsers: 0 };
+      }
+      acc[month].newUsers += 1;
+      return acc;
+    }, {});
+    const userGrowthArray = Object.entries(userGrowthData).map(([month, data]) => ({
+      month,
+      ...data
+    }));
+    console.log('User growth array:', userGrowthArray);
+
+    res.json({
+      totalUsers,
+      activeUsers: activeUsers || 0,
+      totalRevenue,
+      monthlyRevenue: monthlyRevenueArray,
+      productUsage: productUsageData,
+      userGrowth: userGrowthArray
+    });
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    res.status(500).json({ error: 'Failed to fetch analytics data' });
   }
 });
 

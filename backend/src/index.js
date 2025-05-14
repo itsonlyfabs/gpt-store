@@ -90,7 +90,6 @@ app.use('/api/user', userRoutes);
 app.use('/api/bundles', bundlesRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/analytics', analyticsRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
