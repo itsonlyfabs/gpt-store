@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react'
 import Sidebar from '@/components/Sidebar'
+import { Accordion, AccordionSummary, AccordionDetails, Typography, Box } from '@mui/material'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 
 interface FAQ {
   question: string
@@ -56,6 +58,49 @@ const MOCK_DOCUMENTATION: DocumentationLink[] = [
   },
 ]
 
+const faqs = [
+  {
+    question: 'What can I do with Genio?',
+    answer: 'You can set goals, track your progress, analyze your usage, and get personalized guidance to help you grow and succeed. The platform brings together analytics, coaching, and resources to support your journey.'
+  },
+  {
+    question: 'Do you offer a free trial?',
+    answer: 'Better! We offer free subscription to the platform with limited credit so that you can try it out for yourself. Simply sign up, set your first goal, and explore the dashboard. Use the onboarding chat assistant if you have any questions or need a quick tour of the features.'
+  },
+  {
+    question: 'What are the main features of the platform?',
+    answer: 'Key features include:\n- Personalized analytics dashboard\n- Product usage tracking\n- Goal setting and AI coaching\n- Resource library with guides and tips\n- Secure account management\n- Mobile-friendly design\n- Instant support via chat assistant'
+  },
+  {
+    question: 'How can I track my progress or results?',
+    answer: 'Your dashboard shows your progress and usage trends. Check it regularly to see how you\'re doing and where you can improve and use the Goal Setting and AI-Coach to correct your direction!'
+  },
+  {
+    question: 'Is my data secure and private?',
+    answer: 'Yes! We use industry-standard security practices to keep your data safe and private. You control your account and can update or delete your information at any time.'
+  },
+  {
+    question: 'How do I get help if I\'m stuck?',
+    answer: 'Click the chat bubble in the bottom-right corner to talk to the onboarding assistant. You can also visit our support page or check the resource library for guides and FAQs.'
+  },
+  {
+    question: 'Can I use the platform on mobile devices?',
+    answer: 'Absolutely! The platform is fully responsive and works on smartphones, tablets, and desktops—so you can stay productive anywhere.'
+  },
+  {
+    question: 'How do I upgrade or manage my subscription?',
+    answer: 'Go to your account settings and select "Subscription." From there, you can upgrade, downgrade, or manage your plan at any time.'
+  },
+  {
+    question: 'What should I do if I encounter a bug or issue?',
+    answer: 'Please report any bugs using the chat assistant or the support page. Our team will investigate and get back to you as soon as possible.'
+  },
+  {
+    question: 'How can I get the most out of the platform over time?',
+    answer: 'Set clear goals, check your analytics regularly, explore new resources, and use the chat assistant whenever you have questions. Consistent use leads to better results and ongoing growth. New products and bundles come out every week!'
+  },
+]
+
 export default function SupportPage() {
   const [contactForm, setContactForm] = useState({
     name: '',
@@ -66,6 +111,7 @@ export default function SupportPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [expanded, setExpanded] = useState<number | false>(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -91,6 +137,10 @@ export default function SupportPage() {
     setContactForm(prev => ({ ...prev, [name]: value }))
   }
 
+  const handleAccordionChange = (panel: number) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
+    setExpanded(isExpanded ? panel : false)
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
@@ -101,17 +151,18 @@ export default function SupportPage() {
           {/* FAQ Section */}
           <section className="mb-12">
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Frequently Asked Questions</h2>
-            <div className="space-y-6">
-              {MOCK_FAQS.map((faq, index) => (
-                <div key={index} className="bg-white shadow-sm rounded-lg p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">{faq.question}</h3>
-                  <p className="text-gray-600">{faq.answer}</p>
-                  <span className="inline-block mt-2 px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full">
-                    {faq.category}
-                  </span>
-                </div>
+            <Box mt={6}>
+              {faqs.map((faq, idx) => (
+                <Accordion key={idx} expanded={expanded === idx} onChange={handleAccordionChange(idx)}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography fontWeight={600}>{faq.question}</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Typography component="div" whiteSpace="pre-line">{faq.answer}</Typography>
+                  </AccordionDetails>
+                </Accordion>
               ))}
-            </div>
+            </Box>
           </section>
 
           {/* Documentation Section */}

@@ -27,6 +27,7 @@ const ChatWidget = () => {
   ]);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (open && messagesEndRef.current) {
@@ -34,14 +35,24 @@ const ChatWidget = () => {
     }
   }, [open, messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
     setMessages([...messages, { from: 'user', text: input }]);
     setInput('');
-    // Placeholder: echo bot
-    setTimeout(() => {
-      setMessages(msgs => [...msgs, { from: 'bot', text: "I'm here to help! (AI integration coming soon)" }]);
-    }, 600);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: input })
+      });
+      const data = await res.json();
+      setMessages(msgs => [...msgs, { from: 'bot', text: data.reply || "Sorry, I couldn't get a response right now." }]);
+    } catch (err) {
+      setMessages(msgs => [...msgs, { from: 'bot', text: "Sorry, something went wrong. Please try again later." }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -90,7 +101,9 @@ const ChatWidget = () => {
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleSend(); }}
             />
-            <Button variant="contained" onClick={handleSend} disabled={!input.trim()}>Send</Button>
+            <Button variant="contained" onClick={handleSend} disabled={!input.trim() || loading}>
+              {loading ? 'Sending...' : 'Send'}
+            </Button>
           </Box>
         </Paper>
       )}
