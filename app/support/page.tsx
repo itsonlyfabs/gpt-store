@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Sidebar from '@/components/Sidebar'
 import { Accordion, AccordionSummary, AccordionDetails, Typography, Box } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -43,20 +43,20 @@ const MOCK_FAQS: FAQ[] = [
 ]
 
 // Mock documentation links for development
-const MOCK_DOCUMENTATION: DocumentationLink[] = [
+const MOCK_DOCUMENTATION = [
   {
+    id: 'mock1',
     title: 'Focus Enhancement AI Guide',
     description: 'Learn how to maximize your productivity with our focus enhancement tool.',
     url: '/docs/focus-enhancement',
-    toolId: '1',
   },
   {
+    id: 'mock2',
     title: 'Meditation Guide AI Documentation',
     description: 'Detailed guide on using our meditation AI for mindfulness practice.',
     url: '/docs/meditation-guide',
-    toolId: '2',
   },
-]
+];
 
 const faqs = [
   {
@@ -112,6 +112,18 @@ export default function SupportPage() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState<number | false>(false)
+  const [documentation, setDocumentation] = useState([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    fetch('/api/documentation')
+      .then(res => res.ok ? res.json() : Promise.reject(res))
+      .then(setDocumentation)
+      .catch(() => setDocumentation([]));
+  }, []);
+
+  console.log('Fetched documentation:', documentation);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -166,23 +178,29 @@ export default function SupportPage() {
           </section>
 
           {/* Documentation Section */}
-          <section className="mb-12">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Documentation</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {MOCK_DOCUMENTATION.map((doc, index) => (
-                <div key={index} className="bg-white shadow-sm rounded-lg p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">{doc.title}</h3>
-                  <p className="text-gray-600 mb-4">{doc.description}</p>
-                  <a
-                    href={doc.url}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Read Documentation →
-                  </a>
-                </div>
-              ))}
-            </div>
-          </section>
+          {mounted && (
+            <section className="mb-12">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-6">Documentation</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {documentation.length === 0 ? (
+                  <div className="text-gray-500">No documentation available.</div>
+                ) : documentation.map((doc: any) => (
+                  <div key={doc.id} className="bg-white shadow-sm rounded-lg p-6 flex flex-col justify-between h-full relative">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">{doc.title}</h3>
+                      <p className="text-gray-600 mb-4">{doc.subtitle}</p>
+                    </div>
+                    <button
+                      className="px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors duration-200 absolute bottom-4 right-4 font-medium"
+                      onClick={() => window.open(`/support/documentation/${doc.id}`, '_blank')}
+                    >
+                      Read More
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Contact Form */}
           <section className="mb-12">
@@ -283,7 +301,7 @@ export default function SupportPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    className="w-full flex justify-center px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-colors duration-200 font-medium disabled:opacity-50"
                   >
                     {loading ? 'Sending...' : 'Send Message'}
                   </button>

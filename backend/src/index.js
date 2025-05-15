@@ -11,6 +11,7 @@ const bundlesRoutes = require('./routes/bundles');
 const testRoutes = require('./routes/test');
 const adminRoutes = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
+const documentationRoutes = require('./routes/documentation');
 const errorHandler = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
 
@@ -90,6 +91,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/bundles', bundlesRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/documentation', documentationRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

@@ -14,7 +14,8 @@ export default function AdminSidebar() {
     { name: 'Users', href: '/admin?section=users' },
     { name: 'Products', href: '/admin?section=products' },
     { name: 'Bundles', href: '/admin?section=bundles' },
-    { name: 'Reviews', href: '/admin?section=reviews' }
+    { name: 'Reviews', href: '/admin?section=reviews' },
+    { name: 'Documentation', href: '/admin?section=documentation' }
   ]
 
   return (

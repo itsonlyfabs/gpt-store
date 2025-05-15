@@ -9,6 +9,7 @@ import CategoryDropdown from '../../components/CategoryDropdown';
 import RefreshButton from '../../components/RefreshButton';
 import React, { Suspense } from 'react';
 import AdminAnalyticsDashboard from '../components/AdminAnalyticsDashboard';
+import DocumentationAdmin from './DocumentationAdmin';
 
 interface User {
   id: string;
@@ -480,6 +481,14 @@ function AdminPage() {
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
 
+  const tabs = [
+    { label: 'Analytics', section: 'analytics' },
+    { label: 'Users', section: 'users' },
+    { label: 'Products', section: 'products' },
+    { label: 'Bundles', section: 'bundles' },
+    { label: 'Documentation', section: 'documentation' },
+  ];
+
   return (
     <div className="flex h-screen bg-gray-50">
       <AdminSidebar />
@@ -699,6 +708,12 @@ function AdminPage() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+            {/* Documentation Section */}
+            {section === 'documentation' && (
+              <div className="bg-white p-6 rounded-lg shadow">
+                <DocumentationAdmin />
               </div>
             )}
             {/* Reviews Section */}
