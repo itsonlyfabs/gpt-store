@@ -8,6 +8,9 @@ import ProductCard from '@/components/ProductCard'
 import SearchFilters from '@/components/SearchFilters'
 import SearchSuggestions from '../components/SearchSuggestions'
 import { FiRefreshCw } from 'react-icons/fi'
+import { useRouter } from 'next/navigation'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import Image from 'next/image'
 
 type SubscriptionType = 'free' | 'pro' | 'all'
 type SortBy = 'relevance' | 'newest' | 'price-asc' | 'price-desc'
@@ -69,35 +72,37 @@ const categories = [
 export default function DiscoverPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [products, setProducts] = useState<Product[]>([])
+  const [bundles, setBundles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [subscriptionType, setSubscriptionType] = useState<SubscriptionType>('all')
   const [sortBy, setSortBy] = useState<SortBy>('relevance')
   const [category, setCategory] = useState<string>('')
+  const [itemType, setItemType] = useState<'all' | 'products' | 'bundles'>('all')
+  const [showBundleAuthModal, setShowBundleAuthModal] = useState(false)
+  const [bundleToView, setBundleToView] = useState<any | null>(null)
+  const router = useRouter()
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchProducts(searchQuery)
+    fetchBundles(searchQuery)
   }, [searchQuery, subscriptionType, sortBy])
 
   const fetchProducts = async (query: string) => {
     try {
       setLoading(true)
       setError('')
-
-      // Always fetch from backend API
       const searchParams = new URLSearchParams({
         ...(query && { search: query }),
         ...(subscriptionType !== 'all' && { tier: subscriptionType === 'pro' ? 'PRO' : 'FREE' }),
         ...(category && { category }),
         ...(sortBy && { sort: sortBy })
       })
-
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?${searchParams}`)
-      
       if (!response.ok) {
         throw new Error('Failed to fetch products')
       }
-      
       const data = await response.json()
       setProducts(data)
     } catch (err) {
@@ -105,6 +110,22 @@ export default function DiscoverPage() {
       setError('Failed to load products')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchBundles = async (query: string) => {
+    try {
+      const searchParams = new URLSearchParams({
+        ...(query && { search: query })
+      })
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bundles?${searchParams}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch bundles')
+      }
+      const data = await response.json()
+      setBundles(data)
+    } catch (err) {
+      console.error('Error fetching bundles:', err)
     }
   }
 
@@ -131,7 +152,18 @@ export default function DiscoverPage() {
     setCategory('');
     setSubscriptionType('all');
     setSortBy('relevance');
+    setItemType('all');
   }
+
+  const handleBundleClick = async (bundle: any) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setBundleToView(bundle);
+      setShowBundleAuthModal(true);
+      return;
+    }
+    router.push(`/bundle/${bundle.id}`);
+  };
 
   if (error) {
     return (
@@ -175,11 +207,28 @@ export default function DiscoverPage() {
                 {/* Filters sidebar */}
                 <div className="w-full md:w-64 flex-shrink-0">
                   <div className="bg-white p-6 rounded-lg shadow-sm">
+                    {/* Filter Buttons */}
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        className={`flex-1 flex flex-col items-center p-3 rounded-lg shadow-sm border transition font-semibold text-base ${itemType === 'products' ? 'bg-primary text-white' : 'bg-white text-gray-900 border-gray-200 hover:bg-primary/10'}`}
+                        onClick={() => setItemType('products')}
+                      >
+                        <span className="text-lg mb-1">🛒</span>
+                        Products
+                      </button>
+                      <button
+                        className={`flex-1 flex flex-col items-center p-3 rounded-lg shadow-sm border transition font-semibold text-base ${itemType === 'bundles' ? 'bg-primary text-white' : 'bg-white text-gray-900 border-gray-200 hover:bg-primary/10'}`}
+                        onClick={() => setItemType('bundles')}
+                      >
+                        <span className="text-lg mb-1">📦</span>
+                        Bundles
+                      </button>
+                    </div>
                     <SearchFilters
                       subscriptionType={subscriptionType}
-                      onSubscriptionTypeChange={handleSubscriptionTypeChange}
+                      onSubscriptionTypeChange={setSubscriptionType}
                       sortBy={sortBy}
-                      onSortChange={handleSortChange}
+                      onSortChange={setSortBy}
                     />
                   </div>
                 </div>
@@ -217,7 +266,7 @@ export default function DiscoverPage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {products.map((product) => (
+                      {(itemType === 'all' || itemType === 'products') && products.map((product) => (
                         <ProductCard
                           key={product.id}
                           id={product.id}
@@ -228,6 +277,27 @@ export default function DiscoverPage() {
                           tier={product.tier === 'PRO' ? 'PRO' : 'FREE'}
                         />
                       ))}
+                      {(itemType === 'all' || itemType === 'bundles') && bundles.map((bundle) => (
+                        <div
+                          key={bundle.id}
+                          className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer relative"
+                          onClick={() => handleBundleClick(bundle)}
+                        >
+                          <div className="relative w-full">
+                            <Image src={bundle.image} alt={bundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
+                            <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${bundle.tier === 'FREE' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-yellow-100 text-yellow-700 border border-yellow-300'}`}>{bundle.tier}</span>
+                          </div>
+                          <h3 className="text-xl font-semibold text-gray-900 mb-2">{bundle.name}</h3>
+                          <p className="text-gray-500">{bundle.description}</p>
+                          {Array.isArray(bundle.products) && bundle.products.length > 0 && (
+                            <ul className="mt-4 text-left w-full max-w-xs mx-auto list-disc list-inside text-gray-700">
+                              {bundle.products.map((product: any) => (
+                                <li key={product.id}>{product.name}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -236,6 +306,48 @@ export default function DiscoverPage() {
           </main>
         </div>
       </div>
+      {/* Bundle Auth Modal */}
+      {showBundleAuthModal && bundleToView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative text-center">
+            <button
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl"
+              onClick={() => setShowBundleAuthModal(false)}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign up for free to unlock bundle details!</h2>
+            <p className="text-gray-600 mb-4">Create a free account to access bundle details and enjoy these benefits:</p>
+            <ul className="text-left mb-6 space-y-2 max-w-xs mx-auto">
+              <li className="flex items-center gap-2"><span className="text-primary">✓</span> Access exclusive AI bundles</li>
+              <li className="flex items-center gap-2"><span className="text-primary">✓</span> Save your favorites</li>
+              <li className="flex items-center gap-2"><span className="text-primary">✓</span> Get personalized recommendations</li>
+              <li className="flex items-center gap-2"><span className="text-primary">✓</span> 100% free, no credit card required</li>
+            </ul>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => {
+                  localStorage.setItem('redirectAfterLogin', `/bundle/${bundleToView.id}`);
+                  router.push('/auth/register');
+                }}
+                className="w-full sm:w-auto px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:opacity-90 transition"
+              >
+                Sign up for free
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.setItem('redirectAfterLogin', `/bundle/${bundleToView.id}`);
+                  router.push('/auth/login');
+                }}
+                className="w-full sm:w-auto px-6 py-2 border border-primary text-primary rounded-lg font-semibold hover:bg-primary/10 transition"
+              >
+                Sign in
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Suspense>
   )
 } 
