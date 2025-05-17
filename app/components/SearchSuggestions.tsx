@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 
 interface SearchSuggestionsProps {
   query: string
@@ -13,13 +13,32 @@ export default function SearchSuggestions({
   onSuggestionClick,
   className = '' 
 }: SearchSuggestionsProps) {
-  // Mock suggestions based on query
-  const suggestions = [
-    `${query} AI assistant`,
-    `${query} productivity tool`,
-    `${query} automation`,
-    `${query} helper`
-  ].filter(suggestion => suggestion !== query)
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!query) {
+      setSuggestions([]);
+      return;
+    }
+    console.log('Fetching suggestions for query:', query);
+    // Fetch product and bundle titles from backend
+    const fetchSuggestions = async () => {
+      try {
+        const [productsRes, bundlesRes] = await Promise.all([
+          fetch(`/api/products?search=${encodeURIComponent(query)}&limit=5`),
+          fetch(`/api/bundles?search=${encodeURIComponent(query)}&limit=5`)
+        ]);
+        const products = productsRes.ok ? await productsRes.json() : [];
+        const bundles = bundlesRes.ok ? await bundlesRes.json() : [];
+        const productTitles = products.map((p: any) => p.name);
+        const bundleTitles = bundles.map((b: any) => b.name);
+        setSuggestions([...productTitles, ...bundleTitles]);
+      } catch {
+        setSuggestions([]);
+      }
+    };
+    fetchSuggestions();
+  }, [query]);
 
   if (!query || suggestions.length === 0) {
     return null

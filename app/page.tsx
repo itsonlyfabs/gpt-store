@@ -1,13 +1,16 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import SearchBar from '../components/SearchBar'
+import SearchBar from './components/SearchBar'
 import CategoryDropdown from '../components/CategoryDropdown'
 import RefreshButton from '../components/RefreshButton'
-import ProductCard from '../components/ProductCard'
+import ProductCard from './components/ProductCard'
 import Reviews from './components/Reviews'
+import SearchSuggestions from './components/SearchSuggestions'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useRouter } from 'next/navigation'
 
 export default function Home() {
   const [products, setProducts] = useState<any[]>([])
@@ -19,59 +22,113 @@ export default function Home() {
   const [bundlesLoading, setBundlesLoading] = useState(false)
   const [selectedBundle, setSelectedBundle] = useState<any | null>(null)
   const [showBundleModal, setShowBundleModal] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [showBundleAuthModal, setShowBundleAuthModal] = useState(false);
+  const [bundleToView, setBundleToView] = useState<any | null>(null);
+  const router = useRouter();
+  const supabase = createClientComponentClient();
 
-  const fetchProducts = async () => {
+  // Carousel refs
+  const productCarouselRef = useRef<HTMLDivElement>(null);
+  const bundleCarouselRef = useRef<HTMLDivElement>(null);
+
+  const scrollCarousel = (ref: React.RefObject<HTMLDivElement>, direction: 'left' | 'right') => {
+    if (ref.current) {
+      const cardWidth = ref.current.offsetWidth / 3; // 3 cards visible
+      ref.current.scrollBy({
+        left: direction === 'left' ? -cardWidth : cardWidth,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  const fetchProducts = async (searchValue = '', categoryValue = '') => {
     setLoading(true)
     try {
-      const res = await fetch('/api/products')
-      const data = await res.json()
-      setProducts(data)
-      setFiltered(data)
-    } catch {
-      setProducts([])
-      setFiltered([])
+      const searchParams = new URLSearchParams({
+        ...(searchValue && { search: searchValue }),
+        ...(categoryValue && { category: categoryValue })
+      });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?${searchParams}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+      
+      const data = await response.json();
+      setProducts(data);
+      setFiltered(data);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setProducts([]);
+      setFiltered([]);
     }
-    setLoading(false)
+    setLoading(false);
   }
 
   useEffect(() => {
-    fetchProducts()
-  }, [])
+    fetchProducts();
+  }, []);
 
   useEffect(() => {
-    let result = products
-    if (search) {
-      result = result.filter((p) =>
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.description.toLowerCase().includes(search.toLowerCase())
-      )
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsSignedIn(!!session);
+    });
+  }, [supabase]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setIsSignedIn(false);
+    window.location.reload();
+  };
+
+  const handleSearch = (value: string) => {
+    console.log('handleSearch', value);
+    setSearch(value);
+    fetchProducts(value, category);
+  }
+
+  const handleCategorySelect = (cat: string) => {
+    setCategory(cat);
+    fetchProducts(search, cat);
+  }
+
+  const handleReset = () => {
+    setSearch('');
+    setCategory('');
+    fetchProducts();
+  }
+
+  const categories = Array.from(new Set(products.map((p) => p.category))).filter(Boolean);
+
+  const handleBundleClick = async (bundle: any) => {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setBundleToView(bundle);
+      setShowBundleAuthModal(true);
+      return;
     }
-    if (category) {
-      result = result.filter((p) => p.category === category)
-    }
-    setFiltered(result)
-  }, [search, category, products])
+    router.push(`/bundle/${bundle.id}`);
+  }
 
   useEffect(() => {
     setBundlesLoading(true);
-    fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api") + "/bundles")
-      .then(res => res.json())
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/bundles`)
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to fetch bundles');
+        }
+        return res.json();
+      })
       .then(setBundles)
-      .catch(() => setBundles([]))
+      .catch((err) => {
+        console.error('Error fetching bundles:', err);
+        setBundles([]);
+      })
       .finally(() => setBundlesLoading(false));
   }, []);
-
-  const categories = Array.from(new Set(products.map((p) => p.category))).filter(Boolean)
-
-  const handleBundleClick = (bundle: any) => {
-    setSelectedBundle(bundle)
-    setShowBundleModal(true)
-  }
-
-  const closeModal = () => {
-    setShowBundleModal(false)
-    setSelectedBundle(null)
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -82,12 +139,21 @@ export default function Home() {
             <Image src="/genio logo dark.png" alt="Genio Logo" width={180} height={40} priority />
           </div>
           <div className="flex items-center space-x-4">
-            <Link
-              href="/auth/login"
-              className="text-base font-medium text-gray-500 hover:text-gray-900"
-            >
-              Sign in
-            </Link>
+            {isSignedIn ? (
+              <button
+                onClick={handleLogout}
+                className="text-base font-medium text-gray-500 hover:text-gray-900"
+              >
+                Logout
+              </button>
+            ) : (
+              <Link
+                href="/auth/login"
+                className="text-base font-medium text-gray-500 hover:text-gray-900"
+              >
+                Sign in
+              </Link>
+            )}
             <Link
               href="/auth/register"
               className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90"
@@ -118,103 +184,191 @@ export default function Home() {
 
         {/* Search & Filters */}
         <div className="flex flex-col items-center gap-4 mt-2 mb-12">
-          <div className="w-full max-w-xl">
+          <div className="w-full max-w-xl relative">
             <SearchBar
               value={search}
-              onChange={setSearch}
-              onSearch={() => {}}
+              onChange={handleSearch}
+              onSearch={handleSearch}
               placeholder="Search collections, bundles, assistants..."
               className=""
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             />
           </div>
           <div className="flex w-full max-w-xl gap-2 items-center">
             <CategoryDropdown
               categories={categories}
               selected={category}
-              onSelect={setCategory}
+              onSelect={handleCategorySelect}
               className="flex-1"
             />
-            <RefreshButton onClick={fetchProducts} />
+            <RefreshButton onClick={handleReset} />
           </div>
         </div>
 
-        {/* Bundles Grid */}
+        {/* Bundles & Products Grid (filtered by title) */}
         <div className="py-6">
-          {bundlesLoading ? (
-            <div className="text-center text-gray-500 py-10">Loading bundles...</div>
-          ) : bundles.length === 0 ? (
-            <div className="text-center text-gray-400 py-10">No bundles found.</div>
+          {bundlesLoading || loading ? (
+            <div className="text-center text-gray-500 py-10">Loading...</div>
           ) : (
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 mb-12">
-              {bundles.map(bundle => (
-                <div
-                  key={bundle.id}
-                  className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer relative"
-                  onClick={() => handleBundleClick(bundle)}
-                >
-                  <div className="relative w-full">
-                    <Image src={bundle.image} alt={bundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
-                    <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${bundle.tier === 'FREE' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-yellow-100 text-yellow-700 border border-yellow-300'}`}>{bundle.tier}</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{bundle.name}</h3>
-                  <p className="text-gray-500">{bundle.description}</p>
-                  {Array.isArray(bundle.products) && bundle.products.length > 0 && (
-                    <ul className="mt-4 text-left w-full max-w-xs mx-auto list-disc list-inside text-gray-700">
-                      {bundle.products.map((product: any) => (
-                        <li key={product.id}>{product.name}</li>
-                      ))}
-                    </ul>
+            (() => {
+              // Filter products and bundles by title
+              const searchLower = search.trim().toLowerCase();
+              const filteredProducts = searchLower
+                ? products.filter(p => p.name && p.name.toLowerCase().includes(searchLower))
+                : products;
+              const filteredBundles = searchLower
+                ? bundles.filter(b => b.name && b.name.toLowerCase().includes(searchLower))
+                : bundles;
+              if (filteredProducts.length === 0 && filteredBundles.length === 0) {
+                return <div className="text-center text-gray-400 py-10">No results found.</div>;
+              }
+              return (
+                <>
+                  {filteredProducts.length > 0 && (
+                    <div className="mb-8">
+                      <h2 className="text-xl font-bold mb-4">Products</h2>
+                      <div className="relative">
+                        <button
+                          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
+                          onClick={() => scrollCarousel(productCarouselRef, 'left')}
+                          aria-label="Scroll left"
+                          style={{ display: filteredProducts.length > 3 ? 'block' : 'none' }}
+                        >
+                          &#8592;
+                        </button>
+                        <div
+                          ref={productCarouselRef}
+                          className="flex gap-8 overflow-x-auto scrollbar-hide scroll-smooth px-8"
+                          style={{ scrollSnapType: 'x mandatory' }}
+                        >
+                          {filteredProducts.map(product => (
+                            <div
+                              key={product.id}
+                              style={{ minWidth: '320px', maxWidth: '320px', scrollSnapAlign: 'start' }}
+                              className="px-2"
+                            >
+                              <ProductCard
+                                id={product.id}
+                                name={product.name}
+                                description={product.description}
+                                category={product.category}
+                                thumbnail={product.thumbnail}
+                                tier={product.tier || 'FREE'}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
+                          onClick={() => scrollCarousel(productCarouselRef, 'right')}
+                          aria-label="Scroll right"
+                          style={{ display: filteredProducts.length > 3 ? 'block' : 'none' }}
+                        >
+                          &#8594;
+                        </button>
+                      </div>
+                    </div>
                   )}
-                </div>
-              ))}
-            </div>
+                  {filteredBundles.length > 0 && (
+                    <div>
+                      <h2 className="text-xl font-bold mb-4">Bundles</h2>
+                      <div className="relative">
+                        <button
+                          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
+                          onClick={() => scrollCarousel(bundleCarouselRef, 'left')}
+                          aria-label="Scroll left"
+                          style={{ display: filteredBundles.length > 3 ? 'block' : 'none' }}
+                        >
+                          &#8592;
+                        </button>
+                        <div
+                          ref={bundleCarouselRef}
+                          className="flex gap-8 overflow-x-auto scrollbar-hide scroll-smooth px-8"
+                          style={{ scrollSnapType: 'x mandatory' }}
+                        >
+                          {filteredBundles.map(bundle => (
+                            <div
+                              key={bundle.id}
+                              style={{ minWidth: '320px', maxWidth: '320px', scrollSnapAlign: 'start' }}
+                              className="px-2"
+                            >
+                              <div
+                                className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer relative"
+                                onClick={() => handleBundleClick(bundle)}
+                              >
+                                <div className="relative w-full">
+                                  <Image src={bundle.image} alt={bundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
+                                  <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${bundle.tier === 'FREE' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-yellow-100 text-yellow-700 border border-yellow-300'}`}>{bundle.tier}</span>
+                                </div>
+                                <h3 className="text-xl font-semibold text-gray-900 mb-2">{bundle.name}</h3>
+                                <p className="text-gray-500">{bundle.description}</p>
+                                {Array.isArray(bundle.products) && bundle.products.length > 0 && (
+                                  <ul className="mt-4 text-left w-full max-w-xs mx-auto list-disc list-inside text-gray-700">
+                                    {bundle.products.map((product: any) => (
+                                      <li key={product.id}>{product.name}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
+                          onClick={() => scrollCarousel(bundleCarouselRef, 'right')}
+                          aria-label="Scroll right"
+                          style={{ display: filteredBundles.length > 3 ? 'block' : 'none' }}
+                        >
+                          &#8594;
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()
           )}
         </div>
 
-        {/* Bundle Modal */}
-        {showBundleModal && selectedBundle && (
+        {/* Bundle Auth Modal */}
+        {showBundleAuthModal && bundleToView && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-8 relative">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative text-center">
               <button
                 className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl"
-                onClick={closeModal}
+                onClick={() => setShowBundleAuthModal(false)}
                 aria-label="Close"
               >
                 &times;
               </button>
-              <div className="flex flex-col items-center text-center mb-6">
-                <div className="relative w-full">
-                  <Image src={selectedBundle.image} alt={selectedBundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
-                  <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${selectedBundle.tier === 'FREE' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-yellow-100 text-yellow-700 border border-yellow-300'}`}>{selectedBundle.tier}</span>
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedBundle.name}</h2>
-                <p className="text-gray-600 mb-4">{selectedBundle.description}</p>
-              </div>
-              {/* Products Grid */}
-              {Array.isArray(selectedBundle.products) && selectedBundle.products.length > 0 && (
-                <div className="mb-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Included Products</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {selectedBundle.products.map((product: any) => (
-                      <div key={product.id} className="bg-gray-50 rounded-lg p-4 flex flex-col items-center shadow-sm">
-                        <Image src={product.thumbnail} alt={product.name} width={120} height={80} unoptimized className="w-full h-24 object-cover rounded mb-2" />
-                        <h4 className="text-md font-semibold text-gray-900 mb-1">{product.name}</h4>
-                        <p className="text-gray-500 text-sm mb-2 line-clamp-2">{product.description}</p>
-                        <button
-                          className="mt-auto px-4 py-2 bg-primary text-white rounded-md text-sm font-medium hover:opacity-90"
-                          onClick={() => window.open(`/product/${product.id}`, '_blank')}
-                        >
-                          View Details
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {/* Reviews Section */}
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Bundle Reviews</h3>
-                <Reviews bundleId={selectedBundle.id} />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign up for free to unlock bundle details!</h2>
+              <p className="text-gray-600 mb-4">Create a free account to access bundle details and enjoy these benefits:</p>
+              <ul className="text-left mb-6 space-y-2 max-w-xs mx-auto">
+                <li className="flex items-center gap-2"><span className="text-primary">✓</span> Access exclusive AI bundles</li>
+                <li className="flex items-center gap-2"><span className="text-primary">✓</span> Save your favorites</li>
+                <li className="flex items-center gap-2"><span className="text-primary">✓</span> Get personalized recommendations</li>
+                <li className="flex items-center gap-2"><span className="text-primary">✓</span> 100% free, no credit card required</li>
+              </ul>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <button
+                  onClick={() => {
+                    localStorage.setItem('redirectAfterLogin', `/bundle/${bundleToView.id}`);
+                    router.push('/auth/register');
+                  }}
+                  className="w-full sm:w-auto px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:opacity-90 transition"
+                >
+                  Sign up for free
+                </button>
+                <button
+                  onClick={() => {
+                    localStorage.setItem('redirectAfterLogin', `/bundle/${bundleToView.id}`);
+                    router.push('/auth/login');
+                  }}
+                  className="w-full sm:w-auto px-6 py-2 border border-primary text-primary rounded-lg font-semibold hover:bg-primary/10 transition"
+                >
+                  Sign in
+                </button>
               </div>
             </div>
           </div>

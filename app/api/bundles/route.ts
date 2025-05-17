@@ -14,8 +14,19 @@ function isAdmin(req: Request) {
   return true;
 }
 
-export async function GET() {
-  return NextResponse.json(bundles);
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const search = searchParams.get('search')?.toLowerCase();
+  const limit = parseInt(searchParams.get('limit') || '0', 10);
+
+  let filtered = bundles;
+  if (search) {
+    filtered = filtered.filter(b => b.name && b.name.toLowerCase().includes(search));
+  }
+  if (limit) {
+    filtered = filtered.slice(0, limit);
+  }
+  return NextResponse.json(filtered);
 }
 
 export async function POST(req: Request) {

@@ -2,11 +2,12 @@
 
 import React, { useState, useCallback, useEffect, Suspense } from 'react'
 import { debounce } from 'lodash'
-import SearchBar from '@/components/SearchBar'
+import SearchBar from '../components/SearchBar'
 import Sidebar from '@/components/Sidebar'
 import ProductCard from '@/components/ProductCard'
 import SearchFilters from '@/components/SearchFilters'
-import SearchSuggestions from '@/components/SearchSuggestions'
+import SearchSuggestions from '../components/SearchSuggestions'
+import { FiRefreshCw } from 'react-icons/fi'
 
 type SubscriptionType = 'free' | 'pro' | 'all'
 type SortBy = 'relevance' | 'newest' | 'price-asc' | 'price-desc'
@@ -72,6 +73,7 @@ export default function DiscoverPage() {
   const [error, setError] = useState('')
   const [subscriptionType, setSubscriptionType] = useState<SubscriptionType>('all')
   const [sortBy, setSortBy] = useState<SortBy>('relevance')
+  const [category, setCategory] = useState<string>('')
 
   useEffect(() => {
     fetchProducts(searchQuery)
@@ -85,7 +87,9 @@ export default function DiscoverPage() {
       // Always fetch from backend API
       const searchParams = new URLSearchParams({
         ...(query && { search: query }),
-        ...(subscriptionType !== 'all' && { priceType: subscriptionType === 'pro' ? 'subscription' : 'one_time' })
+        ...(subscriptionType !== 'all' && { tier: subscriptionType === 'pro' ? 'PRO' : 'FREE' }),
+        ...(category && { category }),
+        ...(sortBy && { sort: sortBy })
       })
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?${searchParams}`)
@@ -104,8 +108,9 @@ export default function DiscoverPage() {
     }
   }
 
-  const handleSearch = async (newQuery: string) => {
-    setSearchQuery(newQuery)
+  const handleSearch = (newQuery: string) => {
+    console.log('discover handleSearch', newQuery);
+    setSearchQuery(newQuery);
   }
 
   const handleSubscriptionTypeChange = (type: SubscriptionType) => {
@@ -114,6 +119,18 @@ export default function DiscoverPage() {
 
   const handleSortChange = (sort: SortBy) => {
     setSortBy(sort)
+  }
+
+  const handleCategoryClick = (cat: string) => {
+    setCategory(cat)
+    setSearchQuery(cat)
+  }
+
+  const handleReset = () => {
+    setSearchQuery('');
+    setCategory('');
+    setSubscriptionType('all');
+    setSortBy('relevance');
   }
 
   if (error) {
@@ -142,7 +159,7 @@ export default function DiscoverPage() {
                   {categories.map((category) => (
                     <button
                       key={category.id}
-                      onClick={() => handleSearch(category.name)}
+                      onClick={() => handleCategoryClick(category.name)}
                       className="flex flex-col items-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
                     >
                       <span className="text-3xl mb-2">{category.icon}</span>
@@ -169,21 +186,21 @@ export default function DiscoverPage() {
 
                 {/* Main content */}
                 <div className="flex-1">
-                  <div className="mb-6">
+                  <div className="mb-6 flex items-center gap-2">
                     <SearchBar
                       value={searchQuery}
-                      onChange={setSearchQuery}
+                      onChange={handleSearch}
                       onSearch={handleSearch}
                       placeholder="Search AI tools..."
                       className="max-w-2xl"
                     />
-                    {searchQuery && (
-                      <SearchSuggestions
-                        query={searchQuery}
-                        onSuggestionClick={handleSearch}
-                        className="mt-2"
-                      />
-                    )}
+                    <button
+                      className="ml-2 p-2 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 transition-colors"
+                      title="Reset filters"
+                      onClick={handleReset}
+                    >
+                      <FiRefreshCw className="w-5 h-5 text-gray-500" />
+                    </button>
                   </div>
 
                   {loading ? (

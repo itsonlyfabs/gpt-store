@@ -32,6 +32,7 @@ router.post('/', async (req, res) => {
 // List all bundles
 router.get('/', async (req, res) => {
   try {
+    const { search, limit } = req.query;
     // Fetch all bundles
     const { data: bundles, error: bundlesError } = await supabaseAdmin
       .from('bundles')
@@ -45,10 +46,21 @@ router.get('/', async (req, res) => {
     if (productsError) throw productsError;
 
     // Attach product objects to each bundle
-    const bundlesWithProducts = bundles.map(bundle => ({
+    let bundlesWithProducts = bundles.map(bundle => ({
       ...bundle,
       products: (bundle.product_ids || []).map(pid => products.find(p => p.id === pid)).filter(Boolean)
     }));
+
+    // Filter by search query (name, case-insensitive)
+    if (search) {
+      const searchLower = search.toLowerCase();
+      bundlesWithProducts = bundlesWithProducts.filter(b => b.name && b.name.toLowerCase().includes(searchLower));
+    }
+
+    // Limit results if requested
+    if (limit) {
+      bundlesWithProducts = bundlesWithProducts.slice(0, parseInt(limit, 10));
+    }
 
     res.json(bundlesWithProducts);
   } catch (error) {

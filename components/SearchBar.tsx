@@ -7,9 +7,11 @@ export interface SearchBarProps {
   onSearch: (query: string) => void
   placeholder?: string
   className?: string
+  onFocus?: () => void
+  onBlur?: () => void
 }
 
-export default function SearchBar({ value, onChange, onSearch, placeholder = 'Search...', className = '' }: SearchBarProps) {
+export default function SearchBar({ value, onChange, onSearch, placeholder = 'Search...', className = '', onFocus, onBlur }: SearchBarProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSearch(value)
@@ -21,6 +23,8 @@ export default function SearchBar({ value, onChange, onSearch, placeholder = 'Se
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
+        onBlur={onBlur}
         placeholder={placeholder}
         className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />

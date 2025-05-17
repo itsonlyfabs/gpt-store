@@ -2,13 +2,47 @@ const express = require('express');
 const router = express.Router();
 const { supabase, supabaseAdmin } = require('../lib/supabase');
 
-// Get all products
+// Get all products with full-text search and filters
 router.get('/', async (req, res) => {
   try {
-    const { data: products, error } = await supabaseAdmin
-      .from('products')
-      .select('*');
+    const { search, category, tier, sort, limit } = req.query;
+    let query = supabaseAdmin.from('products').select('*');
+
+    // Full-text search
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,category.ilike.%${search}%`);
+    }
+
+    // Category filter
+    if (category) {
+      query = query.eq('category', category);
+    }
+
+    // Tier filter
+    if (tier) {
+      query = query.eq('tier', tier);
+    }
+
+    // Sorting
+    if (sort === 'newest') {
+      query = query.order('created_at', { ascending: false });
+    } else if (sort === 'price-asc') {
+      query = query.order('price', { ascending: true });
+    } else if (sort === 'price-desc') {
+      query = query.order('price', { ascending: false });
+    } else {
+      // Default: most relevant (let's use created_at desc for now)
+      query = query.order('created_at', { ascending: false });
+    }
+
+    let { data: products, error } = await query;
     if (error) throw error;
+
+    // Limit results if requested
+    if (limit) {
+      products = products.slice(0, parseInt(limit, 10));
+    }
+
     res.json(products);
   } catch (error) {
     console.error('Products fetch error:', error);
@@ -40,17 +74,15 @@ router.post('/', async (req, res) => {
     const {
       name,
       description,
-      price,
       category,
       thumbnail,
-      price_type,
-      currency,
       features,
-      assistant_id
+      assistant_id,
+      tier // 'FREE' or 'PRO'
     } = req.body;
 
     // Basic validation
-    if (!name || !description || !price || !category || !thumbnail || !price_type || !currency || !assistant_id) {
+    if (!name || !description || !category || !thumbnail || !assistant_id || !tier) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -60,13 +92,11 @@ router.post('/', async (req, res) => {
         {
           name,
           description,
-          price,
           category,
           thumbnail,
-          price_type,
-          currency,
           features: features || [],
-          assistant_id
+          assistant_id,
+          tier
         }
       ])
       .select()
