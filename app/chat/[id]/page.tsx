@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
@@ -34,12 +34,16 @@ function formatAssistantMessage(content: string | undefined | null) {
 
 export default function ChatPage() {
   const { id } = useParams()
+  const router = useRouter()
   const supabase = createClientComponentClient()
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<any[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [product, setProduct] = useState<ChatProduct | null>(null)
+  const [session, setSession] = useState<any>(null)
+  const [saveLoading, setSaveLoading] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [product, setProduct] = useState<ChatProduct | null>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -50,73 +54,65 @@ export default function ChatPage() {
   }, [messages])
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const fetchSessionAndMessages = async () => {
       try {
-        const res = await fetch(`/api/products/${id}`)
-        if (!res.ok) throw new Error('Product not found')
-        const prod = await res.json()
-        setProduct(prod)
-      } catch (error) {
-        console.error('Error fetching product:', error)
-      }
-    }
-    const fetchChatHistory = async () => {
-      try {
-        // Get Supabase session
-        const { data: { session } } = await supabase.auth.getSession()
-        const accessToken = session?.access_token
-
-        const res = await fetch(`http://localhost:3000/api/chat/${id}/history`, {
+        const { data: { session: supaSession } } = await supabase.auth.getSession();
+        const accessToken = supaSession?.access_token;
+        const res = await fetch(`/api/chat/${id}`, {
           headers: {
             ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
           }
-        })
-        if (!res.ok) throw new Error('Failed to fetch chat history')
-        const data = await res.json()
-        setMessages(data.messages || [])
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        setSession(data.session);
+        setMessages(data.messages || []);
+        // Fetch product info if not a bundle
+        if (data.session && !data.session.is_bundle && data.session.product_id) {
+          const prodRes = await fetch(`/api/products/${data.session.product_id}`)
+          if (prodRes.ok) {
+            const prodData = await prodRes.json()
+            setProduct(prodData)
+          }
+        }
       } catch (error) {
-        console.error('Error fetching chat history:', error)
+        console.error('Error fetching chat session/messages:', error);
       }
-    }
+    };
     if (id) {
-      fetchProduct()
-      fetchChatHistory()
+      fetchSessionAndMessages();
     }
-  }, [id])
+  }, [id, supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || loading) return
-
-    const userMessage: Message = {
+    const userMessage = {
       id: Date.now().toString(),
-      role: 'user',
+      sender: 'user',
       content: input.trim(),
-      timestamp: new Date().toISOString()
+      created_at: new Date().toISOString()
     }
     setMessages(prev => [...prev, userMessage])
     setInput('')
     setLoading(true)
     try {
-      // Get Supabase session
-      const { data: { session } } = await supabase.auth.getSession()
-      const accessToken = session?.access_token
-
-      // Send message to backend with Authorization header
-      const res = await fetch(`http://localhost:3000/api/chat/${id}`, {
+      const { data: { session: supaSession } } = await supabase.auth.getSession()
+      const accessToken = supaSession?.access_token
+      const res = await fetch(`/api/chat/${id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
         },
-        body: JSON.stringify({ message: input })
+        body: JSON.stringify({ content: input, role: 'user' })
       })
       const data = await res.json()
-      const assistantMessage: Message = {
+      const assistantMessage = {
         id: (Date.now() + 1).toString(),
-        role: 'assistant',
+        sender: 'assistant',
         content: data.response,
-        timestamp: new Date().toISOString()
+        created_at: new Date().toISOString()
       }
       setMessages(prev => [...prev, assistantMessage])
     } catch (error) {
@@ -126,13 +122,138 @@ export default function ChatPage() {
     }
   }
 
-  if (!product) {
+  const handleSaveChat = async () => {
+    if (!session) return
+    setSaveLoading(true)
+    setSaveSuccess(false)
+    try {
+      const { data: { session: supaSession } } = await supabase.auth.getSession()
+      const accessToken = supaSession?.access_token
+      const res = await fetch(`/api/chat/session/${session.id}/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        },
+        body: JSON.stringify({ saved: true })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSaveSuccess(true)
+      }
+    } catch (error) {
+      console.error('Error saving chat:', error)
+    } finally {
+      setSaveLoading(false)
+      setTimeout(() => setSaveSuccess(false), 2000)
+    }
+  }
+
+  const handleUnsaveChat = async () => {
+    if (!session) return
+    setSaveLoading(true)
+    setSaveSuccess(false)
+    try {
+      const { data: { session: supaSession } } = await supabase.auth.getSession()
+      const accessToken = supaSession?.access_token
+      const res = await fetch(`/api/chat/session/${session.id}/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        },
+        body: JSON.stringify({ saved: false })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSaveSuccess(true)
+        // Optionally, update session state
+        setSession((prev: any) => ({ ...prev, saved: false }))
+      }
+    } catch (error) {
+      console.error('Error unsaving chat:', error)
+    } finally {
+      setSaveLoading(false)
+      setTimeout(() => setSaveSuccess(false), 2000)
+    }
+  }
+
+  const handleResetChat = async () => {
+    if (!session) return
+    if (!confirm('Are you sure you want to reset this chat? This will start a new conversation with the same assistant.')) return
+    setLoading(true)
+    try {
+      const { data: { session: supaSession } } = await supabase.auth.getSession()
+      const accessToken = supaSession?.access_token
+      // Create a new session with the same product_id
+      const res = await fetch('/api/chat/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        },
+        body: JSON.stringify({ product_id: session.product_id })
+      })
+      const data = await res.json()
+      if (data.session && data.session.id) {
+        router.push(`/chat/${data.session.id}`)
+      }
+    } catch (error) {
+      console.error('Error resetting chat:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDownload = () => {
+    if (!messages.length) return
+    const text = messages.map(m => `[${m.sender}] ${m.content}`).join('\n')
+    const blob = new Blob([text], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `chat-${session?.id || 'session'}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleDownloadRecap = async () => {
+    if (!session) return
+    setLoading(true)
+    try {
+      const { data: { session: supaSession } } = await supabase.auth.getSession()
+      const accessToken = supaSession?.access_token
+      const res = await fetch(`/api/chat/session/${session.id}/recap`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        }
+      })
+      const data = await res.json()
+      if (data.recap) {
+        const blob = new Blob([data.recap], { type: 'text/plain' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `chat-recap-${session.id}.txt`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch (error) {
+      console.error('Error downloading recap:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!session) {
     return (
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
         <main className="flex-1 p-8">
           <div className="flex justify-center items-center h-full">
-            <span>Loading product...</span>
+            <span>Loading chat...</span>
           </div>
         </main>
       </div>
@@ -144,12 +265,59 @@ export default function ChatPage() {
       <Sidebar />
       <main className="flex-1 p-8">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-2xl font-bold mb-1">{product.name}</h1>
-          <p className="text-gray-600 mb-6">{product.description}</p>
+          {/* Top bar with session info and actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-2xl font-bold mb-1">{product ? product.name : session.title || (session.is_bundle ? 'Bundle Chat' : 'Product Chat')}</h1>
+              <div className="text-gray-500 text-sm">
+                {product ? (
+                  <span>{product.description}</span>
+                ) : session.is_bundle ? (
+                  <>
+                    <span>Bundle ID: {session.bundle_id}</span>
+                    <span className="ml-2">Assistants: {Array.isArray(session.assistant_ids) ? session.assistant_ids.join(', ') : 'N/A'}</span>
+                  </>
+                ) : (
+                  <span>Product Chat</span>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveChat}
+                className="px-4 py-2 bg-primary text-white rounded hover:opacity-90 disabled:opacity-60"
+                disabled={saveLoading || session.saved}
+              >
+                {session.saved ? 'Saved' : saveLoading ? 'Saving...' : 'Save Chat'}
+              </button>
+              {session.saved && (
+                <button
+                  onClick={handleUnsaveChat}
+                  className="px-4 py-2 bg-primary/10 text-primary rounded hover:bg-primary/20"
+                  disabled={saveLoading}
+                >
+                  Unsave
+                </button>
+              )}
+              <button
+                onClick={handleDownloadRecap}
+                className="px-4 py-2 bg-primary/10 text-primary rounded hover:bg-primary/20"
+              >
+                Download Recap
+              </button>
+              <button
+                onClick={handleResetChat}
+                className="px-4 py-2 bg-primary/10 text-primary rounded hover:bg-primary/20"
+              >
+                Reset Chat
+              </button>
+              {saveSuccess && <span className="text-green-600 font-semibold ml-2">Saved!</span>}
+            </div>
+          </div>
           <div className="space-y-4 mb-6">
             {messages.map(msg => (
-              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.role === 'assistant' ? (
+              <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.sender === 'assistant' ? (
                   <div
                     className="rounded-lg px-4 py-2 bg-gray-100 text-gray-900 max-w-xl prose"
                     dangerouslySetInnerHTML={{ __html: formatAssistantMessage(msg.content) }}
