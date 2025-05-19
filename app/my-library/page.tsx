@@ -173,7 +173,7 @@ export default function MyLibraryPage() {
       .eq('product_id', productId)
       .limit(1);
     let sessionId;
-    if (sessions && sessions.length > 0) {
+    if (sessions && sessions.length > 0 && sessions[0]?.id) {
       sessionId = sessions[0].id;
     } else {
       // If not found, create a new session
