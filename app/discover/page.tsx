@@ -132,8 +132,8 @@ export default function DiscoverPage() {
     setSearchQuery(newQuery);
   }
 
-  const handleSortChange = (sort: SortBy) => {
-    setSortBy(sort)
+  const handleSortChange = (sort: string) => {
+    setSortBy(sort as SortBy)
   }
 
   const handleCategoryClick = (cat: string) => {
@@ -243,7 +243,7 @@ export default function DiscoverPage() {
                     </div>
                     <SearchFilters
                       sortBy={sortBy}
-                      onSortChange={setSortBy}
+                      onSortChange={handleSortChange}
                     />
                   </div>
                 </div>
