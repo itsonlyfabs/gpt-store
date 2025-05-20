@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import ProductCard from '@/components/ProductCard'
 import SearchBar from '@/components/SearchBar'
-import SearchFilters, { SubscriptionType, SortBy } from '@/components/SearchFilters'
+import SearchFilters from '@/components/SearchFilters'
 
 interface Product {
   id: string
@@ -21,8 +21,7 @@ interface Product {
 
 interface Filters {
   priceRange: PriceRange
-  subscriptionType: SubscriptionType
-  sortBy: SortBy
+  sortBy: string
   query: string
 }
 
@@ -57,7 +56,6 @@ function BrowsePageInner() {
   const [error, setError] = useState('')
   const [filters, setFilters] = useState<Filters>({
     priceRange: { min: 0, max: 10000 },
-    subscriptionType: 'all',
     sortBy: 'relevance',
     query: ''
   })
@@ -119,13 +117,6 @@ function BrowsePageInner() {
           product.price <= filters.priceRange.max
         )
 
-        // Filter by subscription type
-        if (filters.subscriptionType !== 'all') {
-          filtered = filtered.filter(product => 
-            product.priceType === (filters.subscriptionType === 'pro' ? 'subscription' : 'one_time')
-          )
-        }
-
         // Filter by search query
         if (filters.query) {
           const query = filters.query.toLowerCase()
@@ -158,7 +149,6 @@ function BrowsePageInner() {
         query: filters.query,
         minPrice: filters.priceRange.min.toString(),
         maxPrice: filters.priceRange.max.toString(),
-        subscriptionType: filters.subscriptionType,
         sortBy: filters.sortBy
       })
 
@@ -182,11 +172,7 @@ function BrowsePageInner() {
     setFilters(prev => ({ ...prev, priceRange: range }))
   }
 
-  const handleSubscriptionTypeChange = (type: SubscriptionType) => {
-    setFilters(prev => ({ ...prev, subscriptionType: type }))
-  }
-
-  const handleSortChange = (sort: SortBy) => {
+  const handleSortChange = (sort: string) => {
     setFilters(prev => ({ ...prev, sortBy: sort }))
   }
 
@@ -197,7 +183,6 @@ function BrowsePageInner() {
   const clearFilters = () => {
     setFilters({
       priceRange: { min: 0, max: 10000 },
-      subscriptionType: 'all',
       sortBy: 'relevance',
       query: ''
     })
@@ -223,9 +208,7 @@ function BrowsePageInner() {
           <div className="w-full md:w-64 flex-shrink-0">
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <SearchFilters
-                subscriptionType={filters.subscriptionType}
-                onSubscriptionTypeChange={handleSubscriptionTypeChange}
-                sortBy={filters.sortBy}
+                sortBy={filters.sortBy as string}
                 onSortChange={handleSortChange}
               />
               <button
