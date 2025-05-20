@@ -26,6 +26,7 @@ export default function Home() {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [showBundleAuthModal, setShowBundleAuthModal] = useState(false);
   const [bundleToView, setBundleToView] = useState<any | null>(null);
+  const [tierFilter, setTierFilter] = useState<string>('');
   const router = useRouter();
   const supabase = createClientComponentClient();
 
@@ -122,7 +123,7 @@ export default function Home() {
         }
         return res.json();
       })
-      .then(setBundles)
+      .then(data => setBundles(data.filter((b: any) => !b.user_id)))
       .catch((err) => {
         console.error('Error fetching bundles:', err);
         setBundles([]);
@@ -202,6 +203,27 @@ export default function Home() {
               onSelect={handleCategorySelect}
               className="flex-1"
             />
+            {/* FREE/PRO filter */}
+            <div className="flex gap-2">
+              <button
+                className={`px-3 py-1 rounded-full border text-xs font-semibold ${tierFilter === '' ? 'bg-primary text-white border-primary' : 'bg-white text-primary border-primary/30'}`}
+                onClick={() => setTierFilter('')}
+              >
+                All
+              </button>
+              <button
+                className={`px-3 py-1 rounded-full border text-xs font-semibold ${tierFilter === 'FREE' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-white text-primary border-primary/30'}`}
+                onClick={() => setTierFilter('FREE')}
+              >
+                FREE
+              </button>
+              <button
+                className={`px-3 py-1 rounded-full border text-xs font-semibold ${tierFilter === 'PRO' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-white text-primary border-primary/30'}`}
+                onClick={() => setTierFilter('PRO')}
+              >
+                PRO
+              </button>
+            </div>
             <RefreshButton onClick={handleReset} />
           </div>
         </div>
@@ -220,12 +242,14 @@ export default function Home() {
               const filteredBundles = searchLower
                 ? bundles.filter(b => b.name && b.name.toLowerCase().includes(searchLower))
                 : bundles;
-              if (filteredProducts.length === 0 && filteredBundles.length === 0) {
+              const tierFilteredProducts = tierFilter ? filteredProducts.filter(p => (p.tier || 'FREE') === tierFilter) : filteredProducts;
+              const tierFilteredBundles = tierFilter ? filteredBundles.filter(b => (b.tier || 'FREE') === tierFilter) : filteredBundles;
+              if (tierFilteredProducts.length === 0 && tierFilteredBundles.length === 0) {
                 return <div className="text-center text-gray-400 py-10">No results found.</div>;
               }
               return (
                 <>
-                  {filteredProducts.length > 0 && (
+                  {tierFilteredProducts.length > 0 && (
                     <div className="mb-8">
                       <h2 className="text-xl font-bold mb-4">Products</h2>
                       <div className="relative">
@@ -233,7 +257,7 @@ export default function Home() {
                           className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
                           onClick={() => scrollCarousel(productCarouselRef, 'left')}
                           aria-label="Scroll left"
-                          style={{ display: filteredProducts.length > 3 ? 'block' : 'none' }}
+                          style={{ display: tierFilteredProducts.length > 3 ? 'block' : 'none' }}
                         >
                           &#8592;
                         </button>
@@ -242,7 +266,7 @@ export default function Home() {
                           className="flex gap-8 overflow-x-auto scrollbar-hide scroll-smooth px-8"
                           style={{ scrollSnapType: 'x mandatory' }}
                         >
-                          {filteredProducts.map(product => (
+                          {tierFilteredProducts.map(product => (
                             <div
                               key={product.id}
                               style={{ minWidth: '320px', maxWidth: '320px', scrollSnapAlign: 'start' }}
@@ -263,14 +287,14 @@ export default function Home() {
                           className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
                           onClick={() => scrollCarousel(productCarouselRef, 'right')}
                           aria-label="Scroll right"
-                          style={{ display: filteredProducts.length > 3 ? 'block' : 'none' }}
+                          style={{ display: tierFilteredProducts.length > 3 ? 'block' : 'none' }}
                         >
                           &#8594;
                         </button>
                       </div>
                     </div>
                   )}
-                  {filteredBundles.length > 0 && (
+                  {tierFilteredBundles.length > 0 && (
                     <div>
                       <h2 className="text-xl font-bold mb-4">Bundles</h2>
                       <div className="relative">
@@ -278,7 +302,7 @@ export default function Home() {
                           className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
                           onClick={() => scrollCarousel(bundleCarouselRef, 'left')}
                           aria-label="Scroll left"
-                          style={{ display: filteredBundles.length > 3 ? 'block' : 'none' }}
+                          style={{ display: tierFilteredBundles.length > 3 ? 'block' : 'none' }}
                         >
                           &#8592;
                         </button>
@@ -287,7 +311,7 @@ export default function Home() {
                           className="flex gap-8 overflow-x-auto scrollbar-hide scroll-smooth px-8"
                           style={{ scrollSnapType: 'x mandatory' }}
                         >
-                          {filteredBundles.map(bundle => (
+                          {tierFilteredBundles.map(bundle => (
                             <div
                               key={bundle.id}
                               style={{ minWidth: '320px', maxWidth: '320px', scrollSnapAlign: 'start' }}
@@ -295,7 +319,10 @@ export default function Home() {
                             >
                               <div
                                 className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer relative"
-                                onClick={() => handleBundleClick(bundle)}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => router.push(`/bundle/${bundle.id}`)}
+                                onKeyPress={e => { if (e.key === 'Enter' || e.key === ' ') router.push(`/bundle/${bundle.id}`) }}
                               >
                                 <div className="relative w-full">
                                   <Image src={bundle.image} alt={bundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
@@ -304,11 +331,16 @@ export default function Home() {
                                 <h3 className="text-xl font-semibold text-gray-900 mb-2">{bundle.name}</h3>
                                 <p className="text-gray-500">{bundle.description}</p>
                                 {Array.isArray(bundle.products) && bundle.products.length > 0 && (
-                                  <ul className="mt-4 text-left w-full max-w-xs mx-auto list-disc list-inside text-gray-700">
+                                  <div className="mt-4 grid grid-cols-2 gap-2 justify-center w-full max-w-xs mx-auto">
                                     {bundle.products.map((product: any) => (
-                                      <li key={product.id}>{product.name}</li>
+                                      <span
+                                        key={product.id}
+                                        className="px-3 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-medium shadow-sm cursor-default transition-colors duration-150 text-center truncate"
+                                      >
+                                        {product.name}
+                                      </span>
                                     ))}
-                                  </ul>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -318,7 +350,7 @@ export default function Home() {
                           className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
                           onClick={() => scrollCarousel(bundleCarouselRef, 'right')}
                           aria-label="Scroll right"
-                          style={{ display: filteredBundles.length > 3 ? 'block' : 'none' }}
+                          style={{ display: tierFilteredBundles.length > 3 ? 'block' : 'none' }}
                         >
                           &#8594;
                         </button>

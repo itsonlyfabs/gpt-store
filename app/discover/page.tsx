@@ -75,19 +75,19 @@ export default function DiscoverPage() {
   const [bundles, setBundles] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [subscriptionType, setSubscriptionType] = useState<SubscriptionType>('all')
   const [sortBy, setSortBy] = useState<SortBy>('relevance')
   const [category, setCategory] = useState<string>('')
   const [itemType, setItemType] = useState<'all' | 'products' | 'bundles'>('all')
   const [showBundleAuthModal, setShowBundleAuthModal] = useState(false)
   const [bundleToView, setBundleToView] = useState<any | null>(null)
+  const [tierFilter, setTierFilter] = useState<string>('');
   const router = useRouter()
   const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchProducts(searchQuery)
     fetchBundles(searchQuery)
-  }, [searchQuery, subscriptionType, sortBy])
+  }, [searchQuery, sortBy])
 
   const fetchProducts = async (query: string) => {
     try {
@@ -95,8 +95,6 @@ export default function DiscoverPage() {
       setError('')
       const searchParams = new URLSearchParams({
         ...(query && { search: query }),
-        ...(subscriptionType !== 'all' && { tier: subscriptionType === 'pro' ? 'PRO' : 'FREE' }),
-        ...(category && { category }),
         ...(sortBy && { sort: sortBy })
       })
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?${searchParams}`)
@@ -123,7 +121,7 @@ export default function DiscoverPage() {
         throw new Error('Failed to fetch bundles')
       }
       const data = await response.json()
-      setBundles(data)
+      setBundles(data.filter((b: any) => !b.user_id))
     } catch (err) {
       console.error('Error fetching bundles:', err)
     }
@@ -132,10 +130,6 @@ export default function DiscoverPage() {
   const handleSearch = (newQuery: string) => {
     console.log('discover handleSearch', newQuery);
     setSearchQuery(newQuery);
-  }
-
-  const handleSubscriptionTypeChange = (type: SubscriptionType) => {
-    setSubscriptionType(type)
   }
 
   const handleSortChange = (sort: SortBy) => {
@@ -150,7 +144,6 @@ export default function DiscoverPage() {
   const handleReset = () => {
     setSearchQuery('');
     setCategory('');
-    setSubscriptionType('all');
     setSortBy('relevance');
     setItemType('all');
   }
@@ -164,6 +157,9 @@ export default function DiscoverPage() {
     }
     router.push(`/bundle/${bundle.id}`);
   };
+
+  const tierFilteredProducts = tierFilter ? products.filter(p => (p.tier || 'FREE') === tierFilter) : products;
+  const tierFilteredBundles = tierFilter ? bundles.filter(b => (b.tier || 'FREE') === tierFilter) : bundles;
 
   if (error) {
     return (
@@ -187,7 +183,7 @@ export default function DiscoverPage() {
               {/* Categories */}
               <div className="mb-8">
                 <h2 className="text-2xl font-semibold text-gray-900 mb-4">Categories</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
                   {categories.map((category) => (
                     <button
                       key={category.id}
@@ -200,6 +196,27 @@ export default function DiscoverPage() {
                       </span>
                     </button>
                   ))}
+                </div>
+                {/* FREE/PRO filter */}
+                <div className="flex gap-2 mb-2">
+                  <button
+                    className={`px-3 py-1 rounded-full border text-xs font-semibold ${tierFilter === '' ? 'bg-primary text-white border-primary' : 'bg-white text-primary border-primary/30'}`}
+                    onClick={() => setTierFilter('')}
+                  >
+                    All
+                  </button>
+                  <button
+                    className={`px-3 py-1 rounded-full border text-xs font-semibold ${tierFilter === 'FREE' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-white text-primary border-primary/30'}`}
+                    onClick={() => setTierFilter('FREE')}
+                  >
+                    FREE
+                  </button>
+                  <button
+                    className={`px-3 py-1 rounded-full border text-xs font-semibold ${tierFilter === 'PRO' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'bg-white text-primary border-primary/30'}`}
+                    onClick={() => setTierFilter('PRO')}
+                  >
+                    PRO
+                  </button>
                 </div>
               </div>
 
@@ -225,8 +242,6 @@ export default function DiscoverPage() {
                       </button>
                     </div>
                     <SearchFilters
-                      subscriptionType={subscriptionType}
-                      onSubscriptionTypeChange={setSubscriptionType}
                       sortBy={sortBy}
                       onSortChange={setSortBy}
                     />
@@ -266,7 +281,7 @@ export default function DiscoverPage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {(itemType === 'all' || itemType === 'products') && products.map((product) => (
+                      {(itemType === 'all' || itemType === 'products') && tierFilteredProducts.map((product) => (
                         <ProductCard
                           key={product.id}
                           id={product.id}
@@ -277,7 +292,7 @@ export default function DiscoverPage() {
                           tier={product.tier === 'PRO' ? 'PRO' : 'FREE'}
                         />
                       ))}
-                      {(itemType === 'all' || itemType === 'bundles') && bundles.map((bundle) => (
+                      {(itemType === 'all' || itemType === 'bundles') && tierFilteredBundles.map((bundle) => (
                         <div
                           key={bundle.id}
                           className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer relative"
@@ -290,11 +305,16 @@ export default function DiscoverPage() {
                           <h3 className="text-xl font-semibold text-gray-900 mb-2">{bundle.name}</h3>
                           <p className="text-gray-500">{bundle.description}</p>
                           {Array.isArray(bundle.products) && bundle.products.length > 0 && (
-                            <ul className="mt-4 text-left w-full max-w-xs mx-auto list-disc list-inside text-gray-700">
+                            <div className="mt-4 grid grid-cols-2 gap-2 justify-center w-full max-w-xs mx-auto">
                               {bundle.products.map((product: any) => (
-                                <li key={product.id}>{product.name}</li>
+                                <span
+                                  key={product.id}
+                                  className="px-3 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-medium shadow-sm cursor-default transition-colors duration-150 text-center truncate"
+                                >
+                                  {product.name}
+                                </span>
                               ))}
-                            </ul>
+                            </div>
                           )}
                         </div>
                       ))}
