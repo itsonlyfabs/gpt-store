@@ -208,7 +208,7 @@ function BrowsePageInner() {
           <div className="w-full md:w-64 flex-shrink-0">
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <SearchFilters
-                sortBy={filters.sortBy as string}
+                sortBy={filters.sortBy}
                 onSortChange={handleSortChange}
               />
               <button
