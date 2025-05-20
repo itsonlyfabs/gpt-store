@@ -388,7 +388,8 @@ export default function MyLibraryPage() {
                         <>
                           <button className="px-3 py-1 border border-primary text-primary bg-white hover:bg-primary/10 rounded text-xs" onClick={() => {
                             // If bundle has chat sessions, show warning first
-                            if (bundleChatSessions[bundle.id] && bundleChatSessions[bundle.id].length > 0) {
+                            const sessions = bundleChatSessions[bundle.id] || [];
+                            if (sessions.length > 0) {
                               setPendingEditBundle(bundle);
                               setShowEditWarning(true);
                             } else {
