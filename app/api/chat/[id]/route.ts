@@ -111,7 +111,7 @@ export async function POST(request: Request, context: any) {
       const { data: products, error: productsError } = await supabaseAdmin
         .from('products')
         .select('id, name, assistant_id')
-        .in('id', bundle.product_ids)
+        .in('id', bundle.product_ids) as { data: { id: string, name: string, assistant_id: string }[], error: any };
       if (productsError || !products) {
         return NextResponse.json({ error: 'Products not found' }, { status: 404 });
       }
@@ -268,7 +268,7 @@ export async function POST(request: Request, context: any) {
     // Fetch the product to get assistant_id
     const { data: product, error: productError } = await supabaseAdmin
       .from('products')
-      .select('assistant_id')
+      .select('id, name, assistant_id')
       .eq('id', session.product_id)
       .single();
     if (productError || !product) {
@@ -279,11 +279,11 @@ export async function POST(request: Request, context: any) {
     const openaiApiKey = process.env.OPENAI_API_KEY;
     let aiReply = 'Sorry, I could not generate a response.';
     try {
-      // System prompt for bundle context
-      const bundleContextPrompt = `You are responding as ${product.name}${bundle.assistant_nicknames?.[pid] ? ` (nickname: ${bundle.assistant_nicknames[pid]})` : ''}. The other products in this bundle chat are: ${products.filter(p => p.id !== pid).map(p => p.name).join(', ') || 'none'}.`;
+      // System prompt for single product context
+      const bundleContextPrompt = `You are responding as ${product.name}.`;
       // 1. Create a thread
       const threadRes = await fetch('https://api.openai.com/v1/threads', {
-        method: 'POST',
+      method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${openaiApiKey}`,

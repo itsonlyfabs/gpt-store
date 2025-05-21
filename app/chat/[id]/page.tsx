@@ -171,9 +171,9 @@ export default function ChatPage() {
       } else {
         // Single product chat (legacy)
         const assistantMessage = {
-          id: (Date.now() + 1).toString(),
+        id: (Date.now() + 1).toString(),
           sender: 'assistant',
-          content: data.response,
+        content: data.response,
           created_at: new Date().toISOString()
         }
         setMessages(prev => [...prev, assistantMessage])
@@ -440,8 +440,8 @@ export default function ChatPage() {
                     )}
                     <div
                       className="rounded-lg px-4 py-2 bg-gray-100 text-gray-900 prose"
-                      dangerouslySetInnerHTML={{ __html: formatAssistantMessage(msg.content) }}
-                    />
+                    dangerouslySetInnerHTML={{ __html: formatAssistantMessage(msg.content) }}
+                  />
                   </div>
                 ) : (
                   <div className="rounded-lg px-4 py-2 bg-blue-500 text-white max-w-xl">{msg.content}</div>
