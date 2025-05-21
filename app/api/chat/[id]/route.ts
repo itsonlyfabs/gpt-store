@@ -117,7 +117,9 @@ export async function POST(request: Request, context: any) {
       }
       // Parse mentions in the message
       const mentionRegex = /@([\w-]+)/g;
-      const mentions = Array.from(content.matchAll(mentionRegex)).map(m => typeof m[1] === 'string' ? m[1].toLowerCase() : '').filter(Boolean) as string[];
+      const mentions = Array.from(content.matchAll(mentionRegex))
+        .map((m) => (Array.isArray(m) && typeof m[1] === 'string' ? m[1].toLowerCase() : ''))
+        .filter(Boolean) as string[];
       // Build a map of possible mention keys to product ids
       const mentionMap: Record<string, string> = {};
       for (const product of products) {
