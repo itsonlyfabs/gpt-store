@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import Image from 'next/image'
+import { FiInfo } from 'react-icons/fi'
 
 interface PurchasedProduct {
   id: string
@@ -52,6 +53,7 @@ export default function MyLibraryPage() {
   const [showEditWarning, setShowEditWarning] = useState(false)
   const [pendingEditBundle, setPendingEditBundle] = useState<any | null>(null)
   const [bundleChatSessions, setBundleChatSessions] = useState<Record<string, any[]>>({})
+  const [showBundleInfo, setShowBundleInfo] = useState(false)
 
   useEffect(() => {
     const fetchPurchasedProducts = async () => {
@@ -323,7 +325,17 @@ export default function MyLibraryPage() {
 
           {/* Bundle Chats Carousel */}
           <div className="mt-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-1">Bundle Chats</h2>
+            <h1 className="text-xl font-bold text-gray-900 mb-1 flex items-center gap-2">
+              Bundle Chats
+              <button
+                className="ml-2 rounded-full border border-gray-300 bg-white w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="What is a bundle chat?"
+                onClick={() => setShowBundleInfo(true)}
+                type="button"
+              >
+                <FiInfo size={16} />
+              </button>
+            </h1>
             {bundleLoading ? (
               <div className="text-center text-gray-500 py-8">Loading bundles...</div>
             ) : bundleError ? (
@@ -375,7 +387,7 @@ export default function MyLibraryPage() {
                           // If not found, create a new session
                           const { data: newSession, error } = await supabase
                             .from('chat_sessions')
-                            .insert([{ user_id: userId, bundle_id: bundle.id, assistant_nicknames: bundle.assistant_nicknames }])
+                            .insert([{ user_id: userId, bundle_id: bundle.id, assistant_nicknames: bundle.assistant_nicknames, is_bundle: true }])
                             .select('id')
                             .single();
                           sessionId = newSession && newSession.id ? newSession.id : undefined;
@@ -569,6 +581,38 @@ export default function MyLibraryPage() {
               </div>
             )}
           </div>
+
+          {/* Bundle Info Modal */}
+          {showBundleInfo && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+              <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+                <button
+                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                  onClick={() => setShowBundleInfo(false)}
+                  aria-label="Close info"
+                >
+                  ×
+                </button>
+                <h2 className="text-lg font-semibold mb-2">What is a Bundle Chat?</h2>
+                <p className="text-sm text-gray-700 mb-2">
+                  A <span className="font-semibold">Bundle Chat</span> lets you chat with a team of AI products, each with their own expertise, as if you were in a team meeting. You can ask questions and the most relevant product will answer, or you can <span className="font-semibold">@mention</span> a specific product (by nickname or name) to direct your question to them.
+                </p>
+                <ul className="text-sm text-gray-700 mb-2 list-disc pl-5">
+                  <li>Use <span className="font-mono bg-gray-100 px-1 rounded">@nickname</span> or <span className="font-mono bg-gray-100 px-1 rounded">@product name</span> to mention a product directly.</li>
+                  <li>If you don't mention anyone, the AI will pick the best product to answer.</li>
+                  <li>Think of it like a group chat with different experts.</li>
+                </ul>
+                <a
+                  href="/support/documentation/c818c74e-e41d-430f-96ce-3813569af425"
+                  className="text-primary underline text-sm hover:text-primary-dark"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Read full documentation
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

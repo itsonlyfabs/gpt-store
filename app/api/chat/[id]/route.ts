@@ -96,6 +96,173 @@ export async function POST(request: Request, context: any) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
+    // --- Bundle chat support ---
+    if (session.is_bundle && session.bundle_id) {
+      // Fetch the bundle and its products
+      const { data: bundle, error: bundleError } = await supabaseAdmin
+        .from('bundles')
+        .select('*')
+        .eq('id', session.bundle_id)
+        .single();
+      if (bundleError || !bundle) {
+        return NextResponse.json({ error: 'Bundle not found' }, { status: 404 });
+      }
+      // Fetch all products in the bundle
+      const { data: products, error: productsError } = await supabaseAdmin
+        .from('products')
+        .select('id, name, assistant_id')
+        .in('id', bundle.product_ids)
+      if (productsError || !products) {
+        return NextResponse.json({ error: 'Products not found' }, { status: 404 });
+      }
+      // Parse mentions in the message
+      const mentionRegex = /@([\w-]+)/g;
+      const mentions = Array.from(content.matchAll(mentionRegex)).map(m => typeof m[1] === 'string' ? m[1].toLowerCase() : '').filter(Boolean) as string[];
+      // Build a map of possible mention keys to product ids
+      const mentionMap: Record<string, string> = {};
+      for (const product of products) {
+        mentionMap[product.name.toLowerCase()] = product.id;
+      }
+      if (bundle.assistant_nicknames) {
+        for (const [pid, nickname] of Object.entries(bundle.assistant_nicknames)) {
+          if (nickname) mentionMap[(nickname as string).toLowerCase()] = pid;
+        }
+      }
+      // Determine which products should respond
+      let targetProductIds: string[] = [];
+      if (mentions.length > 0) {
+        // Only products explicitly mentioned
+        targetProductIds = mentions.map(m => mentionMap[m]).filter((id): id is string => Boolean(id));
+      } else {
+        // No mention: use OpenAI to pick the best product
+        if (products && products.length > 0) {
+          // Build routing prompt
+          const routingPrompt = `You are a router for a bundle chat. Here are the products in the bundle:\n${products.map(p => `- ${p.name}: ${p.description || ''}`).join('\n')}\nGiven the user message: "${content}", which product should answer? Return only the product id from this list: [${products.map(p => p.id).join(', ')}]`;
+          const openaiApiKey = process.env.OPENAI_API_KEY;
+          let chosenProductId = products[0].id;
+          try {
+            const routeRes = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${openaiApiKey}`,
+              },
+              body: JSON.stringify({
+                model: 'gpt-3.5-turbo',
+                messages: [
+                  { role: 'system', content: 'You are a helpful router that only returns a product id.' },
+                  { role: 'user', content: routingPrompt }
+                ],
+                max_tokens: 20,
+                temperature: 0
+              })
+            });
+            const routeData = await routeRes.json();
+            const routeText = routeData.choices?.[0]?.message?.content?.trim();
+            if (routeText && products.some(p => p.id === routeText)) {
+              chosenProductId = routeText;
+            }
+          } catch (err) {
+            // fallback to first product
+          }
+          targetProductIds = [chosenProductId];
+        } else {
+          targetProductIds = [];
+        }
+      }
+      // For each product, send the message to its assistant
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      const responses: any[] = [];
+      for (const pid of targetProductIds) {
+        const product = products.find(p => p.id === pid);
+        if (!product || !product.assistant_id) continue;
+        let aiReply = '';
+        try {
+          // System prompt for bundle context
+          const bundleContextPrompt = `You are responding as ${product.name}${bundle.assistant_nicknames?.[pid] ? ` (nickname: ${bundle.assistant_nicknames[pid]})` : ''}. The other products in this bundle chat are: ${products.filter(p => p.id !== pid).map(p => p.name).join(', ') || 'none'}.`;
+          // 1. Create a thread
+          const threadRes = await fetch('https://api.openai.com/v1/threads', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${openaiApiKey}`,
+              'OpenAI-Beta': 'assistants=v2',
+            },
+            body: JSON.stringify({
+              messages: [
+                { role: 'system', content: bundleContextPrompt },
+                { role: 'user', content }
+              ]
+            })
+          });
+          const threadData = await threadRes.json();
+          const threadId = threadData.id;
+          // 2. Run the assistant
+          const runRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${openaiApiKey}`,
+              'OpenAI-Beta': 'assistants=v2',
+            },
+            body: JSON.stringify({ assistant_id: product.assistant_id })
+          });
+          const runData = await runRes.json();
+          const runId = runData.id;
+          // 3. Poll for completion
+          let status = runData.status;
+          let attempts = 0;
+          while (status !== 'completed' && status !== 'failed' && attempts < 20) {
+            await new Promise(r => setTimeout(r, 1000));
+            const pollRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+              headers: {
+                'Authorization': `Bearer ${openaiApiKey}`,
+                'OpenAI-Beta': 'assistants=v2',
+              }
+            });
+            const pollData = await pollRes.json();
+            status = pollData.status;
+            attempts++;
+          }
+          // 4. Get the assistant's reply
+          const messagesRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+            headers: {
+              'Authorization': `Bearer ${openaiApiKey}`,
+              'OpenAI-Beta': 'assistants=v2',
+            }
+          });
+          const messagesData = await messagesRes.json();
+          const lastMsg = messagesData.data?.reverse().find((msg: any) => msg.role === 'assistant');
+          aiReply = lastMsg?.content?.[0]?.text?.value || 'No response from assistant.';
+        } catch (err) {
+          aiReply = 'Sorry, I could not generate a response.';
+        }
+        // Store assistant message
+        await supabaseAdmin
+          .from('chat_messages')
+          .insert({
+            session_id: id,
+            user_id: user.id,
+            content: aiReply,
+            role: 'assistant',
+            bundle_id: session.bundle_id,
+            is_bundle: true,
+            product_id: pid,
+            conversation_id: session.conversation_id,
+            created_at: new Date().toISOString(),
+          });
+        // Add to responses array
+        responses.push({
+          product_id: pid,
+          product_name: product.name,
+          nickname: bundle.assistant_nicknames?.[pid] || null,
+          content: aiReply,
+        });
+      }
+      return NextResponse.json({ responses });
+    }
+    // --- End bundle chat support ---
+
     // Fetch the product to get assistant_id
     const { data: product, error: productError } = await supabaseAdmin
       .from('products')
@@ -110,6 +277,8 @@ export async function POST(request: Request, context: any) {
     const openaiApiKey = process.env.OPENAI_API_KEY;
     let aiReply = 'Sorry, I could not generate a response.';
     try {
+      // System prompt for bundle context
+      const bundleContextPrompt = `You are responding as ${product.name}${bundle.assistant_nicknames?.[pid] ? ` (nickname: ${bundle.assistant_nicknames[pid]})` : ''}. The other products in this bundle chat are: ${products.filter(p => p.id !== pid).map(p => p.name).join(', ') || 'none'}.`;
       // 1. Create a thread
       const threadRes = await fetch('https://api.openai.com/v1/threads', {
         method: 'POST',
@@ -118,23 +287,16 @@ export async function POST(request: Request, context: any) {
           'Authorization': `Bearer ${openaiApiKey}`,
           'OpenAI-Beta': 'assistants=v2',
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: bundleContextPrompt },
+            { role: 'user', content }
+          ]
+        })
       });
       const threadData = await threadRes.json();
       const threadId = threadData.id;
-
-      // 2. Add user message to thread
-      await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
-        },
-        body: JSON.stringify({ role: 'user', content })
-      });
-
-      // 3. Run the assistant
+      // 2. Run the assistant
       const runRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
         method: 'POST',
         headers: {
@@ -146,8 +308,7 @@ export async function POST(request: Request, context: any) {
       });
       const runData = await runRes.json();
       const runId = runData.id;
-
-      // 4. Poll for completion
+      // 3. Poll for completion
       let status = runData.status;
       let attempts = 0;
       while (status !== 'completed' && status !== 'failed' && attempts < 20) {
@@ -162,8 +323,7 @@ export async function POST(request: Request, context: any) {
         status = pollData.status;
         attempts++;
       }
-
-      // 5. Get the assistant's reply
+      // 4. Get the assistant's reply
       const messagesRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
         headers: {
           'Authorization': `Bearer ${openaiApiKey}`,

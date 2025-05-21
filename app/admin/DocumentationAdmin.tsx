@@ -65,7 +65,7 @@ const DocumentationAdmin = () => {
       await fetch('/api/admin/documentation', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify(form) });
     }
     handleClose();
-    fetchDocs();
+    await fetchDocs();
   };
 
   const handleDelete = async (id: string) => {

@@ -4,11 +4,12 @@ const { supabaseAdmin } = require('../lib/supabase');
 
 // Public: Get all documentation
 router.get('/', async (req, res) => {
+  console.log('HIT /api/documentation');
   const now = new Date().toISOString();
   console.log(`[${now}] [documentation.js] Incoming request headers:`, req.headers);
-  const { data, error } = await supabaseAdmin.from('documentation').select('*').order('created_at', { ascending: false });
-  console.log(`[${now}] [documentation.js] Returning ${data ? data.length : 0} documentation rows`);
-  console.log(`[${now}] [documentation.js] Data:`, data);
+  const { data, error } = await supabaseAdmin.from('documentation').select('*').order('created_at', { ascending: false }).limit(100);
+  console.log(`[${now}] [documentation.js] Returning ${data ? data.length : 0} documentation rows. IDs:`, data ? data.map(d => d.id) : []);
+  console.log('Full response data:', data);
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
