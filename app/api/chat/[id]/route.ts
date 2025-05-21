@@ -139,7 +139,7 @@ export async function POST(request: Request, context: any) {
         // No mention: use OpenAI to pick the best product
         if (products && products.length > 0) {
           // Build routing prompt
-          const routingPrompt = `You are a router for a bundle chat. Here are the products in the bundle:\n${products.map(p => `- ${p.name}: ${p.description || ''}`).join('\n')}\nGiven the user message: "${content}", which product should answer? Return only the product id from this list: [${products.map(p => p.id).join(', ')}]`;
+          const routingPrompt = `You are a router for a bundle chat. Here are the products in the bundle:\n${products.map(p => `- ${p.name}`).join('\n')}\nGiven the user message: "${content}", which product should answer? Return only the product id from this list: [${products.map(p => p.id).join(', ')}]`;
           const openaiApiKey = process.env.OPENAI_API_KEY;
           let chosenProductId = products[0].id;
           try {
