@@ -87,27 +87,16 @@ export default function ChatPage() {
         } else {
           setMessages([])
         }
-        // Fetch product info if not a bundle
-        if (data.session && !data.session.is_bundle && data.session.product_id) {
-          const prodRes = await fetch(`/api/products/${data.session.product_id}`)
-          if (prodRes.ok) {
-            const prodData = await prodRes.json()
-            setProduct(prodData)
-          }
+        // Use product info from API response
+        if (data.product) {
+          setProduct(data.product)
         }
         // Fetch bundle info if bundle chat
         if (data.session && data.session.is_bundle && data.session.bundle_id) {
           const bundleRes = await fetch(`/api/bundles/${data.session.bundle_id}`)
           if (bundleRes.ok) {
             const bundleData = await bundleRes.json()
-            // Fetch product details for mention autocomplete
-            if (bundleData.product_ids && bundleData.product_ids.length > 0) {
-              const prodsRes = await fetch(`/api/products?ids=${bundleData.product_ids.join(',')}`)
-              if (prodsRes.ok) {
-                const prodsData = await prodsRes.json()
-                bundleData.products = prodsData
-              }
-            }
+            // Use products from API response directly
             setBundle(bundleData)
           }
         }
@@ -374,7 +363,7 @@ export default function ChatPage() {
               <h1 className="text-2xl font-bold mb-1">
                 {session.is_bundle
                   ? (bundle ? bundle.name : 'Bundle Chat')
-                  : (product ? product.name : session.title || 'Product Chat')}
+                  : (product ? product.name : 'Product Chat')}
               </h1>
               <div className="text-gray-500 text-sm">
                 {session.is_bundle
@@ -388,7 +377,7 @@ export default function ChatPage() {
                   {bundle.products && Array.isArray(bundle.products) && bundle.products.length > 0
                     ? bundle.products.map((p: any, idx: number) => (
                         <span key={p.id} className="inline-block mr-1">
-                          {bundle.assistant_nicknames?.[p.id] || p.name}{idx < bundle.products.length - 1 ? ',' : ''}
+                          {bundle.assistant_nicknames && bundle.assistant_nicknames[p.id] ? bundle.assistant_nicknames[p.id] : p.name}{idx < bundle.products.length - 1 ? ',' : ''}
                         </span>
                       ))
                     : <span className="italic text-gray-400">(none)</span>}

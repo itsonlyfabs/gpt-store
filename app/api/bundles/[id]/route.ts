@@ -24,7 +24,20 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     .eq('id', params.id)
     .single();
   if (error || !bundle) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json(bundle);
+
+  // Fetch all products for this bundle in the correct order
+  let products = [];
+  if (bundle.product_ids && Array.isArray(bundle.product_ids) && bundle.product_ids.length > 0) {
+    const { data: allProducts, error: productsError } = await supabaseAdmin
+      .from('products')
+      .select('*')
+      .in('id', bundle.product_ids);
+    if (!productsError && allProducts) {
+      // Ensure order matches bundle.product_ids
+      products = bundle.product_ids.map((pid: string) => allProducts.find((p: any) => p.id === pid)).filter(Boolean);
+    }
+  }
+  return NextResponse.json({ ...bundle, products, assistant_nicknames: bundle.assistant_nicknames || {} });
 }
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {

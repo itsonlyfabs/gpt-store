@@ -87,16 +87,39 @@ export async function GET(request: Request, context: any) {
       // For single product, always use latest product info
       const { data: product, error: productError } = await supabaseAdmin
         .from('products')
-        .select('name, description')
+        .select('id, name, description')
         .eq('id', session.product_id)
         .single();
       if (!productError && product) {
         title = product.name;
         description = product.description;
+        products = [product];
       }
     }
 
-    return NextResponse.json({ session: { ...session, title, description }, messages, products });
+    // Update the session with latest title and description
+    if (title !== session.title || description !== session.description) {
+      await supabaseAdmin
+        .from('chat_sessions')
+        .update({ title, description })
+        .eq('id', id);
+    }
+
+    let productInfo = null;
+    if (session.product_id) {
+      const { data: product, error: productError } = await supabaseAdmin
+        .from('products')
+        .select('id, name, description')
+        .eq('id', session.product_id)
+        .single();
+      if (!productError && product) {
+        productInfo = product;
+        title = product.name;
+        description = product.description;
+      }
+    }
+
+    return NextResponse.json({ session: { ...session, title, description }, messages, products, product: productInfo });
   } catch (error: any) {
     console.error('Chat session API error:', error);
     return NextResponse.json(
