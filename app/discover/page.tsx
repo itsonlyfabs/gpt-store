@@ -86,7 +86,7 @@ export default function DiscoverPage() {
 
   useEffect(() => {
     fetchProducts(searchQuery)
-    fetchBundles(searchQuery)
+    fetchBundles()
   }, [searchQuery, sortBy])
 
   const fetchProducts = async (query: string) => {
@@ -111,21 +111,20 @@ export default function DiscoverPage() {
     }
   }
 
-  const fetchBundles = async (query: string) => {
+  const fetchBundles = async () => {
+    setLoading(true);
+    setError('');
     try {
-      const searchParams = new URLSearchParams({
-        ...(query && { search: query })
-      })
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bundles?${searchParams}`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch bundles')
-      }
-      const data = await response.json()
-      setBundles(data.filter((b: any) => !b.user_id))
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bundles?discover=true`);
+      if (!response.ok) throw new Error('Failed to fetch bundles');
+      const data = await response.json();
+      setBundles(data.filter((b: any) => b.is_admin));
     } catch (err) {
-      console.error('Error fetching bundles:', err)
+      setError('Failed to load bundles');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   const handleSearch = (newQuery: string) => {
     console.log('discover handleSearch', newQuery);

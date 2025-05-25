@@ -44,7 +44,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const data = await req.json();
-  const { name, description, image, tier, productIds, assistant_nicknames } = data;
+  const { name, description, image, tier, productIds } = data;
   const { data: updated, error } = await supabaseAdmin
     .from('bundles')
     .update({
@@ -53,7 +53,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       image,
       tier,
       product_ids: productIds,
-      assistant_nicknames: assistant_nicknames || {},
     })
     .eq('id', params.id)
     .select('*')
@@ -104,7 +103,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: 'Can only clone admin bundles' }, { status: 400 });
   }
   const data = await req.json();
-  const { name, description, image, tier, productIds, assistant_nicknames } = data;
+  const { name, description, image, tier, productIds } = data;
   const { data: newBundle, error } = await supabaseAdmin
     .from('bundles')
     .insert({
@@ -114,7 +113,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       image: image || bundle.image,
       tier: tier || bundle.tier,
       product_ids: productIds || bundle.product_ids,
-      assistant_nicknames: assistant_nicknames || bundle.assistant_nicknames || {},
     })
     .select('*')
     .single();

@@ -1,11 +1,18 @@
 import { useEffect, useState, useRef } from 'react'
-import { useChat, Message as AIMessage } from 'ai/react'
+import { useChat, Message as UIMessage } from 'ai/react'
 
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
   createdAt: string // ISO date string
+  alert?: string // Optional alert message
+}
+
+interface Product {
+  id: string
+  name: string
+  assistant_id?: string
 }
 
 interface ChatProps {
@@ -17,7 +24,21 @@ export default function Chat({ toolId, toolName }: ChatProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<Message[]>([])
+  const [products, setProducts] = useState<Product[] | null>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+
+  // Fetch session info (including products) on mount
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const response = await fetch(`/api/chat/${toolId}`)
+        if (!response.ok) return
+        const data = await response.json()
+        if (data.products) setProducts(data.products)
+      } catch {}
+    }
+    fetchSession()
+  }, [toolId])
 
   // AI SDK chat hook for streaming
   const { messages, input, handleInputChange, handleSubmit, isLoading: isResponding } = useChat({
@@ -84,10 +105,19 @@ export default function Chat({ toolId, toolName }: ChatProps) {
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   })
 
+  // Check for alert in the latest message
+  const latestMessage = sortedMessages[sortedMessages.length - 1] as any
+  const alertMessage = latestMessage?.alert
+
   return (
     <div className="flex flex-col h-full max-h-screen">
       <div className="flex-none p-4 border-b">
         <h2 className="text-lg font-semibold">{toolName}</h2>
+        {products && products.length > 0 && (
+          <div className="text-sm text-gray-600 mt-1">
+            <b>Chat products:</b> {products.map(p => p.name).join(', ')}
+          </div>
+        )}
       </div>
 
       <div 
@@ -119,6 +149,13 @@ export default function Chat({ toolId, toolName }: ChatProps) {
           ))
         )}
       </div>
+
+      {alertMessage && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+          <p className="font-bold">Alert</p>
+          <p>{alertMessage}</p>
+        </div>
+      )}
 
       <form 
         onSubmit={handleSubmit}

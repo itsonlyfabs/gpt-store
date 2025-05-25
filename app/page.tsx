@@ -123,7 +123,7 @@ export default function Home() {
         }
         return res.json();
       })
-      .then(data => setBundles(data.filter((b: any) => !b.user_id)))
+      .then(data => setBundles(data.filter((b: any) => b.is_admin)))
       .catch((err) => {
         console.error('Error fetching bundles:', err);
         setBundles([]);
@@ -312,40 +312,57 @@ export default function Home() {
                           style={{ scrollSnapType: 'x mandatory' }}
                         >
                           {tierFilteredBundles.map(bundle => (
-                <div
-                  key={bundle.id}
+                            <div
+                              key={bundle.id}
                               style={{ minWidth: '320px', maxWidth: '320px', scrollSnapAlign: 'start' }}
                               className="px-2"
                             >
                               <div
-                  className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer relative"
+                                className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer relative"
                                 role="button"
                                 tabIndex={0}
-                                onClick={() => router.push(`/bundle/${bundle.id}`)}
-                                onKeyPress={e => { if (e.key === 'Enter' || e.key === ' ') router.push(`/bundle/${bundle.id}`) }}
-                >
-                  <div className="relative w-full">
-                    <Image src={bundle.image} alt={bundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
-                    <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${bundle.tier === 'FREE' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-yellow-100 text-yellow-700 border border-yellow-300'}`}>{bundle.tier}</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{bundle.name}</h3>
-                  <p className="text-gray-500">{bundle.description}</p>
-                  {Array.isArray(bundle.products) && bundle.products.length > 0 && (
-                                  <div className="mt-4 grid grid-cols-2 gap-2 justify-center w-full max-w-xs mx-auto">
-                      {bundle.products.map((product: any) => (
-                                      <span
-                                        key={product.id}
-                                        className="px-3 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-medium shadow-sm cursor-default transition-colors duration-150 text-center truncate"
-                                      >
+                                onClick={async () => {
+                                  // Check if user is authenticated
+                                  const { data: { session } } = await supabase.auth.getSession();
+                                  if (!session) {
+                                    setBundleToView(bundle);
+                                    setShowBundleAuthModal(true);
+                                    return;
+                                  }
+                                  router.push(`/bundle/${bundle.id}`);
+                                }}
+                                onKeyPress={async e => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    // Check if user is authenticated
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    if (!session) {
+                                      setBundleToView(bundle);
+                                      setShowBundleAuthModal(true);
+                                      return;
+                                    }
+                                    router.push(`/bundle/${bundle.id}`);
+                                  }
+                                }}
+                              >
+                                <div className="relative w-full">
+                                  <Image src={bundle.image} alt={bundle.name || 'Bundle image'} width={320} height={192} unoptimized className="w-full h-48 object-cover rounded-xl mb-4" />
+                                  <span className={`absolute top-2 right-2 px-3 py-1 text-xs font-semibold rounded-full ${bundle.tier === 'FREE' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-yellow-100 text-yellow-700 border border-yellow-300'}`}>{bundle.tier}</span>
+                                </div>
+                                <h3 className="text-xl font-semibold text-gray-900 mb-2">{bundle.name}</h3>
+                                <p className="text-gray-500">{bundle.description}</p>
+                                {Array.isArray(bundle.products) && bundle.products.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {bundle.products.map((product: any) => (
+                                      <span key={product.id} className="inline-block px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20">
                                         {product.name}
                                       </span>
                                     ))}
                                   </div>
                                 )}
                               </div>
-                </div>
-              ))}
-            </div>
+                            </div>
+                          ))}
+                        </div>
                         <button
                           className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
                           onClick={() => scrollCarousel(bundleCarouselRef, 'right')}
@@ -392,7 +409,7 @@ export default function Home() {
                 >
                   Sign up for free
                 </button>
-                        <button
+                <button
                   onClick={() => {
                     localStorage.setItem('redirectAfterLogin', `/bundle/${bundleToView.id}`);
                     router.push('/auth/login');
@@ -400,7 +417,7 @@ export default function Home() {
                   className="w-full sm:w-auto px-6 py-2 border border-primary text-primary rounded-lg font-semibold hover:bg-primary/10 transition"
                 >
                   Sign in
-                        </button>
+                </button>
               </div>
             </div>
           </div>

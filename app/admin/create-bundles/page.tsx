@@ -15,7 +15,6 @@ export default function CreateBundlePage() {
   const [error, setError] = useState("");
   const [bundles, setBundles] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
-  const [nicknames, setNicknames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api") + "/products")
@@ -34,22 +33,12 @@ export default function CreateBundlePage() {
 
   const handleSelect = (id: string) => {
     setSelected(sel => sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]);
-    setNicknames(nicks => {
-      const copy = { ...nicks };
-      if (selected.includes(id)) delete copy[id];
-      return copy;
-    });
-  };
-
-  const handleNicknameChange = (id: string, value: string) => {
-    setNicknames(nicks => ({ ...nicks, [id]: value }));
   };
 
   const handleEdit = (bundle: any) => {
     setEditing(bundle);
     setForm({ name: bundle.name, description: bundle.description, image: bundle.image, tier: bundle.tier || 'FREE' });
     setSelected(bundle.products.map((p: any) => p.id));
-    setNicknames(bundle.assistant_nicknames || {});
     setSuccess("");
     setError("");
   };
@@ -83,7 +72,7 @@ export default function CreateBundlePage() {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, productIds: selected, assistant_nicknames: nicknames })
+        body: JSON.stringify({ ...form, productIds: selected })
       });
       if (!res.ok) {
         const data = await res.json();
@@ -93,7 +82,6 @@ export default function CreateBundlePage() {
       setForm({ name: "", description: "", image: "", tier: "FREE" });
       setSelected([]);
       setEditing(null);
-      setNicknames({});
       // Refresh bundles list
       fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api") + "/bundles")
         .then(res => res.json())
@@ -131,21 +119,12 @@ export default function CreateBundlePage() {
                   className="accent-blue-600"
                 />
                 <span>{p.name}</span>
-                {selected.includes(p.id) && (
-                  <input
-                    type="text"
-                    placeholder="Nickname (optional)"
-                    value={nicknames[p.id] || ''}
-                    onChange={e => handleNicknameChange(p.id, e.target.value)}
-                    className="ml-2 border px-2 py-1 rounded text-xs"
-                  />
-                )}
               </div>
             ))}
           </div>
         </div>
         <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? (editing ? "Saving..." : "Creating...") : (editing ? "Save Changes" : "Create Bundle")}</button>
-        {editing && <button type="button" className="ml-2 px-4 py-2 rounded border" onClick={() => { setEditing(null); setForm({ name: "", description: "", image: "", tier: "FREE" }); setSelected([]); setNicknames({}); }}>Cancel</button>}
+        {editing && <button type="button" className="ml-2 px-4 py-2 rounded border" onClick={() => { setEditing(null); setForm({ name: "", description: "", image: "", tier: "FREE" }); setSelected([]); }}>Cancel</button>}
         {success && <div className="text-green-600">{success}</div>}
         {error && <div className="text-red-600">{error}</div>}
       </form>
@@ -160,6 +139,15 @@ export default function CreateBundlePage() {
               <button className="bg-yellow-500 text-white px-3 py-1 rounded" onClick={() => handleEdit(bundle)}>Edit</button>
               <button className="bg-red-600 text-white px-3 py-1 rounded" onClick={() => handleDelete(bundle.id)}>Delete</button>
             </div>
+            {Array.isArray(bundle.products) && bundle.products.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {bundle.products.map((product: any) => (
+                  <span key={product.id} className="inline-block px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20">
+                    {product.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

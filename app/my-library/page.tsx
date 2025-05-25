@@ -346,26 +346,15 @@ export default function MyLibraryPage() {
               <div className="flex gap-4 overflow-x-auto pb-4">
                 {bundles.map(bundle => (
                   <div key={bundle.id} className="bg-white rounded-lg shadow-sm p-4 min-w-[280px] max-w-xs flex flex-col justify-between border border-gray-100 relative">
-                    {/* Show tier in top right for admin bundles only */}
-                    {(!bundle.user_id && bundle.tier) && (
-                      <span className="absolute top-2 right-2 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold border border-primary/20">
-                        {bundle.tier}
-                      </span>
-                    )}
                     <div>
                       <div className="font-bold text-gray-900 text-lg mb-1 truncate">{bundle.name}</div>
                       <div className="text-xs text-gray-500 mb-2 truncate">{bundle.description}</div>
                       <div className="flex flex-wrap gap-2 mb-2">
-                        {Array.isArray(bundle.product_ids) && bundle.product_ids.length > 0 && bundle.product_ids.map((pid: string) => {
-                          const nickname = bundle.assistant_nicknames?.[pid];
-                          const product = products.find((p: any) => p.id === pid);
-                          const label = nickname || product?.name || 'Product';
-                          return (
-                            <span key={pid} className="inline-block px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20">
-                              {label}
-                            </span>
-                          );
-                        })}
+                        {Array.isArray(bundle.products) && bundle.products.length > 0 && bundle.products.map((product: any) => (
+                          <span key={product.id} className="inline-block px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20">
+                            {product.name}
+                          </span>
+                        ))}
                       </div>
                     </div>
                     <div className="flex gap-2 mt-2">
@@ -387,7 +376,7 @@ export default function MyLibraryPage() {
                           // If not found, create a new session
                           const { data: newSession, error } = await supabase
                             .from('chat_sessions')
-                            .insert([{ user_id: userId, bundle_id: bundle.id, assistant_nicknames: bundle.assistant_nicknames, is_bundle: true }])
+                            .insert([{ user_id: userId, bundle_id: bundle.id, is_bundle: true }])
                             .select('id')
                             .single();
                           sessionId = newSession && newSession.id ? newSession.id : undefined;
@@ -547,7 +536,6 @@ export default function MyLibraryPage() {
                       (session.title && session.title.toLowerCase().includes(q)) ||
                       (product && product.name && product.name.toLowerCase().includes(q)) ||
                       (product && product.category && product.category.toLowerCase().includes(q)) ||
-                      (Array.isArray(session.assistant_ids) && session.assistant_ids.join(',').toLowerCase().includes(q)) ||
                       (session.bundle_id && String(session.bundle_id).toLowerCase().includes(q)) ||
                       (session.product_id && String(session.product_id).toLowerCase().includes(q)) ||
                       (session.id && String(session.id).toLowerCase().includes(q))
@@ -626,7 +614,6 @@ function BundleForm({ products, editingBundle, onClose, onSaved }: { products: a
     image: editingBundle?.image || '',
   });
   const [selected, setSelected] = React.useState<string[]>(editingBundle?.product_ids || []);
-  const [nicknames, setNicknames] = React.useState<Record<string, string>>(editingBundle?.assistant_nicknames || {});
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
@@ -635,14 +622,6 @@ function BundleForm({ products, editingBundle, onClose, onSaved }: { products: a
   };
   const handleSelect = (id: string) => {
     setSelected(sel => sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]);
-    setNicknames(nicks => {
-      const copy = { ...nicks };
-      if (selected.includes(id)) delete copy[id];
-      return copy;
-    });
-  };
-  const handleNicknameChange = (id: string, value: string) => {
-    setNicknames(nicks => ({ ...nicks, [id]: value }));
   };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -654,7 +633,7 @@ function BundleForm({ products, editingBundle, onClose, onSaved }: { products: a
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, productIds: selected, assistant_nicknames: nicknames })
+        body: JSON.stringify({ ...form, productIds: selected })
       });
       if (!res.ok) {
         const data = await res.json();
@@ -686,15 +665,6 @@ function BundleForm({ products, editingBundle, onClose, onSaved }: { products: a
                 className="accent-blue-600"
               />
               <span>{p.name}</span>
-              {selected.includes(p.id) && (
-                <input
-                  type="text"
-                  placeholder="Nickname (optional)"
-                  value={nicknames[p.id] || ''}
-                  onChange={e => handleNicknameChange(p.id, e.target.value)}
-                  className="ml-2 border px-2 py-1 rounded text-xs"
-                />
-              )}
             </div>
           ))}
         </div>

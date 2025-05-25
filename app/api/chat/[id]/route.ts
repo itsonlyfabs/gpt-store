@@ -61,7 +61,42 @@ export async function GET(request: Request, context: any) {
       return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
     }
 
-    return NextResponse.json({ session, messages });
+    // If bundle chat, fetch bundle and products, and always use latest title, description
+    let products = null;
+    let title = session.title;
+    let description = session.description;
+    if (session.is_bundle && session.bundle_id) {
+      const { data: bundle, error: bundleError } = await supabaseAdmin
+        .from('bundles')
+        .select('*')
+        .eq('id', session.bundle_id)
+        .single();
+      if (!bundleError && bundle && bundle.product_ids && bundle.product_ids.length > 0) {
+        const { data: bundleProducts, error: productsError } = await supabaseAdmin
+          .from('products')
+          .select('id, name, assistant_id, description')
+          .in('id', bundle.product_ids);
+        if (!productsError && bundleProducts) {
+          products = bundleProducts.filter((p: any) => !!p.assistant_id);
+        }
+        // Always use latest bundle info
+        title = bundle.name;
+        description = bundle.description;
+      }
+    } else if (session.product_id) {
+      // For single product, always use latest product info
+      const { data: product, error: productError } = await supabaseAdmin
+        .from('products')
+        .select('name, description')
+        .eq('id', session.product_id)
+        .single();
+      if (!productError && product) {
+        title = product.name;
+        description = product.description;
+      }
+    }
+
+    return NextResponse.json({ session: { ...session, title, description }, messages, products });
   } catch (error: any) {
     console.error('Chat session API error:', error);
     return NextResponse.json(
@@ -96,6 +131,28 @@ export async function POST(request: Request, context: any) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
+    // Fetch the last 20 messages for context
+    const { data: chatHistory, error: historyError } = await supabaseAdmin
+      .from('chat_messages')
+      .select('role, content')
+      .eq('session_id', id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (historyError) {
+      console.error('Error fetching chat history:', historyError);
+      return NextResponse.json({ error: 'Failed to fetch chat history' }, { status: 500 });
+    }
+
+    // Check if total message count exceeds threshold (e.g., 50)
+    const { count, error: countError } = await supabaseAdmin
+      .from('chat_messages')
+      .select('*', { count: 'exact' })
+      .eq('session_id', id);
+    if (countError) {
+      console.error('Error fetching message count:', countError);
+    }
+    const shouldAlertUser = count && count > 50;
+
     // --- Bundle chat support ---
     if (session.is_bundle && session.bundle_id) {
       // Fetch the bundle and its products
@@ -110,11 +167,13 @@ export async function POST(request: Request, context: any) {
       // Fetch all products in the bundle
       const { data: products, error: productsError } = await supabaseAdmin
         .from('products')
-        .select('id, name, assistant_id')
-        .in('id', bundle.product_ids) as { data: { id: string, name: string, assistant_id: string }[], error: any };
+        .select('id, name, assistant_id, description')
+        .in('id', bundle.product_ids) as { data: { id: string, name: string, assistant_id: string, description: string }[], error: any };
       if (productsError || !products) {
         return NextResponse.json({ error: 'Products not found' }, { status: 404 });
       }
+      // Only include products with a valid assistant_id
+      const validProducts = products.filter((p: any) => !!p.assistant_id);
       // Parse mentions in the message
       const mentionRegex = /@([\w-]+)/g;
       const mentions = Array.from(content.matchAll(mentionRegex))
@@ -122,13 +181,8 @@ export async function POST(request: Request, context: any) {
         .filter(Boolean) as string[];
       // Build a map of possible mention keys to product ids
       const mentionMap: Record<string, string> = {};
-      for (const product of products) {
+      for (const product of validProducts) {
         mentionMap[product.name.toLowerCase()] = product.id;
-      }
-      if (bundle.assistant_nicknames) {
-        for (const [pid, nickname] of Object.entries(bundle.assistant_nicknames)) {
-          if (nickname) mentionMap[(nickname as string).toLowerCase()] = pid;
-        }
       }
       // Determine which products should respond
       let targetProductIds: string[] = [];
@@ -136,53 +190,20 @@ export async function POST(request: Request, context: any) {
         // Only products explicitly mentioned
         targetProductIds = mentions.map(m => mentionMap[m]).filter((id): id is string => Boolean(id));
       } else {
-        // No mention: use OpenAI to pick the best product
-        if (products && products.length > 0) {
-          // Build routing prompt
-          const routingPrompt = `You are a router for a bundle chat. Here are the products in the bundle:\n${products.map(p => `- ${p.name}`).join('\n')}\nGiven the user message: "${content}", which product should answer? Return only the product id from this list: [${products.map(p => p.id).join(', ')}]`;
-          const openaiApiKey = process.env.OPENAI_API_KEY;
-          let chosenProductId = (products && products.length > 0 && products[0]) ? products[0].id : '';
-          try {
-            const routeRes = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${openaiApiKey}`,
-              },
-              body: JSON.stringify({
-                model: 'gpt-3.5-turbo',
-                messages: [
-                  { role: 'system', content: 'You are a helpful router that only returns a product id.' },
-                  { role: 'user', content: routingPrompt }
-                ],
-                max_tokens: 20,
-                temperature: 0
-              })
-            });
-            const routeData = await routeRes.json();
-            const routeText = routeData.choices?.[0]?.message?.content?.trim();
-            if (routeText && products.some(p => p.id === routeText)) {
-              chosenProductId = routeText;
-            }
-          } catch (err) {
-            // fallback to first product
-          }
-          targetProductIds = [chosenProductId];
-        } else {
-          targetProductIds = [];
-        }
+        // No mention: let all products answer (multi-response)
+        targetProductIds = validProducts.map(p => p.id);
       }
       // For each product, send the message to its assistant
       const openaiApiKey = process.env.OPENAI_API_KEY;
       const responses: any[] = [];
       for (const pid of targetProductIds) {
-        const product = products.find(p => p.id === pid);
+        const product = validProducts.find(p => p.id === pid);
         if (!product || !product.assistant_id) continue;
         let aiReply = '';
         try {
-          // System prompt for bundle context
-          const bundleContextPrompt = `You are responding as ${product.name}${bundle.assistant_nicknames?.[pid] ? ` (nickname: ${bundle.assistant_nicknames[pid]})` : ''}. The other products in this bundle chat are: ${products.filter(p => p.id !== pid).map(p => p.name).join(', ') || 'none'}.`;
-          // 1. Create a thread
+          // System prompt for bundle context (prepend as user message)
+          const bundleContextPrompt = `You are responding as ${product.name}. The other products in this bundle chat are: ${validProducts.filter(p => p.id !== pid).map(p => p.name).join(', ') || 'none'}.`;
+          // 1. Create a thread with chat history included
           const threadRes = await fetch('https://api.openai.com/v1/threads', {
             method: 'POST',
             headers: {
@@ -192,7 +213,8 @@ export async function POST(request: Request, context: any) {
             },
             body: JSON.stringify({
               messages: [
-                { role: 'system', content: bundleContextPrompt },
+                { role: 'user', content: bundleContextPrompt },
+                ...(chatHistory?.reverse().map(msg => ({ role: msg.role, content: msg.content })) || []),
                 { role: 'user', content }
               ]
             })
@@ -257,11 +279,10 @@ export async function POST(request: Request, context: any) {
         responses.push({
           product_id: pid,
           product_name: product.name,
-          nickname: bundle.assistant_nicknames?.[pid] || null,
           content: aiReply,
         });
       }
-      return NextResponse.json({ responses });
+      return NextResponse.json({ responses, alert: shouldAlertUser ? 'Chat is getting long. Consider downloading a recap and resetting for better accuracy.' : null });
     }
     // --- End bundle chat support ---
 
@@ -279,11 +300,11 @@ export async function POST(request: Request, context: any) {
     const openaiApiKey = process.env.OPENAI_API_KEY;
     let aiReply = 'Sorry, I could not generate a response.';
     try {
-      // System prompt for single product context
-      const bundleContextPrompt = `You are responding as ${product.name}.`;
-      // 1. Create a thread
+      // System prompt for single product context (prepend as user message)
+      const contextPrompt = `You are responding as ${product.name}.`;
+      // 1. Create a thread with chat history included
       const threadRes = await fetch('https://api.openai.com/v1/threads', {
-      method: 'POST',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${openaiApiKey}`,
@@ -291,12 +312,16 @@ export async function POST(request: Request, context: any) {
         },
         body: JSON.stringify({
           messages: [
-            { role: 'system', content: bundleContextPrompt },
+            { role: 'user', content: contextPrompt },
+            ...(chatHistory?.reverse().map(msg => ({ role: msg.role, content: msg.content })) || []),
             { role: 'user', content }
           ]
         })
       });
       const threadData = await threadRes.json();
+      if (!threadRes.ok) {
+        console.error('OpenAI thread creation error:', threadData);
+      }
       const threadId = threadData.id;
       // 2. Run the assistant
       const runRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
@@ -309,6 +334,9 @@ export async function POST(request: Request, context: any) {
         body: JSON.stringify({ assistant_id: product.assistant_id })
       });
       const runData = await runRes.json();
+      if (!runRes.ok) {
+        console.error('OpenAI run creation error:', runData);
+      }
       const runId = runData.id;
       // 3. Poll for completion
       let status = runData.status;
@@ -322,6 +350,9 @@ export async function POST(request: Request, context: any) {
           }
         });
         const pollData = await pollRes.json();
+        if (!pollRes.ok) {
+          console.error('OpenAI run poll error:', pollData);
+        }
         status = pollData.status;
         attempts++;
       }
@@ -333,6 +364,10 @@ export async function POST(request: Request, context: any) {
         }
       });
       const messagesData = await messagesRes.json();
+      if (!messagesRes.ok) {
+        console.error('OpenAI messages fetch error:', messagesData);
+      }
+      console.log('OpenAI messagesData:', JSON.stringify(messagesData, null, 2));
       const lastMsg = messagesData.data?.reverse().find((msg: any) => msg.role === 'assistant');
       aiReply = lastMsg?.content?.[0]?.text?.value || 'No response from assistant.';
     } catch (err) {
@@ -354,7 +389,7 @@ export async function POST(request: Request, context: any) {
       });
 
     // Return the assistant's reply
-    return NextResponse.json({ response: aiReply });
+    return NextResponse.json({ response: aiReply, alert: shouldAlertUser ? 'Chat is getting long. Consider downloading a recap and resetting for better accuracy.' : null });
   } catch (error: any) {
     console.error('Chat POST error:', error);
     return NextResponse.json({ error: error.message || 'Failed to store message' }, { status: 500 });
