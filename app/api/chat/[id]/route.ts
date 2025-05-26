@@ -221,7 +221,7 @@ export async function POST(request: Request, context: any) {
       // --- Product selection logic ---
       let targetProductId: string | null = null;
       let mentionedId: string | null = null;
-      if (mentions.length > 0) {
+      if (mentions.length > 0 && mentions[0]) {
         const normalizedMention = mentions[0].toLowerCase().replace(/[^a-z0-9]/g, '');
         if (normalizedMentionMap[normalizedMention]) {
           mentionedId = normalizedMentionMap[normalizedMention];
