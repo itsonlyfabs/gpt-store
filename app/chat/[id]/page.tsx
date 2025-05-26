@@ -237,14 +237,20 @@ export default function ChatPage() {
     try {
       const { data: { session: supaSession } } = await supabase.auth.getSession()
       const accessToken = supaSession?.access_token
-      // Create a new session with the same product_id
+      // Create a new session with the same product_id or bundle_id
+      let body: any = { force_reset: true };
+      if (session.is_bundle && session.bundle_id) {
+        body.bundle_id = session.bundle_id;
+      } else if (session.product_id) {
+        body.product_id = session.product_id;
+      }
       const res = await fetch('/api/chat/session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
         },
-        body: JSON.stringify({ product_id: session.product_id })
+        body: JSON.stringify(body)
       })
       const data = await res.json()
       if (data.session && data.session.id) {
