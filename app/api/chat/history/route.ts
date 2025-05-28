@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     // Fetch chat sessions for the user, only those that are saved
     const { data: sessions, error } = await supabaseAdmin
       .from('chat_sessions')
-      .select('id, title, created_at, is_bundle, bundle_id, assistant_ids, product_id, saved')
+      .select('id, title, created_at, is_bundle, bundle_id, assistant_ids, product_id, saved, recap')
       .eq('user_id', user.id)
       .eq('saved', true)
       .order('created_at', { ascending: false })

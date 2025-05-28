@@ -6,6 +6,8 @@ import Sidebar from '@/components/Sidebar'
 import TeamChat from '@/components/TeamChat'
 import Chat from '@/components/Chat'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import NotesPanel from '@/components/NotesPanel'
+import SummariesPanel from '@/components/SummariesPanel'
 
 // Add a simple markdown-to-HTML converter for bold and paragraphs
 function formatAssistantMessage(content: string | undefined | null) {
@@ -50,6 +52,11 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [checkingBundle, setCheckingBundle] = useState(true)
   const [productInfo, setProductInfo] = useState<any>(null);
+  const [notes, setNotes] = useState<any[]>([])
+  const [summaries, setSummaries] = useState<any[]>([])
+  const [showNotes, setShowNotes] = useState(false)
+  const [showSummaries, setShowSummaries] = useState(false)
+  const [summariesLoading, setSummariesLoading] = useState(false)
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -80,6 +87,9 @@ export default function ChatPage() {
             content: msg.content
           })));
         }
+        // Set notes and summaries
+        setNotes(data.notes || [])
+        setSummaries(data.summaries || [])
       } catch {
         setCheckingBundle(false)
       }
@@ -102,10 +112,95 @@ export default function ChatPage() {
     return <TeamChat toolId={id as string} toolName="Team Chat" />
   }
 
+  // Handlers for notes and summaries
+  const handleAddNote = async (content: string) => {
+    const { data: { session: supaSession } } = await supabase.auth.getSession();
+    const accessToken = supaSession?.access_token;
+    const res = await fetch('/api/notes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+      },
+      body: JSON.stringify({ session_id: id, content })
+    })
+    const data = await res.json()
+    if (data.note) setNotes((prev: any[]) => [...prev, data.note])
+  }
+  const handleDeleteNote = async (noteId: string) => {
+    const { data: { session: supaSession } } = await supabase.auth.getSession();
+    const accessToken = supaSession?.access_token;
+    await fetch(`/api/notes?id=${noteId}`, {
+      method: 'DELETE',
+      headers: {
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+      }
+    })
+    setNotes((prev: any[]) => prev.filter((n) => n.id !== noteId))
+  }
+  const handleGenerateSummary = async () => {
+    setSummariesLoading(true)
+    const { data: { session: supaSession } } = await supabase.auth.getSession();
+    const accessToken = supaSession?.access_token;
+    const res = await fetch('/api/summaries', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+      },
+      body: JSON.stringify({ session_id: id })
+    })
+    const data = await res.json()
+    if (data.summary) setSummaries((prev: any[]) => [data.summary, ...prev])
+    setSummariesLoading(false)
+  }
+  const handleDeleteSummary = async (summaryId: string) => {
+    const { data: { session: supaSession } } = await supabase.auth.getSession();
+    const accessToken = supaSession?.access_token;
+    await fetch(`/api/summaries?id=${summaryId}`, {
+      method: 'DELETE',
+      headers: {
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+      }
+    })
+    setSummaries((prev: any[]) => prev.filter((s) => s.id !== summaryId))
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 flex flex-col items-center justify-start p-0">
+      <main className="flex-1 flex flex-col items-center justify-start p-0 relative">
+        <div className="absolute top-0 right-0 mt-10 mr-10 z-20">
+          <div className="flex gap-0">
+            <button
+              onClick={() => { setShowNotes(!showNotes); setShowSummaries(false); }}
+              className={`px-4 py-2 bg-white border-l border-gray-200 hover:bg-gray-50 ${showNotes ? 'font-semibold border-b-2 border-primary' : ''}`}
+            >
+              Notes
+            </button>
+            <button
+              onClick={() => { setShowSummaries(!showSummaries); setShowNotes(false); }}
+              className={`px-4 py-2 bg-white border-l border-gray-200 hover:bg-gray-50 ${showSummaries ? 'font-semibold border-b-2 border-primary' : ''}`}
+            >
+              Summaries
+            </button>
+          </div>
+          {showNotes && (
+            <NotesPanel
+              notes={notes}
+              onAddNote={handleAddNote}
+              onDeleteNote={handleDeleteNote}
+            />
+          )}
+          {showSummaries && (
+            <SummariesPanel
+              summaries={summaries}
+              onGenerateSummary={handleGenerateSummary}
+              onDeleteSummary={handleDeleteSummary}
+              isLoading={summariesLoading}
+            />
+          )}
+        </div>
         <div className="w-full max-w-2xl mx-auto px-6 pt-10">
           {productInfo && (
             <>
@@ -122,7 +217,7 @@ export default function ChatPage() {
                 try {
                   const { data: { session: supaSession } } = await supabase.auth.getSession();
                   const accessToken = supaSession?.access_token;
-                  const res = await fetch(`/api/chat/session/${id}/save`, {
+                  const res = await fetch(`/api/chat/session/${id}/recap`, {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
@@ -131,32 +226,22 @@ export default function ChatPage() {
                   })
                   const data = await res.json()
                   if (data.success) {
-                    // Debug: fetch session and check saved
-                    const sessionRes = await fetch(`/api/chat/${id}`, {
-                      headers: {
-                        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-                      }
-                    })
-                    const sessionData = await sessionRes.json()
-                    console.log('Session after save:', sessionData.session)
-                    if (sessionData.session && sessionData.session.saved) {
-                      setSaveSuccess(true)
-                      setTimeout(() => setSaveSuccess(false), 2000)
-                    } else {
-                      setSaveError('Save did not persist. Session not marked as saved.')
-                    }
+                    setSaveSuccess(true)
+                    setTimeout(() => setSaveSuccess(false), 2000)
+                    // Redirect to the recap page
+                    router.push(`/chat/recap/${id}`)
                   } else {
-                    setSaveError(data.error || 'Failed to save chat')
+                    setSaveError(data.error || 'Failed to save chat recap')
                   }
                 } catch (err: any) {
-                  setSaveError(err.message || 'Failed to save chat')
+                  setSaveError(err.message || 'Failed to save chat recap')
                 } finally {
                   setSaveLoading(false)
                 }
               }}
                   disabled={saveLoading}
                 >
-              {saveLoading ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save'}
+              {saveLoading ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Recap'}
                 </button>
               <button
               className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"

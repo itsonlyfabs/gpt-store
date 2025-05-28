@@ -559,14 +559,14 @@ export default function MyLibraryPage() {
 
           {/* Chat Saved Section */}
           <div className="mt-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-1">Chat Saved</h2>
-            <p className="mb-4 text-gray-600 text-sm">View and revisit your saved chat sessions with your AI tools. Only chats you have explicitly saved will appear here for quick access.</p>
+            <h2 className="text-xl font-bold text-gray-900 mb-1">Saved Recaps</h2>
+            <p className="mb-4 text-gray-600 text-sm">View and revisit your saved chat recaps. Each recap provides a concise summary of your conversation with the AI tool.</p>
             <div className="mb-4 flex items-center gap-2">
               <input
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search saved chats..."
+                placeholder="Search saved recaps..."
                 className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <button
@@ -577,11 +577,11 @@ export default function MyLibraryPage() {
               </button>
             </div>
             {chatLoading ? (
-              <div className="text-center text-gray-500 py-8">Loading saved chats...</div>
+              <div className="text-center text-gray-500 py-8">Loading saved recaps...</div>
             ) : chatError ? (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-600">{chatError}</div>
             ) : chatSessions.length === 0 ? (
-              <div className="text-center text-gray-400 py-8">No saved chats found.</div>
+              <div className="text-center text-gray-400 py-8">No saved recaps found.</div>
             ) : (
               <div className="space-y-4">
                 {chatSessions
@@ -604,7 +604,7 @@ export default function MyLibraryPage() {
                       <div
                         key={session.id}
                         className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition cursor-pointer border border-gray-100"
-                        onClick={() => router.push(`/chat/${session.id}`)}
+                        onClick={() => router.push(`/chat/recap/${session.id}`)}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-semibold text-primary text-xs">
@@ -612,17 +612,26 @@ export default function MyLibraryPage() {
                           </span>
                           <button
                             className="ml-2 text-gray-400 hover:text-red-500 text-lg font-bold px-2 py-0.5 rounded-full focus:outline-none"
-                            title="Remove chat"
+                            title="Remove recap"
                             onClick={e => { e.stopPropagation(); handleRemoveChat(session.id); }}
                           >
                             ×
                           </button>
                         </div>
                         <div className="font-bold text-gray-900 text-sm mb-1 truncate">
-                          {session.title ? session.title : (product && product.name ? product.name : (session.is_bundle ? `Bundle ${session.bundle_id ?? ''}` : `Chat ${session.id ?? ''}`))}
+                          {product ? product.name : (session.is_bundle ? `Bundle ${session.bundle_id ?? ''}` : `Chat ${session.id ?? ''}`)}
+                        </div>
+                        <div className="text-xs text-gray-500 mb-2">
+                          {new Date(session.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </div>
                         <div className="text-xs text-gray-500 truncate">
-                          {latestMessages[session.id] ? latestMessages[session.id] : (product && product.description ? product.description : 'No description')}
+                          {session.recap ? session.recap.slice(0, 150) + '...' : 'No recap available'}
                         </div>
                       </div>
                     )
