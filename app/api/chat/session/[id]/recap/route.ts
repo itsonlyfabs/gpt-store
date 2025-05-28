@@ -63,7 +63,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
       max_tokens: 1000
     });
 
-    const recap = completion.choices[0].message.content;
+    // Fix: handle possibly undefined OpenAI response
+    const recap = completion.choices?.[0]?.message?.content ?? 'No recap generated.';
 
     // Save the recap
     const { error: updateError } = await supabaseAdmin
