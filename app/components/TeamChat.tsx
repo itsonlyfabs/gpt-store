@@ -215,7 +215,8 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
   const getLastAssistantTimestamp = (messages: Message[] | undefined) => {
     const safeMessages = messages ?? [];
     const assistantMsgs = safeMessages.filter((m: Message) => m.role === 'assistant')
-    return assistantMsgs.length > 0 ? assistantMsgs[assistantMsgs.length - 1].created_at : null
+    const lastAssistant = assistantMsgs.length > 0 ? assistantMsgs[assistantMsgs.length - 1] : undefined;
+    return lastAssistant && lastAssistant.created_at ? lastAssistant.created_at : null;
   }
 
   const handleSendMessage = async (e: React.FormEvent) => {
