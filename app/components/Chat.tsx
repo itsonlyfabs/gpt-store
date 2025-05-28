@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useChat, Message as UIMessage } from 'ai/react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface Message {
   id: string
@@ -26,12 +27,22 @@ export default function Chat({ toolId, toolName }: ChatProps) {
   const [history, setHistory] = useState<Message[]>([])
   const [products, setProducts] = useState<Product[] | null>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const supabase = createClientComponentClient()
+
+  async function getAuthHeaders() {
+    const { data: { session } } = await supabase.auth.getSession()
+    const accessToken = session?.access_token
+    const headers: Record<string, string> = {}
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`
+    return headers
+  }
 
   // Fetch session info (including products) on mount
   useEffect(() => {
     const fetchSession = async () => {
       try {
-        const response = await fetch(`/api/chat/${toolId}`)
+        const headers = await getAuthHeaders()
+        const response = await fetch(`/api/chat/${toolId}`, { headers })
         if (!response.ok) return
         const data = await response.json()
         if (data.products) setProducts(data.products)
@@ -49,7 +60,6 @@ export default function Chat({ toolId, toolName }: ChatProps) {
         setError('Failed to send message')
         return
       }
-      
       // Store message in history API
       const newMessage = {
         role: 'user' as const,
@@ -57,15 +67,17 @@ export default function Chat({ toolId, toolName }: ChatProps) {
         createdAt: new Date().toISOString(),
         id: Math.random().toString(36).substring(7)
       }
-      
-      fetch('/api/chat/history', {
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toolId: toolId,
-          message: newMessage
-        })
-      }).catch(console.error)
+      // Optionally: send with auth if needed
+      getAuthHeaders().then(headers => {
+        fetch('/api/chat/history', {
+          method: 'POST', 
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toolId: toolId,
+            message: newMessage
+          })
+        }).catch(console.error)
+      })
     }
   })
 
@@ -74,10 +86,11 @@ export default function Chat({ toolId, toolName }: ChatProps) {
     const fetchHistory = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/history?toolId=${toolId}`)
+        const headers = await getAuthHeaders()
+        const response = await fetch(`/api/chat/${toolId}`, { headers })
         if (!response.ok) throw new Error('Failed to fetch chat history')
         const data = await response.json()
-        setHistory(data.history || [])
+        setHistory(data.messages || [])
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load chat history')
         console.error('Chat history error:', err)
@@ -85,7 +98,6 @@ export default function Chat({ toolId, toolName }: ChatProps) {
         setIsLoading(false)
       }
     }
-
     fetchHistory()
   }, [toolId])
 

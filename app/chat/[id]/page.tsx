@@ -1,23 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import TeamChat from '@/components/TeamChat'
+import Chat from '@/components/Chat'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: string
-}
-
-interface ChatProduct {
-  id: string
-  name: string
-  description: string
-  category: string
-}
 
 // Add a simple markdown-to-HTML converter for bold and paragraphs
 function formatAssistantMessage(content: string | undefined | null) {
@@ -32,6 +20,13 @@ function formatAssistantMessage(content: string | undefined | null) {
   return html
 }
 
+interface ChatProduct {
+  id: string
+  name: string
+  description: string
+  category: string
+}
+
 export default function ChatPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -42,6 +37,10 @@ export default function ChatPage() {
   const [session, setSession] = useState<any>(null)
   const [saveLoading, setSaveLoading] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [downloadLoading, setDownloadLoading] = useState(false)
+  const [downloadSuccess, setDownloadSuccess] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [product, setProduct] = useState<ChatProduct | null>(null)
   const [bundle, setBundle] = useState<any>(null)
@@ -49,17 +48,11 @@ export default function ChatPage() {
   const [mentionQuery, setMentionQuery] = useState('')
   const [mentionOptions, setMentionOptions] = useState<any[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const [checkingBundle, setCheckingBundle] = useState(true)
+  const [productInfo, setProductInfo] = useState<any>(null);
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  useEffect(() => {
-    const fetchSessionAndMessages = async () => {
+    const fetchSession = async () => {
       try {
         const { data: { session: supaSession } } = await supabase.auth.getSession();
         const accessToken = supaSession?.access_token;
@@ -69,420 +62,249 @@ export default function ChatPage() {
           }
         });
         const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        setSession(data.session);
-        // Fetch persistent chat history from backend
-        if (Array.isArray(data.messages)) {
-          // Map backend messages to frontend format
-          const mapped = data.messages.map((msg: any) => ({
-            id: msg.id,
-            sender: msg.role === 'assistant' ? 'assistant' : 'user',
-            content: msg.content,
-            created_at: msg.created_at,
-            product_id: msg.product_id,
-            product_name: msg.product_name,
-            nickname: msg.nickname,
-          }))
-          setMessages(mapped)
+        if (data.session && data.session.is_bundle) {
+          setSession(data.session)
+          setCheckingBundle(false)
         } else {
-          setMessages([])
+          setSession(data.session)
+          setCheckingBundle(false)
         }
-        // Use product info from API response
-        if (data.product) {
-          setProduct(data.product)
+        // Set product info for single product chat
+        if (data.products && data.products[0]) {
+          setProductInfo(data.products[0]);
         }
-        // Fetch bundle info if bundle chat
-        if (data.session && data.session.is_bundle && data.session.bundle_id) {
-          const bundleRes = await fetch(`/api/bundles/${data.session.bundle_id}`)
-          if (bundleRes.ok) {
-            const bundleData = await bundleRes.json()
-            // Use products from API response directly
-            setBundle(bundleData)
-          }
+        // Set chat messages for persistency
+        if (Array.isArray(data.messages)) {
+          setMessages(data.messages.map((msg: any) => ({
+            sender: (msg.role || '').toLowerCase(),
+            content: msg.content
+          })));
         }
-      } catch (error) {
-        console.error('Error fetching chat session/messages:', error);
-      }
-    };
-    if (id) {
-      fetchSessionAndMessages();
-    }
-  }, [id, supabase]);
-
-  useEffect(() => {
-    // For bundle chats, build mention options from bundle products and nicknames
-    if (session?.is_bundle && bundle && bundle.product_ids && bundle.products) {
-      const options = bundle.products.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        nickname: bundle.assistant_nicknames?.[p.id] || null
-      }))
-      setMentionOptions(options)
-    }
-  }, [session, bundle])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || loading) return
-    const userMessage = {
-      id: Date.now().toString(),
-      sender: 'user',
-      content: input.trim(),
-      created_at: new Date().toISOString()
-    }
-    setMessages(prev => [...prev, userMessage])
-    setInput('')
-    setLoading(true)
-    try {
-      const { data: { session: supaSession } } = await supabase.auth.getSession()
-      const accessToken = supaSession?.access_token
-      const res = await fetch(`/api/chat/${id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-        },
-        body: JSON.stringify({ content: input, role: 'user' })
-      })
-      const data = await res.json()
-      if (session?.is_bundle && Array.isArray(data.responses)) {
-        // For bundle chats, append each assistant response with product/nickname
-        const newMessages = data.responses.map((resp: any, idx: number) => ({
-          id: `${Date.now() + idx + 1}`,
-          sender: 'assistant',
-          content: resp.content,
-          created_at: new Date().toISOString(),
-          product_id: resp.product_id,
-          product_name: resp.product_name,
-          nickname: resp.nickname,
-        }))
-        setMessages(prev => [...prev, ...newMessages])
-      } else {
-        // Single product chat (legacy)
-        const assistantMessage = {
-        id: (Date.now() + 1).toString(),
-          sender: 'assistant',
-        content: data.response,
-          created_at: new Date().toISOString()
-        }
-        setMessages(prev => [...prev, assistantMessage])
-      }
-    } catch (error) {
-      console.error('Error generating assistant response:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSaveChat = async () => {
-    if (!session) return
-    setSaveLoading(true)
-    setSaveSuccess(false)
-    try {
-      const { data: { session: supaSession } } = await supabase.auth.getSession()
-      const accessToken = supaSession?.access_token
-      const res = await fetch(`/api/chat/session/${session.id}/save`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-        },
-        body: JSON.stringify({ saved: true })
-      })
-      const data = await res.json()
-      if (data.success) {
-        setSaveSuccess(true)
-      }
-    } catch (error) {
-      console.error('Error saving chat:', error)
-    } finally {
-      setSaveLoading(false)
-      setTimeout(() => setSaveSuccess(false), 2000)
-    }
-  }
-
-  const handleUnsaveChat = async () => {
-    if (!session) return
-    setSaveLoading(true)
-    setSaveSuccess(false)
-    try {
-      const { data: { session: supaSession } } = await supabase.auth.getSession()
-      const accessToken = supaSession?.access_token
-      const res = await fetch(`/api/chat/session/${session.id}/save`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-        },
-        body: JSON.stringify({ saved: false })
-      })
-      const data = await res.json()
-      if (data.success) {
-        setSaveSuccess(true)
-        // Optionally, update session state
-        setSession((prev: any) => ({ ...prev, saved: false }))
-      }
-    } catch (error) {
-      console.error('Error unsaving chat:', error)
-    } finally {
-      setSaveLoading(false)
-      setTimeout(() => setSaveSuccess(false), 2000)
-    }
-  }
-
-  const handleResetChat = async () => {
-    if (!session) return
-    if (!confirm('Are you sure you want to reset this chat? This will start a new conversation with the same assistant.')) return
-    setLoading(true)
-    try {
-      const { data: { session: supaSession } } = await supabase.auth.getSession()
-      const accessToken = supaSession?.access_token
-      // Create a new session with the same product_id or bundle_id
-      let body: any = { force_reset: true };
-      if (session.is_bundle && session.bundle_id) {
-        body.bundle_id = session.bundle_id;
-      } else if (session.product_id) {
-        body.product_id = session.product_id;
-      }
-      const res = await fetch('/api/chat/session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-        },
-        body: JSON.stringify(body)
-      })
-      const data = await res.json()
-      if (data.session && data.session.id) {
-        router.push(`/chat/${data.session.id}`)
-      }
-    } catch (error) {
-      console.error('Error resetting chat:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDownload = () => {
-    if (!messages.length) return
-    const text = messages.map(m => `[${m.sender}] ${m.content}`).join('\n')
-    const blob = new Blob([text], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `chat-${session?.id || 'session'}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleDownloadRecap = async () => {
-    if (!session) return
-    setLoading(true)
-    try {
-      const { data: { session: supaSession } } = await supabase.auth.getSession()
-      const accessToken = supaSession?.access_token
-      const res = await fetch(`/api/chat/session/${session.id}/recap`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-        }
-      })
-      const data = await res.json()
-      if (data.recap) {
-        const blob = new Blob([data.recap], { type: 'text/plain' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `chat-recap-${session.id}.txt`
-        a.click()
-        URL.revokeObjectURL(url)
-      }
-    } catch (error) {
-      console.error('Error downloading recap:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Handle input change for @mention autocomplete
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setInput(value)
-    if (session?.is_bundle) {
-      const cursor = e.target.selectionStart || 0
-      const textBefore = value.slice(0, cursor)
-      const match = textBefore.match(/@([\w-]*)$/)
-      if (match) {
-        setMentionQuery(match[1] || '')
-        setShowMentionList(true)
-      } else {
-        setShowMentionList(false)
-        setMentionQuery('')
+      } catch {
+        setCheckingBundle(false)
       }
     }
-  }
+    fetchSession()
+  }, [id, supabase])
 
-  // Insert mention at cursor
-  const insertMention = useCallback((mention: string) => {
-    if (!inputRef.current) return
-    const cursor = inputRef.current.selectionStart || 0
-    const value = input
-    const textBefore = value.slice(0, cursor)
-    const textAfter = value.slice(cursor)
-    const match = textBefore.match(/@([\w-]*)$/)
-    if (match) {
-      const newText = textBefore.replace(/@([\w-]*)$/, `@${mention} `) + textAfter
-      setInput(newText)
-      setShowMentionList(false)
-      setMentionQuery('')
-      setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.focus()
-          inputRef.current.selectionStart = inputRef.current.selectionEnd = (textBefore.replace(/@([\w-]*)$/, `@${mention} `)).length
-        }
-      }, 0)
-    }
-  }, [input])
-
-  if (!session) {
+  if (checkingBundle) {
     return (
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 p-8">
-          <div className="flex justify-center items-center h-full">
+        <main className="flex-1 p-8 flex items-center justify-center">
             <span>Loading chat...</span>
-          </div>
         </main>
       </div>
     )
   }
 
+  if (session?.is_bundle) {
+    return <TeamChat toolId={id as string} toolName="Team Chat" />
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 p-8">
-        <div className="max-w-2xl mx-auto">
-          {/* Top bar with session info and actions */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <div>
-              <h1 className="text-2xl font-bold mb-1">
-                {session.is_bundle
-                  ? (bundle ? bundle.name : 'Bundle Chat')
-                  : (product ? product.name : 'Product Chat')}
-              </h1>
-              <div className="text-gray-500 text-sm">
-                {session.is_bundle
-                  ? (bundle ? bundle.description : <span>Bundle ID: {session.bundle_id}</span>)
-                  : (product ? product.description : 'Product Chat')}
-              </div>
-              {/* Chat products line for bundle chats */}
-              {session.is_bundle && bundle && (
-                <div className="text-xs text-gray-500 mt-2 mb-2">
-                  <span className="font-semibold text-gray-700">Chat products:</span> {' '}
-                  {bundle.products && Array.isArray(bundle.products) && bundle.products.length > 0
-                    ? bundle.products.map((p: any, idx: number) => (
-                        <span key={p.id} className="inline-block mr-1">
-                          {bundle.assistant_nicknames && bundle.assistant_nicknames[p.id] ? bundle.assistant_nicknames[p.id] : p.name}{idx < bundle.products.length - 1 ? ',' : ''}
-                        </span>
-                      ))
-                    : <span className="italic text-gray-400">(none)</span>}
-                </div>
-              )}
-            </div>
-            <div className="flex gap-2">
+      <main className="flex-1 flex flex-col items-center justify-start p-0">
+        <div className="w-full max-w-2xl mx-auto px-6 pt-10">
+          {productInfo && (
+            <>
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">{productInfo.name}</h1>
+              <div className="text-gray-500 text-sm mb-2">{productInfo.description}</div>
+            </>
+          )}
+          <div className="flex gap-3 mb-6">
               <button
-                onClick={handleSaveChat}
-                className="px-4 py-2 bg-primary text-white rounded hover:opacity-90 disabled:opacity-60"
-                disabled={saveLoading || session.saved}
-              >
-                {session.saved ? 'Saved' : saveLoading ? 'Saving...' : 'Save Chat'}
-              </button>
-              {session.saved && (
-                <button
-                  onClick={handleUnsaveChat}
-                  className="px-4 py-2 bg-primary/10 text-primary rounded hover:bg-primary/20"
+              className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
+              onClick={async () => {
+                setSaveLoading(true)
+                setSaveError(null)
+                try {
+                  const { data: { session: supaSession } } = await supabase.auth.getSession();
+                  const accessToken = supaSession?.access_token;
+                  const res = await fetch(`/api/chat/session/${id}/save`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+                    }
+                  })
+                  const data = await res.json()
+                  if (data.success) {
+                    // Debug: fetch session and check saved
+                    const sessionRes = await fetch(`/api/chat/${id}`, {
+                      headers: {
+                        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+                      }
+                    })
+                    const sessionData = await sessionRes.json()
+                    console.log('Session after save:', sessionData.session)
+                    if (sessionData.session && sessionData.session.saved) {
+                      setSaveSuccess(true)
+                      setTimeout(() => setSaveSuccess(false), 2000)
+                    } else {
+                      setSaveError('Save did not persist. Session not marked as saved.')
+                    }
+                  } else {
+                    setSaveError(data.error || 'Failed to save chat')
+                  }
+                } catch (err: any) {
+                  setSaveError(err.message || 'Failed to save chat')
+                } finally {
+                  setSaveLoading(false)
+                }
+              }}
                   disabled={saveLoading}
                 >
-                  Unsave
+              {saveLoading ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save'}
                 </button>
-              )}
               <button
-                onClick={handleDownloadRecap}
-                className="px-4 py-2 bg-primary/10 text-primary rounded hover:bg-primary/20"
-              >
-                Download Recap
+              className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
+              onClick={async () => {
+                setDownloadLoading(true)
+                setDownloadError(null)
+                try {
+                  let recap = ''
+                  if (productInfo) {
+                    recap += `Product: ${productInfo.name}\nDescription: ${productInfo.description}\n\n`
+                  }
+                  recap += messages.map((msg, i) => `${msg.sender === 'user' ? 'You' : 'Assistant'}: ${msg.content}`).join('\n')
+                  const blob = new Blob([recap], { type: 'text/plain' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `chat-recap-${id}.txt`
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                  URL.revokeObjectURL(url)
+                  setDownloadSuccess(true)
+                  setTimeout(() => setDownloadSuccess(false), 2000)
+                } catch (err: any) {
+                  setDownloadError(err.message || 'Failed to download recap')
+                } finally {
+                  setDownloadLoading(false)
+                }
+              }}
+              disabled={downloadLoading}
+            >
+              {downloadLoading ? 'Downloading...' : downloadSuccess ? 'Downloaded!' : 'Download'}
               </button>
               <button
-                onClick={handleResetChat}
-                className="px-4 py-2 bg-primary/10 text-primary rounded hover:bg-primary/20"
-              >
-                Reset Chat
+              className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
+              onClick={async () => {
+                if (confirm('Are you sure you want to reset the chat?')) {
+                  setMessages([])
+                  const { data: { session: supaSession } } = await supabase.auth.getSession();
+                  const accessToken = supaSession?.access_token;
+                  await fetch(`/api/chat/${id}`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+                    },
+                    body: JSON.stringify({ reset: true })
+                  })
+                }
+              }}
+            >
+              Reset
               </button>
-              {saveSuccess && <span className="text-green-600 font-semibold ml-2">Saved!</span>}
-            </div>
           </div>
-          <div className="space-y-4 mb-6">
-            {messages.map(msg => (
-              <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.sender === 'assistant' ? (
-                  <div className="max-w-xl">
-                    {/* For bundle chats, show nickname or product name above the message */}
-                    {session?.is_bundle && (msg.nickname || msg.product_name) && (
-                      <div className="text-xs font-semibold text-primary mb-1">
-                        {msg.nickname || msg.product_name}
-                      </div>
-                    )}
-                    <div
-                      className="rounded-lg px-4 py-2 bg-gray-100 text-gray-900 prose"
-                    dangerouslySetInnerHTML={{ __html: formatAssistantMessage(msg.content) }}
-                  />
-                  </div>
-                ) : (
-                  <div className="rounded-lg px-4 py-2 bg-blue-500 text-white max-w-xl">{msg.content}</div>
-                )}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-          <form onSubmit={handleSubmit} className="flex gap-2 relative">
+          {saveError && <div className="text-red-500 text-sm mt-2">{saveError}</div>}
+          {downloadError && <div className="text-red-500 text-sm mt-2">{downloadError}</div>}
+          <div className="flex items-center w-full mb-6">
             <input
               ref={inputRef}
-              className="flex-1 border rounded px-3 py-2"
+              type="text"
               value={input}
-              onChange={handleInputChange}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={async (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  if (input.trim()) {
+                    const userMsg = { sender: 'user', content: input };
+                    setMessages(prev => [...prev, userMsg])
+                    setInput('')
+                    setLoading(true)
+                    const { data: { session: supaSession } } = await supabase.auth.getSession();
+                    const accessToken = supaSession?.access_token;
+                    // Send user message and get assistant reply
+                    const postRes = await fetch(`/api/chat/${id}`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+                      },
+                      body: JSON.stringify({ content: input, role: 'user' })
+                    })
+                    const postData = await postRes.json();
+                    if (postData.response) {
+                      setMessages(prev => [...prev, { sender: 'assistant', content: postData.response }])
+                    }
+                    setLoading(false)
+                  }
+                }
+              }}
               placeholder="Type your message..."
-              disabled={loading}
-              autoComplete="off"
+              className="flex-1 p-3 border rounded text-lg"
             />
-            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading || !input.trim()}>
-              Send
+            <button
+              onClick={async () => {
+                if (input.trim()) {
+                  const userMsg = { sender: 'user', content: input };
+                  setMessages(prev => [...prev, userMsg])
+                  setInput('')
+                  setLoading(true)
+                  const { data: { session: supaSession } } = await supabase.auth.getSession();
+                  const accessToken = supaSession?.access_token;
+                  // Send user message and get assistant reply
+                  const postRes = await fetch(`/api/chat/${id}`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+                    },
+                    body: JSON.stringify({ content: input, role: 'user' })
+                  })
+                  const postData = await postRes.json();
+                  if (postData.response) {
+                    setMessages(prev => [...prev, { sender: 'assistant', content: postData.response }])
+                  }
+                  setLoading(false)
+                }
+              }}
+              disabled={loading}
+              className="ml-3 px-6 py-3 bg-primary text-white rounded font-semibold hover:bg-primary-dark transition disabled:opacity-50 text-lg"
+            >
+              <span>Send</span>
             </button>
-            {/* Mention dropdown */}
-            {session?.is_bundle && showMentionList && mentionOptions.length > 0 && (
-              <div className="absolute left-0 bottom-12 bg-white border rounded shadow-lg z-10 w-64 max-h-48 overflow-auto">
-                {mentionOptions.filter(opt =>
-                  (opt.nickname && opt.nickname.toLowerCase().includes(mentionQuery.toLowerCase())) ||
-                  (opt.name && opt.name.toLowerCase().includes(mentionQuery.toLowerCase()))
-                ).map(opt => (
+          </div>
+          <div className="flex-1 w-full max-w-2xl mx-auto overflow-y-auto" ref={messagesEndRef}>
+            {messages.length === 0 ? (
+              <div className="text-gray-400 text-center mt-8">No messages yet. Start the conversation!</div>
+            ) : (
+              messages.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`mb-4 flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
                   <div
-                    key={opt.id}
-                    className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
-                    onMouseDown={e => { e.preventDefault(); insertMention(opt.nickname || opt.name) }}
+                    className={`inline-block p-3 rounded-lg max-w-[80%] break-words shadow-sm
+                      ${msg.sender === 'user'
+                        ? 'bg-blue-500 text-white rounded-br-none'
+                        : 'bg-gray-100 text-gray-900 rounded-bl-none border border-gray-200'}
+                    `}
                   >
-                    <span className="font-semibold">@{opt.nickname || opt.name}</span>
-                    {opt.nickname && <span className="text-xs text-gray-500 ml-2">({opt.name})</span>}
+                    {msg.sender === 'assistant' && (
+                      <div className="text-xs text-gray-500 mb-1 font-semibold">Assistant</div>
+                    )}
+                    <div dangerouslySetInnerHTML={{ __html: formatAssistantMessage(msg.content) }} />
                   </div>
-                ))}
-                {mentionOptions.filter(opt =>
-                  (opt.nickname && opt.nickname.toLowerCase().includes(mentionQuery.toLowerCase())) ||
-                  (opt.name && opt.name.toLowerCase().includes(mentionQuery.toLowerCase()))
-                ).length === 0 && (
-                  <div className="px-3 py-2 text-gray-400">No matches</div>
-                )}
-              </div>
+                </div>
+              ))
             )}
-          </form>
+          </div>
         </div>
       </main>
     </div>

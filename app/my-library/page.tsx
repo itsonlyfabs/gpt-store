@@ -54,6 +54,7 @@ export default function MyLibraryPage() {
   const [pendingEditBundle, setPendingEditBundle] = useState<any | null>(null)
   const [bundleChatSessions, setBundleChatSessions] = useState<Record<string, any[]>>({})
   const [showBundleInfo, setShowBundleInfo] = useState(false)
+  const [latestMessages, setLatestMessages] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const fetchPurchasedProducts = async () => {
@@ -211,6 +212,27 @@ export default function MyLibraryPage() {
     fetchBundleChats();
   }, [bundles]);
 
+  // Fetch latest message for each session
+  useEffect(() => {
+    const fetchLatestMessages = async () => {
+      if (!chatSessions.length) return;
+      const map: Record<string, string> = {};
+      for (const session of chatSessions) {
+        const { data: messages, error } = await supabase
+          .from('chat_messages')
+          .select('content, created_at')
+          .eq('session_id', session.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (Array.isArray(messages) && messages.length > 0 && messages[0] && messages[0].content) {
+          map[session.id] = messages[0].content;
+        }
+      }
+      setLatestMessages(map);
+    };
+    fetchLatestMessages();
+  }, [chatSessions]);
+
   const handleOpenChat = async (productId: string) => {
     const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id;
@@ -236,6 +258,41 @@ export default function MyLibraryPage() {
     }
     if (sessionId) {
       router.push(`/chat/${sessionId}`);
+    }
+  };
+
+  // Remove a saved chat session
+  const handleRemoveChat = async (sessionId: string) => {
+    if (!window.confirm('Are you sure you want to remove this chat? This cannot be undone.')) return;
+    setChatError(null);
+    setChatLoading(true);
+    try {
+      // First, delete all chat_messages for this session
+      const { error: msgDeleteError } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('session_id', sessionId);
+      if (msgDeleteError) throw msgDeleteError;
+      // Then, delete the chat_session
+      const { error: sessionDeleteError } = await supabase
+        .from('chat_sessions')
+        .delete()
+        .eq('id', sessionId);
+      if (sessionDeleteError) throw sessionDeleteError;
+      // Refetch chat sessions from backend to ensure UI is up to date
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      const res = await fetch('/api/chat/history', {
+        headers: {
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        }
+      });
+      const data = await res.json();
+      setChatSessions(data.sessions || []);
+    } catch (err: any) {
+      setChatError('Failed to delete chat. Please try again or contact support.');
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -553,15 +610,19 @@ export default function MyLibraryPage() {
                           <span className="font-semibold text-primary text-xs">
                             {product && product.category ? product.category : 'Chat'}
                           </span>
-                          <span className="text-xs text-gray-400">
-                            {session.created_at ? new Date(session.created_at).toLocaleDateString() : ''}
-                          </span>
+                          <button
+                            className="ml-2 text-gray-400 hover:text-red-500 text-lg font-bold px-2 py-0.5 rounded-full focus:outline-none"
+                            title="Remove chat"
+                            onClick={e => { e.stopPropagation(); handleRemoveChat(session.id); }}
+                          >
+                            ×
+                          </button>
                         </div>
                         <div className="font-bold text-gray-900 text-sm mb-1 truncate">
                           {session.title ? session.title : (product && product.name ? product.name : (session.is_bundle ? `Bundle ${session.bundle_id ?? ''}` : `Chat ${session.id ?? ''}`))}
                         </div>
                         <div className="text-xs text-gray-500 truncate">
-                          {product && product.description ? product.description : 'No description'}
+                          {latestMessages[session.id] ? latestMessages[session.id] : (product && product.description ? product.description : 'No description')}
                         </div>
                       </div>
                     )

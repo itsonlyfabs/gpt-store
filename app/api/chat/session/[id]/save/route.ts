@@ -12,10 +12,61 @@ export async function POST(request: Request, { params }: { params: { id: string 
     if (userError || !user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
-    // Update the session to set saved=true
+
+    // Check if there are any messages for this session
+    const { count, error: msgCountError } = await supabaseAdmin
+      .from('chat_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('session_id', id);
+    if (msgCountError) {
+      return NextResponse.json({ error: 'Failed to check messages for session' }, { status: 500 });
+    }
+    if (!count || count === 0) {
+      return NextResponse.json({ error: 'Cannot save an empty chat. Please send a message first.' }, { status: 400 });
+    }
+
+    // Fetch the session
+    const { data: session, error: sessionError } = await supabaseAdmin
+      .from('chat_sessions')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+    if (sessionError || !session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    // Set a title if missing
+    let newTitle = session.title;
+    if (!newTitle) {
+      // Try to use product name
+      let productName = '';
+      if (session.product_id) {
+        const { data: product } = await supabaseAdmin
+          .from('products')
+          .select('name')
+          .eq('id', session.product_id)
+          .single();
+        if (product && product.name) productName = product.name;
+      }
+      // If no product name, use first message content
+      if (!productName) {
+        const { data: firstMsg } = await supabaseAdmin
+          .from('chat_messages')
+          .select('content')
+          .eq('session_id', id)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .single();
+        if (firstMsg && firstMsg.content) productName = firstMsg.content.slice(0, 40);
+      }
+      newTitle = productName || 'Saved Chat';
+    }
+
+    // Update the session to set saved=true and title if needed
     const { error } = await supabaseAdmin
       .from('chat_sessions')
-      .update({ saved: true })
+      .update({ saved: true, title: newTitle })
       .eq('id', id)
       .eq('user_id', user.id)
     if (error) {

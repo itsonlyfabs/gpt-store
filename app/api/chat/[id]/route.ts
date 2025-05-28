@@ -2,6 +2,211 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { cookies } from 'next/headers'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { v4 as uuidv4 } from 'uuid'
+
+// Helper function to generate a context summary
+async function generateContextSummary(sessionId: string, productId: string, openaiApiKey: string) {
+  try {
+    // Fetch the last 30 messages for context
+    const { data: chatHistory, error: historyError } = await supabaseAdmin
+      .from('chat_messages')
+      .select('role, content, product_id')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    
+    if (historyError || !chatHistory) {
+      console.error('Error fetching chat history for summary:', historyError);
+      return null;
+    }
+
+    // Get the session to include team goal
+    const { data: session, error: sessionError } = await supabaseAdmin
+      .from('chat_sessions')
+      .select('team_goal')
+      .eq('id', sessionId)
+      .single();
+    
+    if (sessionError || !session) {
+      console.error('Error fetching session for summary:', sessionError);
+      return null;
+    }
+
+    // Create a summary prompt
+    const summaryPrompt = `Please provide a concise summary of the following chat history. 
+    Focus on key points, decisions, and requirements mentioned by the user.
+    Team Goal: ${session.team_goal || 'Not specified'}
+    
+    Chat History:
+    ${chatHistory.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n')}
+    
+    Summary:`;
+
+    // Use OpenAI to generate the summary
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4-turbo-preview',
+        messages: [{ role: 'user', content: summaryPrompt }],
+        max_tokens: 500,
+        temperature: 0.3,
+      }),
+    });
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error('Error generating context summary:', error);
+    return null;
+  }
+}
+
+// Helper function to handle "Ask the team" feature
+async function handleAskTheTeam(sessionId: string, content: string, products: any[], openaiApiKey: string) {
+  try {
+    // Store the user's message
+    const { data: message, error: messageError } = await supabaseAdmin
+      .from('chat_messages')
+      .insert({
+        session_id: sessionId,
+        content,
+        role: 'user',
+        created_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+
+    if (messageError || !message) {
+      console.error('Error storing user message:', messageError);
+      return NextResponse.json({ error: 'Failed to store message' }, { status: 500 });
+    }
+
+    // Get responses from all products
+    const teamResponses = [];
+    for (const product of products) {
+      if (!product.assistant_id) continue;
+
+      // Create a thread for this product
+      const threadRes = await fetch('https://api.openai.com/v1/threads', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'OpenAI-Beta': 'assistants=v2',
+        },
+        body: JSON.stringify({ messages: [{ role: 'user', content }] })
+      });
+      const threadData = await threadRes.json();
+      const threadId = threadData.id;
+
+      // Run the assistant
+      const runRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'OpenAI-Beta': 'assistants=v2',
+        },
+        body: JSON.stringify({ assistant_id: product.assistant_id })
+      });
+      const runData = await runRes.json();
+      const runId = runData.id;
+
+      // Poll for completion
+      let status = runData.status;
+      let attempts = 0;
+      while (status !== 'completed' && status !== 'failed' && attempts < 20) {
+        await new Promise(r => setTimeout(r, 1000));
+        const pollRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+          headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'OpenAI-Beta': 'assistants=v2',
+          }
+        });
+        const pollData = await pollRes.json();
+        status = pollData.status;
+        attempts++;
+      }
+
+      // Get the assistant's reply
+      const messagesRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'OpenAI-Beta': 'assistants=v2',
+        }
+      });
+      const messagesData = await messagesRes.json();
+      const msgArray = Array.isArray(messagesData.data) ? messagesData.data : [];
+      const lastMsg = msgArray.reverse().find((msg: any) => msg.role === 'assistant');
+      const aiReply = lastMsg?.content?.[0]?.text?.value || 'No response from assistant.';
+
+      // Store the team response
+      await supabaseAdmin
+        .from('team_responses')
+        .insert({
+          session_id: sessionId,
+          message_id: message.id,
+          product_id: product.id,
+          content: aiReply,
+          created_at: new Date().toISOString(),
+        });
+
+      teamResponses.push({
+        product_id: product.id,
+        product_name: product.name,
+        content: aiReply,
+      });
+    }
+
+    // Generate a summary of all responses
+    const summaryPrompt = `Please provide a concise summary of the following team responses to the user's question: "${content}"
+    
+    Team Responses:
+    ${teamResponses.map(r => `${r.product_name}: ${r.content}`).join('\n\n')}
+    
+    Summary:`;
+
+    const summaryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4-turbo-preview',
+        messages: [{ role: 'user', content: summaryPrompt }],
+        max_tokens: 500,
+        temperature: 0.3,
+      }),
+    });
+
+    const summaryData = await summaryResponse.json();
+    const summary = summaryData.choices[0].message.content;
+
+    // Store the summary as an assistant message
+    await supabaseAdmin
+      .from('chat_messages')
+      .insert({
+        session_id: sessionId,
+        content: `Team Summary:\n\n${summary}\n\nIndividual Responses:\n\n${teamResponses.map(r => `${r.product_name}:\n${r.content}`).join('\n\n')}`,
+        role: 'assistant',
+        created_at: new Date().toISOString(),
+      });
+
+    return NextResponse.json({ 
+      responses: teamResponses,
+      summary,
+      message_id: message.id
+    });
+  } catch (error) {
+    console.error('Error handling ask the team:', error);
+    return NextResponse.json({ error: 'Failed to process team responses' }, { status: 500 });
+  }
+}
 
 export async function GET(request: Request, context: any) {
   const { id } = context.params;
@@ -52,7 +257,7 @@ export async function GET(request: Request, context: any) {
     // Fetch messages
     const { data: messages, error: msgError } = await supabaseAdmin
       .from('chat_messages')
-      .select('id, content, created_at')
+      .select('id, content, created_at, product_id, role')
       .eq('session_id', id)
       .order('created_at', { ascending: true });
 
@@ -91,7 +296,7 @@ export async function GET(request: Request, context: any) {
       // For single product, always use latest product info
       const { data: product, error: productError } = await supabaseAdmin
         .from('products')
-        .select('id, name, description')
+        .select('id, name, assistant_id, description')
         .eq('id', session.product_id)
         .single();
       if (!productError && product) {
@@ -113,21 +318,31 @@ export async function GET(request: Request, context: any) {
         .eq('id', id);
     }
 
-    let productInfo = null;
-    if (session.product_id) {
-      const { data: product, error: productError } = await supabaseAdmin
-        .from('products')
-        .select('id, name, description')
-        .eq('id', session.product_id)
-        .single();
-      if (!productError && product) {
-        productInfo = product;
-        title = product.name;
-        description = product.description;
-      }
-    }
+    // Fetch user notes
+    const { data: notes, error: notesError } = await supabaseAdmin
+      .from('user_notes')
+      .select('id, content, created_at, updated_at')
+      .eq('session_id', id)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true });
 
-    return NextResponse.json({ session: { ...session, title, description }, messages, products, product: productInfo });
+    // Fetch chat summaries
+    const { data: summaries, error: summariesError } = await supabaseAdmin
+      .from('chat_summaries')
+      .select('id, content, created_at')
+      .eq('session_id', id)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    return NextResponse.json({ 
+      session: { ...session, title, description }, 
+      messages, 
+      products, 
+      active_product_id: session.active_product_id,
+      team_goal: session.team_goal,
+      notes: notes || [],
+      summaries: summaries || []
+    });
   } catch (error: any) {
     console.error('Chat session API error:', error);
     return NextResponse.json(
@@ -140,9 +355,19 @@ export async function GET(request: Request, context: any) {
 export async function POST(request: Request, context: any) {
   const { id } = context.params;
   try {
-    const { content, role } = await request.json();
-    if (!content || !role) {
-      return NextResponse.json({ error: 'Content and role are required' }, { status: 400 });
+    const { content, role, askTeam, teamGoal, noteContent, generateSummary, reset } = await request.json();
+    
+    // Handle chat reset
+    if (reset) {
+      await supabaseAdmin
+        .from('chat_messages')
+        .delete()
+        .eq('session_id', id);
+      return NextResponse.json({ response: null, messages: [] });
+    }
+
+    if (!content && !teamGoal && !noteContent && !generateSummary) {
+      return NextResponse.json({ error: 'Content, teamGoal, noteContent, or generateSummary is required' }, { status: 400 });
     }
 
     // Use the same auth pattern as GET
@@ -162,282 +387,287 @@ export async function POST(request: Request, context: any) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Fetch the last 20 messages for context
-    const { data: chatHistoryRaw, error: historyError } = await supabaseAdmin
-      .from('chat_messages')
-      .select('role, content')
-      .eq('session_id', id)
-      .order('created_at', { ascending: false })
-      .limit(20);
-    if (historyError) {
-      console.error('Error fetching chat history:', historyError);
-      return NextResponse.json({ error: 'Failed to fetch chat history' }, { status: 500 });
-    }
-    const chatHistory = Array.isArray(chatHistoryRaw) ? chatHistoryRaw : [];
-    const orderedHistory = [...chatHistory].reverse();
-
-    // Check if total message count exceeds threshold (e.g., 50)
-    const { count, error: countError } = await supabaseAdmin
-      .from('chat_messages')
-      .select('*', { count: 'exact' })
-      .eq('session_id', id);
-    if (countError) {
-      console.error('Error fetching message count:', countError);
-    }
-    const shouldAlertUser = count && count > 50;
-
-    // --- Bundle chat support ---
-    if (session.is_bundle && session.bundle_id) {
-      // Fetch the bundle and its products
-      const { data: bundle, error: bundleError } = await supabaseAdmin
-        .from('bundles')
-        .select('*')
-        .eq('id', session.bundle_id)
-        .single();
-      if (bundleError || !bundle) {
-        return NextResponse.json({ error: 'Bundle not found' }, { status: 404 });
-      }
-      // Fetch all products in the bundle
-      const { data: products, error: productsError } = await supabaseAdmin
-        .from('products')
-        .select('id, name, assistant_id, description')
-        .in('id', bundle.product_ids) as { data: { id: string, name: string, assistant_id: string, description: string }[], error: any };
-      if (productsError || !products) {
-        return NextResponse.json({ error: 'Products not found' }, { status: 404 });
-      }
-      // Only include products with a valid assistant_id
-      const safeProducts = Array.isArray(products) ? products : [];
-      const validProducts = safeProducts.filter((p: any) => !!p.assistant_id);
-      // Parse mentions in the message
-      const mentionRegex = /@([\w-]+)/g;
-      const mentions = Array.from(content.matchAll(mentionRegex))
-        .map((m) => (Array.isArray(m) && typeof m[1] === 'string' ? m[1].toLowerCase() : ''))
-        .filter(Boolean) as string[];
-      // Build a map of possible mention keys to product ids
-      const normalizedMentionMap: Record<string, string> = {};
-      for (const product of validProducts) {
-        normalizedMentionMap[product.name.toLowerCase().replace(/[^a-z0-9]/g, '')] = product.id;
-      }
-      // --- Product selection logic ---
-      let targetProductId: string | null = null;
-      let mentionedId: string | null = null;
-      if (mentions.length > 0 && mentions[0]) {
-        const normalizedMention = mentions[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-        const mappedId = normalizedMentionMap[normalizedMention];
-        if (mappedId) {
-          mentionedId = mappedId;
-        }
-      }
-      if (mentionedId) {
-        targetProductId = mentionedId;
-      } else if (validProducts.length > 0) {
-        const randomIdx = Math.floor(Math.random() * validProducts.length);
-        targetProductId = validProducts[randomIdx]?.id ?? null;
-      }
-      if (!targetProductId) {
-        return NextResponse.json({ error: 'No valid product to answer' }, { status: 400 });
-      }
-      // Find the product for the response
-      const product = validProducts.find(p => p.id === targetProductId);
-      if (!product || !product.assistant_id) {
-        return NextResponse.json({ error: 'Product not found or missing assistant_id' }, { status: 404 });
-      }
-      // Build dynamic system prompt
-      const otherProducts = validProducts.filter(p => p.id !== product.id);
-      const otherNames = otherProducts.map(p => p && p.name ? p.name : '').filter(Boolean).join(', ') || 'none';
-      const bundleContextPrompt = `You are responding as ${product.name}. The other products in this bundle chat are: ${otherNames}. You always see the full chat context.`;
-      // Always use the full last 20 messages for context
-      const { data: chatHistory, error: historyError } = await supabaseAdmin
-        .from('chat_messages')
-        .select('role, content')
-        .eq('session_id', id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-      if (historyError) {
-        console.error('Error fetching chat history:', historyError);
-        return NextResponse.json({ error: 'Failed to fetch chat history' }, { status: 500 });
-      }
-      const orderedHistory = Array.isArray(chatHistory) ? [...chatHistory].reverse() : [];
-      const openaiMessages = [
-        { role: 'user', content: bundleContextPrompt },
-        ...orderedHistory.map(msg => ({ role: msg.role, content: msg.content })),
-        { role: 'user', content }
-      ];
-      // Use the API key from the environment (fix linter error)
-      const openaiApiKey = process.env.OPENAI_API_KEY;
-      if (!openaiApiKey) {
-        return NextResponse.json({ error: 'OpenAI API key not set' }, { status: 500 });
-      }
-      const threadRes = await fetch('https://api.openai.com/v1/threads', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
-        },
-        body: JSON.stringify({ messages: openaiMessages })
-      });
-      const threadData = await threadRes.json();
-      console.log('OpenAI threadData:', JSON.stringify(threadData, null, 2));
-      const threadId = threadData.id;
-      // 2. Run the assistant
-      const runRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
-        },
-        body: JSON.stringify({ assistant_id: product.assistant_id })
-      });
-      const runData = await runRes.json();
-      console.log('OpenAI runData:', JSON.stringify(runData, null, 2));
-      const runId = runData.id;
-      // 3. Poll for completion
-      let status = runData.status;
-      let attempts = 0;
-      while (status !== 'completed' && status !== 'failed' && attempts < 20) {
-        await new Promise(r => setTimeout(r, 1000));
-        const pollRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
-          headers: {
-            'Authorization': `Bearer ${openaiApiKey}`,
-            'OpenAI-Beta': 'assistants=v2',
-          }
-        });
-        const pollData = await pollRes.json();
-        status = pollData.status;
-        attempts++;
-      }
-      // 4. Get the assistant's reply
-      const messagesRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
-        }
-      });
-      const messagesData = await messagesRes.json();
-      console.log('OpenAI messagesData:', JSON.stringify(messagesData, null, 2));
-      const msgArray = Array.isArray(messagesData.data) ? messagesData.data : [];
-      const lastMsg = msgArray.reverse().find((msg: any) => msg.role === 'assistant');
-      const aiReply = lastMsg?.content?.[0]?.text?.value || 'No response from assistant.';
-      // Store assistant message
-      await supabaseAdmin
-        .from('chat_messages')
-        .insert({
-          session_id: id,
-          user_id: user.id,
-          content: aiReply,
-          role: 'assistant',
-          bundle_id: session.bundle_id,
-          is_bundle: true,
-          product_id: product.id,
-          conversation_id: session.conversation_id,
-          created_at: new Date().toISOString(),
-        });
-      // Add to responses array
-      const responses = [{
-        product_id: product.id,
-        product_name: product.name,
-        content: aiReply,
-      }];
-      return NextResponse.json({ responses, alert: shouldAlertUser ? 'Chat is getting long. Consider downloading a recap and resetting for better accuracy.' : null });
-    }
-    // --- End bundle chat support ---
-
-    // Fetch the product to get assistant_id
+    // Fetch the product to get assistant_id (move this up before using 'product')
     const { data: product, error: productError } = await supabaseAdmin
       .from('products')
-      .select('id, name, assistant_id')
+      .select('id, name, assistant_id, description')
       .eq('id', session.product_id)
       .single();
     if (productError || !product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    // Use the API key from the environment
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    let aiReply = 'Sorry, I could not generate a response.';
-    try {
-      // System prompt for single product context (prepend as user message)
-      const contextPrompt = `You are responding as ${product.name}.`;
-      // 1. Create a thread with chat history included
-      const openaiMessages = [
-        { role: 'user', content: contextPrompt },
-        ...((chatHistory ? [...chatHistory].reverse() : []).map(msg => ({ role: msg.role, content: msg.content }))),
-        { role: 'user', content }
-      ];
+    // Handle team goal update
+    if (teamGoal !== undefined) {
+      await supabaseAdmin
+        .from('chat_sessions')
+        .update({ team_goal: teamGoal })
+        .eq('id', id);
+      
+      return NextResponse.json({ success: true, team_goal: teamGoal });
+    }
+
+    // Handle note content
+    if (noteContent !== undefined) {
+      const { data: note, error: noteError } = await supabaseAdmin
+        .from('user_notes')
+        .insert({
+          session_id: id,
+          user_id: user.id,
+          content: noteContent,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select('id, content, created_at, updated_at')
+        .single();
+
+      if (noteError) {
+        console.error('Error storing note:', noteError);
+        return NextResponse.json({ error: 'Failed to store note' }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true, note });
+    }
+
+    // Handle generate summary
+    if (generateSummary) {
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return NextResponse.json({ error: 'OpenAI API key not set' }, { status: 500 });
+      }
+
+      // Fetch the last 50 messages for context
+      const { data: chatHistory, error: historyError } = await supabaseAdmin
+        .from('chat_messages')
+        .select('role, content, product_id')
+        .eq('session_id', id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (historyError || !chatHistory) {
+        console.error('Error fetching chat history for summary:', historyError);
+        return NextResponse.json({ error: 'Failed to fetch chat history' }, { status: 500 });
+      }
+
+      // Create a summary prompt
+      const summaryPrompt = `Please provide a comprehensive summary of the following chat history. 
+      Focus on key points, decisions, and requirements mentioned by the user.
+      Team Goal: ${session.team_goal || 'Not specified'}
+      
+      Chat History:
+      ${chatHistory.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n')}
+      
+      Summary:`;
+
+      // Use OpenAI to generate the summary
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4-turbo-preview',
+          messages: [{ role: 'user', content: summaryPrompt }],
+          max_tokens: 1000,
+          temperature: 0.3,
+        }),
+      });
+
+      const data = await response.json();
+      const summary = data.choices[0].message.content;
+
+      // Store the summary
+      const { data: storedSummary, error: summaryError } = await supabaseAdmin
+        .from('chat_summaries')
+        .insert({
+          session_id: id,
+          user_id: user.id,
+          content: summary,
+          created_at: new Date().toISOString(),
+        })
+        .select('id, content, created_at')
+        .single();
+
+      if (summaryError) {
+        console.error('Error storing summary:', summaryError);
+        return NextResponse.json({ error: 'Failed to store summary' }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true, summary: storedSummary });
+    }
+
+    // Handle "Ask the team" feature
+    if (askTeam) {
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return NextResponse.json({ error: 'OpenAI API key not set' }, { status: 500 });
+      }
+
+      // Fetch all products in the bundle
+      const { data: products, error: productsError } = await supabaseAdmin
+        .from('products')
+        .select('id, name, assistant_id')
+        .in('id', session.is_bundle && session.bundle_id ? 
+          (await supabaseAdmin.from('bundles').select('product_ids').eq('id', session.bundle_id).single()).data?.product_ids || [] : 
+          [session.product_id])
+        .filter('assistant_id', 'not.is', null);
+
+      if (productsError || !products) {
+        return NextResponse.json({ error: 'Products not found' }, { status: 404 });
+      }
+
+      return handleAskTheTeam(id, content, products, openaiApiKey);
+    }
+
+    // Regular chat message handling
+    if (!content || !role) {
+      return NextResponse.json({ error: 'Content and role are required' }, { status: 400 });
+    }
+
+    // Ensure conversation_id is present
+    let conversationId = session.conversation_id;
+    if (!conversationId) {
+      conversationId = uuidv4();
+      await supabaseAdmin
+        .from('chat_sessions')
+        .update({ conversation_id: conversationId })
+        .eq('id', id);
+    }
+
+    // Ensure OpenAI thread_id is present in session
+    let threadId = session.thread_id;
+    if (!threadId) {
+      // Create a new thread and save it to the session
       const threadRes = await fetch('https://api.openai.com/v1/threads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiApiKey}`,
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
           'OpenAI-Beta': 'assistants=v2',
         },
-        body: JSON.stringify({ messages: openaiMessages })
+        body: JSON.stringify({})
       });
       const threadData = await threadRes.json();
-      console.log('OpenAI threadData:', JSON.stringify(threadData, null, 2));
-      const threadId = threadData.id;
-      // 2. Run the assistant
-      const runRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+      threadId = threadData.id;
+      await supabaseAdmin
+        .from('chat_sessions')
+        .update({ thread_id: threadId })
+        .eq('id', id);
+    }
+
+    // Fetch the last 20 messages for context
+    const { data: contextMessages, error: contextError, count } = await supabaseAdmin
+      .from('chat_messages')
+      .select('role, content', { count: 'exact' })
+      .eq('session_id', id)
+      .order('created_at', { ascending: true })
+      .limit(20);
+    if (contextError) {
+      return NextResponse.json({ error: 'Failed to fetch chat context', details: contextError }, { status: 500 });
+    }
+    // Add the last 20 messages to the thread for context
+    for (const msg of contextMessages || []) {
+      await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiApiKey}`,
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
           'OpenAI-Beta': 'assistants=v2',
         },
-        body: JSON.stringify({ assistant_id: product.assistant_id })
+        body: JSON.stringify({ role: msg.role, content: msg.content })
       });
-      const runData = await runRes.json();
-      console.log('OpenAI runData:', JSON.stringify(runData, null, 2));
-      const runId = runData.id;
-      // 3. Poll for completion
-      let status = runData.status;
-      let attempts = 0;
-      while (status !== 'completed' && status !== 'failed' && attempts < 20) {
-        await new Promise(r => setTimeout(r, 1000));
-        const pollRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
-          headers: {
-            'Authorization': `Bearer ${openaiApiKey}`,
-            'OpenAI-Beta': 'assistants=v2',
-          }
-        });
-        const pollData = await pollRes.json();
-        status = pollData.status;
-        attempts++;
-      }
-      // 4. Get the assistant's reply
-      const messagesRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
-        }
-      });
-      const messagesData = await messagesRes.json();
-      console.log('OpenAI messagesData:', JSON.stringify(messagesData, null, 2));
-      const msgArray = Array.isArray(messagesData.data) ? messagesData.data : [];
-      const lastMsg = msgArray.reverse().find((msg: any) => msg.role === 'assistant');
-      aiReply = lastMsg?.content?.[0]?.text?.value || 'No response from assistant.';
-    } catch (err) {
-      console.error('OpenAI API error:', err);
     }
-
-    // Store assistant message
-    await supabaseAdmin
+    // Add the new user message to the thread
+    await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'OpenAI-Beta': 'assistants=v2',
+      },
+      body: JSON.stringify({ role: 'user', content })
+    });
+    // Save user message to chat_messages table
+    const { error: userInsertError } = await supabaseAdmin
       .from('chat_messages')
       .insert({
         session_id: id,
         user_id: user.id,
-        content: aiReply,
-        role: 'assistant',
         product_id: session.product_id,
-        bundle_id: session.bundle_id || null,
-        conversation_id: session.conversation_id,
+        conversation_id: conversationId,
+        role: 'user',
+        content,
         created_at: new Date().toISOString(),
       });
+    if (userInsertError) {
+      return NextResponse.json({ error: 'Failed to insert user message', details: userInsertError }, { status: 500 });
+    }
 
-    // Return the assistant's reply
-    return NextResponse.json({ response: aiReply, alert: shouldAlertUser ? 'Chat is getting long. Consider downloading a recap and resetting for better accuracy.' : null });
+    // Run the assistant on the thread
+    const runRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'OpenAI-Beta': 'assistants=v2',
+      },
+      body: JSON.stringify({ assistant_id: product.assistant_id })
+    });
+    const runData = await runRes.json();
+    let status = runData.status;
+    let attempts = 0;
+    while (status !== 'completed' && status !== 'failed' && attempts < 20) {
+      await new Promise(r => setTimeout(r, 1000));
+      const pollRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runData.id}`, {
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'OpenAI-Beta': 'assistants=v2',
+        }
+      });
+      const pollData = await pollRes.json();
+      status = pollData.status;
+      attempts++;
+    }
+    // Fetch the latest assistant message
+    const messagesRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'OpenAI-Beta': 'assistants=v2',
+      }
+    });
+    const messagesData = await messagesRes.json();
+    const msgArray = Array.isArray(messagesData.data) ? messagesData.data : [];
+    // Find the latest assistant message by created_at
+    const assistantMsgs = msgArray.filter((msg: any) => msg.role === 'assistant');
+    const lastMsg = assistantMsgs.sort((a: any, b: any) => b.created_at - a.created_at)[0];
+    const aiReply = lastMsg?.content?.[0]?.text?.value || 'No response from assistant.';
+
+    // Save assistant reply
+    const { data: insertedAssistant, error: assistantInsertError } = await supabaseAdmin
+      .from('chat_messages')
+      .insert({
+        session_id: id,
+        user_id: user.id,
+        product_id: session.product_id,
+        conversation_id: conversationId,
+        role: 'assistant',
+        content: aiReply,
+        created_at: new Date().toISOString(),
+      })
+      .select('id, content, created_at, role')
+      .single();
+    if (assistantInsertError) {
+      return NextResponse.json({ error: 'Failed to insert assistant message', details: assistantInsertError }, { status: 500 });
+    }
+
+    // Return the actual inserted assistant message
+    return NextResponse.json({
+      response: insertedAssistant?.content || aiReply,
+      assistantMessage: insertedAssistant,
+      userMessage: content,
+      alert: (count && count >= 20) ? 'Recommended to download a recap and start a new conversation for better results.' : undefined
+    });
   } catch (error: any) {
     console.error('Chat POST error:', error);
     return NextResponse.json({ error: error.message || 'Failed to store message' }, { status: 500 });
