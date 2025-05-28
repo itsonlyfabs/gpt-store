@@ -340,6 +340,99 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
         <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-1">{teamTitle}</h1>
           <div className="text-gray-500 text-sm mb-2">{teamDescription}</div>
+          {isBundle && (
+            <div className="flex gap-3 mb-6">
+              <button
+                className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
+                onClick={async () => {
+                  setLoading(true);
+                  setError(null);
+                  try {
+                    const { data: { session: supaSession } } = await supabase.auth.getSession();
+                    const accessToken = supaSession?.access_token;
+                    const res = await fetch(`/api/chat/session/${toolId}/recap`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+                      }
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                      setError(null);
+                      // Optionally, you could redirect to a recap page or show a success message
+                    } else {
+                      setError(data.error || 'Failed to save chat recap');
+                    }
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : 'Failed to save chat recap');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+              >
+                {loading ? 'Saving...' : 'Save Recap'}
+              </button>
+              <button
+                className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
+                onClick={async () => {
+                  setLoading(true);
+                  setError(null);
+                  try {
+                    let recap = '';
+                    recap += `Bundle: ${teamTitle}\nDescription: ${teamDescription}\n\n`;
+                    recap += chatHistory.map((msg) => `${msg.role === 'user' ? 'You' : 'Assistant'}: ${msg.content}`).join('\n');
+                    const blob = new Blob([recap], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `bundle-chat-recap-${toolId}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : 'Failed to download recap');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+              >
+                Download
+              </button>
+              <button
+                className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to reset the chat?')) {
+                    setLoading(true);
+                    setError(null);
+                    try {
+                      const { data: { session: supaSession } } = await supabase.auth.getSession();
+                      const accessToken = supaSession?.access_token;
+                      await fetch(`/api/chat/${toolId}`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+                        },
+                        body: JSON.stringify({ reset: true })
+                      });
+                      setChatHistory([]);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Failed to reset chat');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }
+                }}
+                disabled={loading}
+              >
+                Reset
+              </button>
+            </div>
+          )}
           {isBundle && products.length > 0 && (
             <div className="mb-4">
               <span className="font-semibold text-gray-700 text-sm">Team members:</span>
