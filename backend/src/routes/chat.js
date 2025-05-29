@@ -4,6 +4,12 @@ const authMiddleware = require('../middleware/auth');
 const { chatWithAI } = require('../services/aiService');
 const { createClient } = require('@supabase/supabase-js');
 
+// Log all requests to the chat router
+router.use((req, res, next) => {
+  console.log('CHAT ROUTER REQUEST:', req.method, req.originalUrl, 'BODY:', req.body);
+  next();
+});
+
 // Helper to get Supabase client with user's JWT
 function getSupabaseClientWithUserJWT(req) {
   const authHeader = req.headers.authorization;
@@ -48,8 +54,40 @@ const checkRateLimit = (userId) => {
   return true;
 };
 
+// --- Team Chat: Context Transfer on Product Switch ---
+router.post('/switch-product', authMiddleware, async (req, res) => {
+  console.log('SWITCH PRODUCT BODY (top of handler):', req.body); // Debug log
+  const { sessionId, toProductId } = req.body;
+  const userId = req.user.id;
+  const supabase = getSupabaseClientWithUserJWT(req);
+  if (!sessionId || !toProductId) return res.status(400).json({ error: 'sessionId and toProductId required' });
+  // Get current active product
+  const { data: session } = await supabase
+    .from('chat_sessions')
+    .select('active_product_id, team_goal')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .single();
+  const fromProductId = session?.active_product_id;
+  // Get last 10 messages
+  const { data: messages } = await supabase
+    .from('chat_messages')
+    .select('content, role')
+    .eq('conversation_id', sessionId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+  // Create summary
+  const summary = messages.map(m => `${m.role}: ${m.content}`).join('\n');
+  // Store context transfer
+  await supabase.from('context_transfers').insert({ session_id: sessionId, from_product_id: fromProductId, to_product_id: toProductId, summary });
+  // Update active product
+  await supabase.from('chat_sessions').update({ active_product_id: toProductId, last_context_transfer_at: new Date().toISOString() }).eq('id', sessionId);
+  res.json({ success: true, summary });
+});
+
 // Chat endpoint
 router.post('/:productId', authMiddleware, async (req, res) => {
+  console.log('POST CHAT PRODUCT:', req.params.productId, 'BODY:', req.body);
   try {
     const { productId } = req.params;
     const { message, conversationId } = req.body;
@@ -165,6 +203,7 @@ router.post('/:productId', authMiddleware, async (req, res) => {
           content: response.content
         }
       ]);
+    console.log('STORED CHAT MESSAGES:', { convId, message, assistant: response.content });
 
     if (storeError) {
       console.error('Failed to store chat messages:', storeError);
@@ -213,6 +252,112 @@ router.get('/:productId/history', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Chat history error:', error);
     res.status(500).json({ error: 'Failed to fetch chat history' });
+  }
+});
+
+// --- Team Chat: Set Team Goal ---
+router.post('/set-team-goal', authMiddleware, async (req, res) => {
+  const { sessionId, teamGoal } = req.body;
+  const userId = req.user.id;
+  const supabase = getSupabaseClientWithUserJWT(req);
+  if (!sessionId || !teamGoal) return res.status(400).json({ error: 'sessionId and teamGoal required' });
+  const { error } = await supabase
+    .from('chat_sessions')
+    .update({ team_goal: teamGoal })
+    .eq('id', sessionId)
+    .eq('user_id', userId);
+  if (error) return res.status(500).json({ error: 'Failed to set team goal' });
+  res.json({ success: true });
+});
+
+// --- Team Chat: Generate Summary ---
+router.post('/generate-summary', authMiddleware, async (req, res) => {
+  const { sessionId } = req.body;
+  const userId = req.user.id;
+  const supabase = getSupabaseClientWithUserJWT(req);
+  if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
+  // Fetch last 50 messages for summary
+  const { data: messages, error } = await supabase
+    .from('chat_messages')
+    .select('content, role')
+    .eq('conversation_id', sessionId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) return res.status(500).json({ error: 'Failed to fetch messages' });
+  // Simple summary: join last 10 user/assistant messages
+  const summary = messages.slice(0, 10).map(m => `${m.role}: ${m.content}`).join('\n');
+  // Store summary
+  await supabase.from('chat_summaries').insert({ session_id: sessionId, user_id: userId, content: summary });
+  res.json({ summary });
+});
+
+// --- Team Chat: Ask the Team ---
+router.post('/ask-the-team', authMiddleware, async (req, res) => {
+  const { sessionId, message } = req.body;
+  const userId = req.user.id;
+  const supabase = getSupabaseClientWithUserJWT(req);
+  if (!sessionId || !message) return res.status(400).json({ error: 'sessionId and message required' });
+  // Get all products in session (simulate: fetch from chat history)
+  const { data: products } = await supabase
+    .from('chat_messages')
+    .select('product_id')
+    .eq('conversation_id', sessionId)
+    .neq('product_id', null);
+  const uniqueProducts = [...new Set((products || []).map(p => p.product_id))];
+  // Ask each product (simulate: just echo for now)
+  const responses = await Promise.all(uniqueProducts.map(async (productId) => {
+    // Here you would call chatWithAI for each product
+    return { productId, content: `Response from ${productId} to: ${message}` };
+  }));
+  // Store responses
+  for (const r of responses) {
+    await supabase.from('team_responses').insert({ session_id: sessionId, product_id: r.productId, content: r.content });
+  }
+  // Simple summary
+  const summary = responses.map(r => `${r.productId}: ${r.content}`).join('\n');
+  res.json({ responses, summary });
+});
+
+// --- Team Chat: Get Session Info, Products, Messages, Notes, Summaries ---
+router.get('/:id', authMiddleware, async (req, res) => {
+  const sessionId = req.params.id;
+  const userId = req.user.id;
+  const supabase = getSupabaseClientWithUserJWT(req);
+  try {
+    // Get session info
+    const { data: session, error: sessionError } = await supabase
+      .from('chat_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .single();
+    if (sessionError || !session) return res.status(404).json({ error: 'Session not found' });
+    // Get products in this session (simulate: all products for now)
+    const { data: products } = await supabase
+      .from('products')
+      .select('id, name, description, assistant_id');
+    // Get messages
+    const { data: messages } = await supabase
+      .from('chat_messages')
+      .select('id, role, content, created_at')
+      .eq('conversation_id', sessionId)
+      .order('created_at', { ascending: true });
+    // Get notes
+    const { data: notes } = await supabase
+      .from('notes')
+      .select('id, content, created_at')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+    // Get summaries
+    const { data: summaries } = await supabase
+      .from('chat_summaries')
+      .select('id, content, created_at')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+    console.log('GET SESSION MESSAGES:', { sessionId, messages });
+    res.json({ session, products, messages, notes, summaries });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch session info' });
   }
 });
 

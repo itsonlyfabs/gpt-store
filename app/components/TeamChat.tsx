@@ -37,6 +37,8 @@ interface TeamChatProps {
   toolName: string
 }
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+
 export default function TeamChat({ toolId, toolName }: TeamChatProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +58,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
   const [editingGoal, setEditingGoal] = useState(false)
   const [goalDraft, setGoalDraft] = useState('')
   const [isBundle, setIsBundle] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
 
   const {
     messages,
@@ -66,7 +69,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
     reload,
     append,
   } = useChat({
-    api: `/api/chat/${toolId}`,
+    api: `${BACKEND_URL}/api/chat/${toolId}`,
     onError: (error) => setError(error.message),
   })
 
@@ -93,6 +96,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
         setTeamTitle(data.session?.title || 'Team Chat')
         setTeamDescription(data.session?.description || '')
         setIsBundle(!!data.session?.is_bundle)
+        setSessionId(data.session?.id || null)
       } catch (error) {
         console.error('Error fetching session info:', error)
         setError('Failed to load session information')
@@ -105,7 +109,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
     const fetchChatHistory = async () => {
       try {
         const headers = await getAuthHeaders()
-        const res = await fetch(`/api/chat/${toolId}`, { headers })
+        const res = await fetch(`${BACKEND_URL}/api/chat/${toolId}`, { headers })
         const data = await res.json()
         if (data.error) throw new Error(data.error)
         if (Array.isArray(data.messages)) {
@@ -124,20 +128,20 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
   }, [messages])
 
   const handleUpdateTeamGoal = async (goal: string) => {
+    if (!sessionId) return setError('No session ID')
     try {
       const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-      const res = await fetch('/api/team-goal', {
+      const res = await fetch(`${BACKEND_URL}/api/chat/set-team-goal`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ session_id: toolId, team_goal: goal })
+        body: JSON.stringify({ sessionId, teamGoal: goal })
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setTeamGoal(goal)
       setEditingGoal(false)
     } catch (error) {
-      console.error('Error updating team goal:', error)
-      throw error
+      setError('Failed to update team goal')
     }
   }
 
@@ -175,19 +179,19 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
   }
 
   const handleGenerateSummary = async () => {
+    if (!sessionId) return setError('No session ID')
     try {
       setLoading(true)
       const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-      const res = await fetch('/api/summaries', {
+      const res = await fetch(`${BACKEND_URL}/api/chat/generate-summary`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ session_id: toolId })
+        body: JSON.stringify({ sessionId })
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      setSummaries(prev => [...prev, data.summary])
+      setSummaries(prev => [...prev, { id: Date.now().toString(), content: data.summary, created_at: new Date().toISOString() }])
     } catch (error) {
-      console.error('Error generating summary:', error)
       setError('Failed to generate summary')
     } finally {
       setLoading(false)
@@ -213,125 +217,105 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
   const teamMembers = products.map((p) => p.name).join(', ')
 
   const getLastAssistantTimestamp = (messages: Message[] | undefined) => {
-    const safeMessages = messages ?? [];
+    const safeMessages = messages ?? []
     const assistantMsgs = safeMessages.filter((m: Message) => m.role === 'assistant')
-    const lastAssistant = assistantMsgs.length > 0 ? assistantMsgs[assistantMsgs.length - 1] : undefined;
-    return lastAssistant && lastAssistant.created_at ? lastAssistant.created_at : null;
+    const lastAssistant = assistantMsgs.length > 0 ? assistantMsgs[assistantMsgs.length - 1] : undefined
+    return lastAssistant && lastAssistant.created_at ? lastAssistant.created_at : null
   }
 
   const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading || waitingForResponse) return;
-    setWaitingForResponse(true);
-    const userMsgContent = input;
-    setInput('');
+    e.preventDefault()
+    console.log('handleSendMessage called', { input, activeProductId, toolId, sessionId })
+    if (!input.trim() || isLoading || waitingForResponse || !activeProductId || !sessionId) return
+    setWaitingForResponse(true)
+    const userMsgContent = input
+    setInput('')
     if (isBundle) {
-      let prevAssistantCount = chatHistory.filter(m => m.role === 'assistant').length;
+      let prevAssistantCount = chatHistory.filter(m => m.role === 'assistant').length
       const optimisticMsg: Message = {
         id: `temp-${Date.now()}`,
         role: 'user',
         content: userMsgContent,
         created_at: new Date().toISOString(),
-      };
-      setChatHistory(prev => [...prev, optimisticMsg]);
+      }
+      setChatHistory(prev => [...prev, optimisticMsg])
       try {
-        const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' };
-        await fetch(`/api/chat/${toolId}`, {
+        const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
+        await fetch(`${BACKEND_URL}/api/chat/${activeProductId}`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ content: userMsgContent, role: 'user' })
-        });
-        let foundNewAssistant = false;
-        let pollCount = 0;
+          body: JSON.stringify({ message: userMsgContent, conversationId: sessionId })
+        })
+        let foundNewAssistant = false
+        let pollCount = 0
         while (!foundNewAssistant && pollCount < 15) {
-          await new Promise(r => setTimeout(r, 1200));
-          const historyRes = await fetch(`/api/chat/${toolId}`, { headers: await getAuthHeaders() });
-          const historyData = await historyRes.json();
+          await new Promise(r => setTimeout(r, 1200))
+          const historyRes = await fetch(`${BACKEND_URL}/api/chat/${toolId}`, { headers: await getAuthHeaders() })
+          const historyData = await historyRes.json()
           if (Array.isArray(historyData.messages)) {
-            const msgs = historyData.messages as Message[];
-            setChatHistory(msgs);
-            const assistantCount = msgs.filter((m: Message) => m.role === 'assistant').length;
-            if (assistantCount > prevAssistantCount) foundNewAssistant = true;
+            const msgs = historyData.messages as Message[]
+            setChatHistory(msgs)
+            const assistantCount = msgs.filter((m: Message) => m.role === 'assistant').length
+            if (assistantCount > prevAssistantCount) foundNewAssistant = true
           }
-          pollCount++;
+          pollCount++
         }
       } catch (error: any) {
-        setError(error.message || 'Failed to send message');
+        setError(error.message || 'Failed to send message')
       } finally {
-        setWaitingForResponse(false);
+        setWaitingForResponse(false)
       }
     } else {
       try {
-        const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' };
-        await fetch(`/api/chat/${toolId}`, {
+        const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
+        await fetch(`${BACKEND_URL}/api/chat/${activeProductId}`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ content: userMsgContent, role: 'user' })
-        });
-        let foundNewAssistant = false;
-        let pollCount = 0;
+          body: JSON.stringify({ message: userMsgContent, conversationId: sessionId })
+        })
+        let foundNewAssistant = false
+        let pollCount = 0
         while (!foundNewAssistant && pollCount < 15) {
-          await new Promise(r => setTimeout(r, 1200));
-          const historyRes = await fetch(`/api/chat/${toolId}`, { headers: await getAuthHeaders() });
-          const historyData = await historyRes.json();
+          await new Promise(r => setTimeout(r, 1200))
+          const historyRes = await fetch(`${BACKEND_URL}/api/chat/${toolId}`, { headers: await getAuthHeaders() })
+          const historyData = await historyRes.json()
           if (Array.isArray(historyData.messages)) {
-            const msgs = historyData.messages as Message[];
-            setChatHistory(msgs);
+            const msgs = historyData.messages as Message[]
+            setChatHistory(msgs)
             if (msgs.length > 0) {
-              const lastMsg = msgs[msgs.length - 1];
-              if (lastMsg && lastMsg.role === 'assistant') foundNewAssistant = true;
+              const lastMsg = msgs[msgs.length - 1]
+              if (lastMsg && lastMsg.role === 'assistant') foundNewAssistant = true
             }
           }
-          pollCount++;
+          pollCount++
         }
       } catch (error: any) {
-        setError(error.message || 'Failed to send message');
+        setError(error.message || 'Failed to send message')
       } finally {
-        setWaitingForResponse(false);
+        setWaitingForResponse(false)
       }
     }
-  };
+  }
 
   const handleAskTeam = async () => {
-    if (!input.trim() || isLoading || waitingForResponse || !isBundle) return;
-    setWaitingForResponse(true);
-    const userMsgContent = input;
-    let prevAssistantCount = chatHistory.filter(m => m.role === 'assistant').length;
-    const optimisticMsg: Message = {
-      id: `temp-${Date.now()}`,
-      role: 'user',
-      content: userMsgContent,
-      created_at: new Date().toISOString(),
-    };
-    setChatHistory(prev => [...prev, optimisticMsg]);
-    setInput('');
+    if (!input.trim() || isLoading || waitingForResponse || !isBundle || !sessionId) return
+    setWaitingForResponse(true)
+    const userMsgContent = input
+    setInput('')
     try {
-      const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' };
-      await fetch('/api/ask-team', {
+      const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
+      await fetch(`${BACKEND_URL}/api/chat/ask-the-team`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ session_id: toolId, content: userMsgContent })
-      });
-      let foundNewAssistant = false;
-      let pollCount = 0;
-      while (!foundNewAssistant && pollCount < 15) {
-        await new Promise(r => setTimeout(r, 1200));
-        const historyRes = await fetch(`/api/chat/${toolId}`, { headers: await getAuthHeaders() });
-        const historyData = await historyRes.json();
-        if (Array.isArray(historyData.messages)) {
-          const msgs = historyData.messages as Message[];
-          setChatHistory(msgs);
-          const assistantCount = msgs.filter((m: Message) => m.role === 'assistant').length;
-          if (assistantCount > prevAssistantCount) foundNewAssistant = true;
-        }
-        pollCount++;
-      }
-    } catch (error: any) {
-      setError(error.message || 'Failed to ask the team');
+        body: JSON.stringify({ sessionId, message: userMsgContent })
+      })
+      // Optionally, poll for responses or refresh chat history
+    } catch (error) {
+      setError('Failed to ask the team')
     } finally {
-      setWaitingForResponse(false);
+      setWaitingForResponse(false)
     }
-  };
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -345,29 +329,29 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
               <button
                 className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
                 onClick={async () => {
-                  setLoading(true);
-                  setError(null);
+                  setLoading(true)
+                  setError(null)
                   try {
-                    const { data: { session: supaSession } } = await supabase.auth.getSession();
-                    const accessToken = supaSession?.access_token;
+                    const { data: { session: supaSession } } = await supabase.auth.getSession()
+                    const accessToken = supaSession?.access_token
                     const res = await fetch(`/api/chat/session/${toolId}/recap`, {
                       method: 'POST',
                       headers: {
                         'Content-Type': 'application/json',
                         ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
                       }
-                    });
-                    const data = await res.json();
+                    })
+                    const data = await res.json()
                     if (data.success) {
-                      setError(null);
+                      setError(null)
                       // Optionally, you could redirect to a recap page or show a success message
                     } else {
-                      setError(data.error || 'Failed to save chat recap');
+                      setError(data.error || 'Failed to save chat recap')
                     }
                   } catch (err) {
-                    setError(err instanceof Error ? err.message : 'Failed to save chat recap');
+                    setError(err instanceof Error ? err.message : 'Failed to save chat recap')
                   } finally {
-                    setLoading(false);
+                    setLoading(false)
                   }
                 }}
                 disabled={loading}
@@ -377,25 +361,25 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
               <button
                 className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
                 onClick={async () => {
-                  setLoading(true);
-                  setError(null);
+                  setLoading(true)
+                  setError(null)
                   try {
-                    let recap = '';
-                    recap += `Bundle: ${teamTitle}\nDescription: ${teamDescription}\n\n`;
-                    recap += chatHistory.map((msg) => `${msg.role === 'user' ? 'You' : 'Assistant'}: ${msg.content}`).join('\n');
-                    const blob = new Blob([recap], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `bundle-chat-recap-${toolId}.txt`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
+                    let recap = ''
+                    recap += `Bundle: ${teamTitle}\nDescription: ${teamDescription}\n\n`
+                    recap += chatHistory.map((msg) => `${msg.role === 'user' ? 'You' : 'Assistant'}: ${msg.content}`).join('\n')
+                    const blob = new Blob([recap], { type: 'text/plain' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `bundle-chat-recap-${toolId}.txt`
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    URL.revokeObjectURL(url)
                   } catch (err) {
-                    setError(err instanceof Error ? err.message : 'Failed to download recap');
+                    setError(err instanceof Error ? err.message : 'Failed to download recap')
                   } finally {
-                    setLoading(false);
+                    setLoading(false)
                   }
                 }}
                 disabled={loading}
@@ -406,11 +390,11 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
                 className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
                 onClick={async () => {
                   if (window.confirm('Are you sure you want to reset the chat?')) {
-                    setLoading(true);
-                    setError(null);
+                    setLoading(true)
+                    setError(null)
                     try {
-                      const { data: { session: supaSession } } = await supabase.auth.getSession();
-                      const accessToken = supaSession?.access_token;
+                      const { data: { session: supaSession } } = await supabase.auth.getSession()
+                      const accessToken = supaSession?.access_token
                       await fetch(`/api/chat/${toolId}`, {
                         method: 'POST',
                         headers: {
@@ -418,12 +402,12 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
                           ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
                         },
                         body: JSON.stringify({ reset: true })
-                      });
-                      setChatHistory([]);
+                      })
+                      setChatHistory([])
                     } catch (err) {
-                      setError(err instanceof Error ? err.message : 'Failed to reset chat');
+                      setError(err instanceof Error ? err.message : 'Failed to reset chat')
                     } finally {
-                      setLoading(false);
+                      setLoading(false)
                     }
                   }
                 }}
@@ -434,9 +418,39 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
             </div>
           )}
           {isBundle && products.length > 0 && (
-            <div className="mb-4">
-              <span className="font-semibold text-gray-700 text-sm">Team members:</span>
-              <span className="ml-2 text-gray-600 text-sm">{products.map((p) => p.name).join(', ')}</span>
+            <div className="mb-4 flex items-center gap-2">
+              <span className="font-semibold text-gray-700 text-sm">Active Product:</span>
+              {products.map((p) => (
+                <button
+                  key={p.id}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-sm border ${activeProductId === p.id ? 'bg-indigo-100 text-indigo-800 border-indigo-400' : 'bg-white text-gray-700 border-gray-300'}`}
+                  onClick={async () => {
+                    if (activeProductId !== p.id && sessionId) {
+                      setLoading(true)
+                      setError(null)
+                      try {
+                        const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
+                        const res = await fetch(`${BACKEND_URL}/api/chat/switch-product`, {
+                          method: 'POST',
+                          headers,
+                          body: JSON.stringify({ sessionId, toProductId: p.id })
+                        })
+                        const data = await res.json()
+                        if (data.error) throw new Error(data.error)
+                        setActiveProductId(p.id)
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : 'Failed to switch product')
+                      } finally {
+                        setLoading(false)
+                      }
+                    }
+                  }}
+                  disabled={activeProductId === p.id || loading}
+                >
+                  <span>{p.name}</span>
+                  {activeProductId === p.id && <span className="ml-1">⭐</span>}
+                </button>
+              ))}
             </div>
           )}
           {isBundle && (

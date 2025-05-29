@@ -67,14 +67,8 @@ app.use(cors({
   credentials: true
 }));
 
-// Parse JSON payloads for all routes except /api/payments/webhook
-app.use((req, res, next) => {
-  if (req.originalUrl === '/api/payments/webhook') {
-    next();
-  } else {
-    express.json()(req, res, next);
-  }
-});
+// Parse JSON payloads for all routes
+app.use(express.json());
 
 // Health check
 app.get('/health', (req, res) => {
