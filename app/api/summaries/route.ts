@@ -89,14 +89,7 @@ export async function POST(request: Request) {
     }
 
     // Create a summary prompt
-    const summaryPrompt = `Please provide a comprehensive summary of the following chat history. 
-    Focus on key points, decisions, and requirements mentioned by the user.
-    Team Goal: ${session.team_goal || 'Not specified'}
-    
-    Chat History:
-    ${chatHistory.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n')}
-    
-    Summary:`;
+    const summaryPrompt = `Please provide a very concise summary (maximum 100 words) of the following chat history. Focus on key points, decisions, and requirements mentioned by the user. The summary should be a short snippet, not a full explanation.\nTeam Goal: ${session.team_goal || 'Not specified'}\n\nChat History:\n${chatHistory.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n')}\n\nSummary:`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

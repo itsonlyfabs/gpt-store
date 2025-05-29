@@ -81,45 +81,47 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
     return headers
   }
 
-  useEffect(() => {
-    const fetchSessionInfo = async () => {
-      try {
-        const headers = await getAuthHeaders()
-        const res = await fetch(`/api/chat/${toolId}`, { headers })
-        const data = await res.json()
-        if (data.error) throw new Error(data.error)
-        setProducts(data.products || [])
-        setActiveProductId(data.session?.active_product_id || null)
-        setTeamGoal(data.session?.team_goal || '')
-        setNotes(data.notes || [])
-        setSummaries(data.summaries || [])
-        setTeamTitle(data.session?.title || 'Team Chat')
-        setTeamDescription(data.session?.description || '')
-        setIsBundle(!!data.session?.is_bundle)
-        setSessionId(data.session?.id || null)
-      } catch (error) {
-        console.error('Error fetching session info:', error)
-        setError('Failed to load session information')
-      }
+  async function fetchSessionInfo() {
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`/api/chat/${toolId}`, { headers })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setProducts(data.products || [])
+      setActiveProductId(data.session?.active_product_id || null)
+      setTeamGoal(data.session?.team_goal || '')
+      setNotes(data.notes || [])
+      setSummaries(data.summaries || [])
+      setTeamTitle(data.session?.title || 'Team Chat')
+      setTeamDescription(data.session?.description || '')
+      setIsBundle(!!data.session?.is_bundle)
+      setSessionId(data.session?.id || null)
+    } catch (error) {
+      console.error('Error fetching session info:', error)
+      setError('Failed to load session information')
     }
+  }
+
+  async function fetchChatHistory() {
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${BACKEND_URL}/api/chat/${toolId}`, { headers })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      if (Array.isArray(data.messages)) {
+        setChatHistory(data.messages)
+      }
+    } catch (error) {
+      console.error('Error fetching chat history:', error)
+      setError('Failed to load chat history')
+    }
+  }
+
+  useEffect(() => {
     fetchSessionInfo()
   }, [toolId])
 
   useEffect(() => {
-    const fetchChatHistory = async () => {
-      try {
-        const headers = await getAuthHeaders()
-        const res = await fetch(`${BACKEND_URL}/api/chat/${toolId}`, { headers })
-        const data = await res.json()
-        if (data.error) throw new Error(data.error)
-        if (Array.isArray(data.messages)) {
-          setChatHistory(data.messages)
-        }
-      } catch (error) {
-        console.error('Error fetching chat history:', error)
-        setError('Failed to load chat history')
-      }
-    }
     fetchChatHistory()
   }, [toolId])
 
@@ -179,14 +181,19 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
   }
 
   const handleGenerateSummary = async () => {
-    if (!sessionId) return setError('No session ID')
+    if (!sessionId) {
+      setError('No session ID');
+      console.error('No sessionId for summary generation');
+      return;
+    }
     try {
       setLoading(true)
       const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
+      console.log('Generating summary for sessionId:', sessionId);
       const res = await fetch(`${BACKEND_URL}/api/chat/generate-summary`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ sessionId })
+        body: JSON.stringify({ session_id: sessionId })
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
@@ -211,6 +218,39 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
     } catch (error) {
       console.error('Error deleting summary:', error)
       throw error
+    }
+  }
+
+  const handleReset = async () => {
+    if (!sessionId) {
+      setError('No session ID');
+      console.error('No sessionId for reset');
+      return;
+    }
+    if (window.confirm('Are you sure you want to reset the chat?')) {
+      setLoading(true)
+      setError(null)
+      try {
+        const { data: { session: supaSession } } = await supabase.auth.getSession()
+        const accessToken = supaSession?.access_token
+        console.log('Resetting chat for sessionId:', sessionId);
+        await fetch(`/api/chat/${toolId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+          },
+          body: JSON.stringify({ reset: true, session_id: sessionId })
+        })
+        // Refetch session and chat history
+        await fetchSessionInfo();
+        await fetchChatHistory();
+        setChatHistory([])
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to reset chat')
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
@@ -317,6 +357,19 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
     }
   }
 
+  // Add a simple markdown-to-HTML converter for bold and paragraphs
+  function formatAssistantMessage(content: string | undefined | null) {
+    if (!content) return '';
+    // Replace **bold** with <strong>bold</strong>
+    let html = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // Split paragraphs by double newlines or single newlines, wrap in <p>
+    html = html
+      .split(/\n{2,}/)
+      .map(paragraph => `<p>${paragraph.replace(/\n/g, '<br/>')}</p>`)
+      .join('')
+    return html
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
@@ -388,32 +441,10 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
               </button>
               <button
                 className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
-                onClick={async () => {
-                  if (window.confirm('Are you sure you want to reset the chat?')) {
-                    setLoading(true)
-                    setError(null)
-                    try {
-                      const { data: { session: supaSession } } = await supabase.auth.getSession()
-                      const accessToken = supaSession?.access_token
-                      await fetch(`/api/chat/${toolId}`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-                        },
-                        body: JSON.stringify({ reset: true })
-                      })
-                      setChatHistory([])
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : 'Failed to reset chat')
-                    } finally {
-                      setLoading(false)
-                    }
-                  }
-                }}
+                onClick={handleReset}
                 disabled={loading}
               >
-                Reset
+                {loading ? 'Resetting...' : 'Reset'}
               </button>
             </div>
           )}
@@ -527,7 +558,11 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
                 <div className={`rounded-lg px-4 py-2 max-w-xl ${
                   msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-gray-900'
                 }`}>
-                  {msg.content}
+                  {msg.role === 'assistant' ? (
+                    <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: formatAssistantMessage(msg.content) }} />
+                  ) : (
+                    <span>{msg.content}</span>
+                  )}
                 </div>
               </div>
             ))}
