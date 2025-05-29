@@ -40,7 +40,7 @@ export default function SummariesPanel({
           const isExpanded = expandedId === summary.id;
           // Show only the first line or first 100 chars as snippet
           const safeContent = summary.content || '';
-          const snippet = safeContent.split('\n')[0].slice(0, 100) + (safeContent.length > 100 ? '...' : '');
+          const snippet = (safeContent.split('\n')[0] || '').slice(0, 100) + (safeContent.length > 100 ? '...' : '');
           return (
             <div key={summary.id} className="bg-gray-50 rounded-lg px-3 py-2 cursor-pointer border border-gray-200">
               <div className="flex justify-between items-center" onClick={() => handleToggle(summary.id)}>
