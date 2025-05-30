@@ -600,6 +600,23 @@ export default function MyLibraryPage() {
                   })
                   .map(session => {
                     const product = session.product_id ? productMap[session.product_id] : null;
+                    // If it's a bundle, show categories and title
+                    let categoryDisplay = 'Chat';
+                    let titleDisplay = '';
+                    let descriptionDisplay = '';
+                    if (session.is_bundle) {
+                      // Look up the bundle by session.bundle_id
+                      const bundle = bundles.find(b => b.id === session.bundle_id);
+                      categoryDisplay = session.assistant_ids && Array.isArray(session.assistant_ids) && session.assistant_ids.length > 0
+                        ? session.assistant_ids.join(', ')
+                        : 'Bundle';
+                      titleDisplay = bundle ? bundle.name : (session.title || `Bundle ${session.bundle_id ?? ''}`);
+                      descriptionDisplay = bundle ? bundle.description : (session.description || '');
+                    } else {
+                      categoryDisplay = product && product.category ? product.category : 'Chat';
+                      titleDisplay = product ? product.name : `Chat ${session.id ?? ''}`;
+                      descriptionDisplay = product ? product.description : '';
+                    }
                     return (
                       <div
                         key={session.id}
@@ -608,7 +625,7 @@ export default function MyLibraryPage() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-semibold text-primary text-xs">
-                            {product && product.category ? product.category : 'Chat'}
+                            {categoryDisplay}
                           </span>
                           <button
                             className="ml-2 text-gray-400 hover:text-red-500 text-lg font-bold px-2 py-0.5 rounded-full focus:outline-none"
@@ -619,8 +636,13 @@ export default function MyLibraryPage() {
                           </button>
                         </div>
                         <div className="font-bold text-gray-900 text-sm mb-1 truncate">
-                          {product ? product.name : (session.is_bundle ? `Bundle ${session.bundle_id ?? ''}` : `Chat ${session.id ?? ''}`)}
+                          {titleDisplay}
                         </div>
+                        {descriptionDisplay && (
+                          <div className="text-xs text-gray-500 mb-2 truncate">
+                            {descriptionDisplay}
+                          </div>
+                        )}
                         <div className="text-xs text-gray-500 mb-2">
                           {new Date(session.created_at).toLocaleDateString('en-US', {
                             year: 'numeric',

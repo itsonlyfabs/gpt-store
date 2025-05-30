@@ -392,7 +392,13 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
                       headers: {
                         'Content-Type': 'application/json',
                         ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-                      }
+                      },
+                      body: JSON.stringify({
+                        chat_history: chatHistory,
+                        team_title: teamTitle,
+                        team_description: teamDescription,
+                        is_bundle: isBundle
+                      })
                     })
                     const data = await res.json()
                     if (data.success) {

@@ -14,6 +14,7 @@ export default function ChatRecapPage() {
   const [error, setError] = useState<string | null>(null)
   const [productInfo, setProductInfo] = useState<any>(null)
   const [downloadLoading, setDownloadLoading] = useState(false)
+  const [sessionInfo, setSessionInfo] = useState<any>(null)
 
   useEffect(() => {
     const fetchRecap = async () => {
@@ -29,6 +30,7 @@ export default function ChatRecapPage() {
         
         if (data.session) {
           setRecap(data.session.recap);
+          setSessionInfo(data.session);
           if (data.products && data.products[0]) {
             setProductInfo(data.products[0]);
           }
@@ -91,7 +93,12 @@ export default function ChatRecapPage() {
       <Sidebar />
       <main className="flex-1 flex flex-col items-center justify-start p-0">
         <div className="w-full max-w-2xl mx-auto px-6 pt-10">
-          {productInfo && (
+          {sessionInfo && sessionInfo.is_bundle ? (
+            <>
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">{sessionInfo.title}</h1>
+              <div className="text-gray-500 text-sm mb-2">{sessionInfo.description}</div>
+            </>
+          ) : productInfo && (
             <>
               <h1 className="text-3xl font-bold text-gray-900 mb-1">{productInfo.name}</h1>
               <div className="text-gray-500 text-sm mb-2">{productInfo.description}</div>

@@ -66,8 +66,23 @@ async function generateContextSummary(sessionId: string, productId: string, open
 }
 
 // Helper function to handle "Ask the team" feature
-async function handleAskTheTeam(sessionId: string, content: string, products: any[], openaiApiKey: string) {
+async function handleAskTheTeam(sessionId: string, content: string, products: any[], openaiApiKey: string, session: any) {
   try {
+    // Fetch the last 10 messages for context (excluding the current message)
+    const { data: recentMessages, error: recentMessagesError } = await supabaseAdmin
+      .from('chat_messages')
+      .select('role, content')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true })
+      .limit(10);
+    let chatHistoryString = '';
+    if (recentMessages && Array.isArray(recentMessages)) {
+      chatHistoryString = recentMessages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+    }
+    const userMessageWithGoalAndHistory = session.team_goal
+      ? `TEAM GOAL: ${session.team_goal}\n\nRECENT CHAT HISTORY:\n${chatHistoryString}\n\nUser: ${content}`
+      : content;
+
     // Store the user's message
     const { data: message, error: messageError } = await supabaseAdmin
       .from('chat_messages')
@@ -98,7 +113,15 @@ async function handleAskTheTeam(sessionId: string, content: string, products: an
           'Authorization': `Bearer ${openaiApiKey}`,
           'OpenAI-Beta': 'assistants=v2',
         },
-        body: JSON.stringify({ messages: [{ role: 'user', content }] })
+        body: JSON.stringify({ 
+          messages: [
+            ...(session.team_goal ? [{
+              role: 'system',
+              content: `IMPORTANT CONTEXT: The current team goal for this chat is: \"${session.team_goal}\"\n\nPlease:\n1. Always keep responses focused on this specific goal\n2. When asked about the team goal, explicitly state it\n3. If a question seems unrelated to the goal, explain how it connects to the goal or suggest refocusing on the goal\n\nCurrent team goal: \"${session.team_goal}\"`
+            }] : []),
+            { role: 'user', content: userMessageWithGoalAndHistory }
+          ]
+        })
       });
       const threadData = await threadRes.json();
       const threadId = threadData.id;
@@ -517,7 +540,7 @@ export async function POST(request: Request, context: any) {
         return NextResponse.json({ error: 'Products not found' }, { status: 404 });
       }
 
-      return handleAskTheTeam(id, content, products, openaiApiKey);
+      return handleAskTheTeam(id, content, products, openaiApiKey, session);
     }
 
     // Regular chat message handling
@@ -556,28 +579,21 @@ export async function POST(request: Request, context: any) {
         .eq('id', id);
     }
 
-    // Fetch the last 20 messages for context
-    const { data: contextMessages, error: contextError, count } = await supabaseAdmin
+    // Fetch the last 10 messages for context (excluding the current message)
+    const { data: recentMessages, error: recentMessagesError } = await supabaseAdmin
       .from('chat_messages')
-      .select('role, content', { count: 'exact' })
+      .select('role, content')
       .eq('session_id', id)
       .order('created_at', { ascending: true })
-      .limit(20);
-    if (contextError) {
-      return NextResponse.json({ error: 'Failed to fetch chat context', details: contextError }, { status: 500 });
+      .limit(10);
+    let chatHistoryString = '';
+    if (recentMessages && Array.isArray(recentMessages)) {
+      chatHistoryString = recentMessages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
     }
-    // Add the last 20 messages to the thread for context
-    for (const msg of contextMessages || []) {
-      await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'OpenAI-Beta': 'assistants=v2',
-        },
-        body: JSON.stringify({ role: msg.role, content: msg.content })
-      });
-    }
+    // Build the full prompt
+    const userMessageWithGoalAndHistory = session.team_goal
+      ? `TEAM GOAL: ${session.team_goal}\n\nRECENT CHAT HISTORY:\n${chatHistoryString}\n\nUser: ${content}`
+      : content;
     // Add the new user message to the thread
     await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
       method: 'POST',
@@ -586,7 +602,7 @@ export async function POST(request: Request, context: any) {
         'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
         'OpenAI-Beta': 'assistants=v2',
       },
-      body: JSON.stringify({ role: 'user', content })
+      body: JSON.stringify({ role: 'user', content: userMessageWithGoalAndHistory })
     });
     // Save user message to chat_messages table
     const { error: userInsertError } = await supabaseAdmin
@@ -666,7 +682,7 @@ export async function POST(request: Request, context: any) {
       response: insertedAssistant?.content || aiReply,
       assistantMessage: insertedAssistant,
       userMessage: content,
-      alert: (count && count >= 20) ? 'Recommended to download a recap and start a new conversation for better results.' : undefined
+      alert: (recentMessages && recentMessages.length >= 10) ? 'Recommended to download a recap and start a new conversation for better results.' : undefined
     });
   } catch (error: any) {
     console.error('Chat POST error:', error);
