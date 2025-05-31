@@ -29,6 +29,10 @@ interface Product {
   features: string[];
   assistant_id: string;
   tier: 'FREE' | 'PRO';
+  prompt: string;
+  expertise: string;
+  personality: string;
+  style: string;
 }
 
 interface Bundle {
@@ -72,16 +76,22 @@ function AdminPage() {
     category: string;
     thumbnail: string;
     features: string;
-    assistant_id: string;
+    expertise: string;
+    personality: string;
+    style: string;
     tier: 'FREE' | 'PRO';
+    prompt: string;
   }>({
     name: '',
     description: '',
     category: '',
     thumbnail: '',
     features: '',
-    assistant_id: '',
-    tier: 'FREE'
+    expertise: '',
+    personality: '',
+    style: '',
+    tier: 'FREE',
+    prompt: ''
   });
   const [editBundleForm, setEditBundleForm] = useState<{
     name: string;
@@ -173,8 +183,11 @@ function AdminPage() {
         category: product.category || '',
         thumbnail: product.thumbnail || '',
         features: Array.isArray(product.features) ? product.features.join(', ') : '',
-        assistant_id: product.assistant_id || '',
-        tier: product.tier || 'FREE'
+        expertise: product.expertise || '',
+        personality: product.personality || '',
+        style: product.style || '',
+        tier: product.tier || 'FREE',
+        prompt: product.prompt || ''
       });
       setIsEditModalOpen(true);
     }
@@ -819,7 +832,15 @@ function AdminPage() {
       </main>
       {isEditModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-xl w-full">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-xl w-full relative">
+            {/* X button */}
+            <button
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold"
+              onClick={() => { setIsEditModalOpen(false); router.push('/admin?page=products'); }}
+              aria-label="Close"
+            >
+              &times;
+            </button>
             <h2 className="text-xl font-bold mb-4">Edit Product</h2>
             <form onSubmit={(e) => { e.preventDefault(); handleSaveProduct(editingProductId!); }} className="space-y-4">
               <input name="name" value={editForm.name} onChange={handleEditFormChange} placeholder="Name" className="w-full border p-2" required />
@@ -827,9 +848,15 @@ function AdminPage() {
               <input name="category" value={editForm.category} onChange={handleEditFormChange} placeholder="Category" className="w-full border p-2" required />
               <input name="thumbnail" value={editForm.thumbnail} onChange={handleEditFormChange} placeholder="Thumbnail URL" className="w-full border p-2" required />
               <input name="features" value={editForm.features} onChange={handleEditFormChange} placeholder="Features (comma separated)" className="w-full border p-2" />
-              <input name="assistant_id" value={editForm.assistant_id} onChange={handleEditFormChange} placeholder="Assistant ID" className="w-full border p-2" required />
+              <input name="expertise" value={editForm.expertise} onChange={handleEditFormChange} placeholder="Expertise" className="w-full border p-2" required />
+              <input name="personality" value={editForm.personality} onChange={handleEditFormChange} placeholder="Personality" className="w-full border p-2" required />
+              <input name="style" value={editForm.style} onChange={handleEditFormChange} placeholder="Style" className="w-full border p-2" required />
               <input name="tier" value={editForm.tier} onChange={handleEditFormChange} placeholder="Tier" className="w-full border p-2" required />
-              <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? "Saving..." : "Save Changes"}</button>
+              <textarea name="prompt" value={editForm.prompt} onChange={handleEditFormChange} placeholder="System Prompt (optional, overrides persona fields)" className="w-full border p-2" rows={4} />
+              <div className="flex gap-2 justify-end">
+                <button type="button" className="border px-4 py-2 rounded" onClick={() => { setIsEditModalOpen(false); router.push('/admin?page=products'); }}>Cancel</button>
+                <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? "Saving..." : "Save Changes"}</button>
+              </div>
             </form>
           </div>
         </div>

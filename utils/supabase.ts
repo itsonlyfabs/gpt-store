@@ -18,16 +18,43 @@ export const supabase = createClient(
       flowType: 'pkce',
       storage: {
         getItem: (key: string) => {
-          if (typeof window === 'undefined') return null
-          return window.localStorage.getItem(key)
+          if (typeof window === 'undefined') return null;
+          try {
+            const item = window.localStorage.getItem(key);
+            if (!item) {
+              // Try to get from cookies as fallback
+              const cookies = document.cookie.split(';');
+              const cookie = cookies.find(c => c.trim().startsWith(`${key}=`));
+              if (cookie) {
+                const value = cookie.split('=')[1];
+                return value ? decodeURIComponent(value) : null;
+              }
+            }
+            return item;
+          } catch (error) {
+            console.error('Error reading from storage:', error);
+            return null;
+          }
         },
         setItem: (key: string, value: string) => {
-          if (typeof window === 'undefined') return
-          window.localStorage.setItem(key, value)
+          if (typeof window === 'undefined') return;
+          try {
+            window.localStorage.setItem(key, value);
+            // Also set as cookie as backup
+            document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
+          } catch (error) {
+            console.error('Error writing to storage:', error);
+          }
         },
         removeItem: (key: string) => {
-          if (typeof window === 'undefined') return
-          window.localStorage.removeItem(key)
+          if (typeof window === 'undefined') return;
+          try {
+            window.localStorage.removeItem(key);
+            // Also remove from cookies
+            document.cookie = `${key}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+          } catch (error) {
+            console.error('Error removing from storage:', error);
+          }
         },
       },
     },
@@ -36,5 +63,5 @@ export const supabase = createClient(
 
 // Add a listener for auth state changes
 supabase.auth.onAuthStateChange((event, session) => {
-  console.log('Auth state changed:', event, session?.user?.email || 'no session')
+  console.log('Auth state changed:', event, session?.user?.email || 'no session');
 }); 

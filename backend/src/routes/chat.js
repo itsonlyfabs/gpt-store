@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
+console.log('EXPRESS CHAT ROUTE LOADED');
 const authMiddleware = require('../middleware/auth');
 const { chatWithAI } = require('../services/aiService');
 const { createClient } = require('@supabase/supabase-js');
 
 // Log all requests to the chat router
 router.use((req, res, next) => {
-  console.log('CHAT ROUTER REQUEST:', req.method, req.originalUrl, 'BODY:', req.body);
+  console.log('EXPRESS CHAT ROUTE HIT:', req.method, req.originalUrl, 'BODY:', req.body);
   next();
 });
 
@@ -207,7 +208,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     // Get products in this session (simulate: all products for now)
     const { data: products } = await supabase
       .from('products')
-      .select('id, name, description, assistant_id');
+      .select('*');
     // Get messages
     const { data: messages } = await supabase
       .from('chat_messages')
@@ -315,9 +316,10 @@ router.post('/:productId', authMiddleware, async (req, res) => {
     // Fetch assistant_id for the product from Supabase
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('assistant_id')
+      .select('*')
       .eq('id', productId)
       .single();
+    console.log('BACKEND PRODUCT FETCHED:', product);
 
     if (productError || !product || !product.assistant_id) {
       return res.status(404).json({ error: 'Product or Assistant not found' });

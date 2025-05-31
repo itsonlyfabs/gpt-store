@@ -21,7 +21,10 @@ router.get('/library', authMiddleware, async (req, res) => {
           name,
           description,
           thumbnail,
-          category
+          category,
+          expertise,
+          personality,
+          style
         )
       `)
       .eq('user_id', req.user.id)
@@ -63,6 +66,9 @@ router.get('/library', authMiddleware, async (req, res) => {
         description: purchase.products.description,
         thumbnail: purchase.products.thumbnail,
         category: purchase.products.category,
+        expertise: purchase.products.expertise,
+        personality: purchase.products.personality,
+        style: purchase.products.style,
         lastUsed: lastChat || purchase.created_at,
         usageMetrics: {
           totalChats: metrics?.length || 0,

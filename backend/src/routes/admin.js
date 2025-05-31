@@ -13,8 +13,8 @@ router.put('/products/:id', [authMiddleware, adminMiddleware], async (req, res) 
     console.log('PUT /api/admin/products/:id - Request body:', req.body);
     console.log('User:', req.user);
     const { id } = req.params;
-    const { name, description, price, currency, category, thumbnail, price_type, features, assistant_id } = req.body;
-    const updatePayload = { name, description, price, currency, category, thumbnail, price_type, features, assistant_id };
+    const { name, description, price, currency, category, thumbnail, price_type, features, prompt, expertise, personality, style } = req.body;
+    const updatePayload = { name, description, price, currency, category, thumbnail, price_type, features, prompt, expertise, personality, style };
     console.log('Update payload:', updatePayload);
     const { data, error } = await supabaseAdmin
       .from('products')
@@ -116,11 +116,14 @@ router.post('/products', [authMiddleware, adminMiddleware], async (req, res) => 
       price_type,
       currency,
       features,
-      assistant_id
+      prompt,
+      expertise,
+      personality,
+      style
     } = req.body;
 
     // Basic validation
-    if (!name || !description || !price || !category || !thumbnail || !price_type || !currency || !assistant_id) {
+    if (!name || !description || !price || !category || !thumbnail || !price_type || !currency || !prompt || !expertise || !personality || !style) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -136,7 +139,10 @@ router.post('/products', [authMiddleware, adminMiddleware], async (req, res) => 
           price_type,
           currency,
           features: features || [],
-          assistant_id,
+          prompt,
+          expertise,
+          personality,
+          style,
           tier: 'FREE'
         }
       ])

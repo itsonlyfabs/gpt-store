@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function CreateBundlePage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -15,6 +16,7 @@ export default function CreateBundlePage() {
   const [error, setError] = useState("");
   const [bundles, setBundles] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api") + "/products")
@@ -95,7 +97,14 @@ export default function CreateBundlePage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto p-8">
+    <div className="max-w-xl mx-auto p-8 relative">
+      <button
+        className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold"
+        onClick={() => router.push('/admin?page=bundles')}
+        aria-label="Close"
+      >
+        &times;
+      </button>
       <h1 className="text-2xl font-bold mb-6">{editing ? "Edit Bundle" : "Create New Bundle"}</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <input name="name" value={form.name} onChange={handleChange} placeholder="Bundle Name" className="w-full border p-2" required />
@@ -123,7 +132,10 @@ export default function CreateBundlePage() {
             ))}
           </div>
         </div>
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? (editing ? "Saving..." : "Creating...") : (editing ? "Save Changes" : "Create Bundle")}</button>
+        <div className="flex gap-2 justify-end">
+          <button type="button" className="border px-4 py-2 rounded" onClick={() => router.push('/admin?page=bundles')}>Cancel</button>
+          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading}>{loading ? (editing ? "Saving..." : "Creating...") : (editing ? "Save Changes" : "Create Bundle")}</button>
+        </div>
         {editing && <button type="button" className="ml-2 px-4 py-2 rounded border" onClick={() => { setEditing(null); setForm({ name: "", description: "", image: "", tier: "FREE" }); setSelected([]); }}>Cancel</button>}
         {success && <div className="text-green-600">{success}</div>}
         {error && <div className="text-red-600">{error}</div>}
