@@ -180,8 +180,7 @@ export default function ProfilePage() {
         if (!session) {
           throw new Error('Not authenticated')
         }
-        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
-        const libraryResponse = await fetch(`${backendUrl}/user/library`, {
+        const libraryResponse = await fetch('/api/user/library', {
           headers: {
             'Authorization': `Bearer ${session.access_token}`
           }

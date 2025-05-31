@@ -47,7 +47,7 @@ export default function ProductPage() {
       try {
         setLoading(true)
         // Always fetch from API, never use mock data
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${params.id}`)
+        const response = await fetch(`/api/products/${params.id}`)
         if (!response.ok) throw new Error('Failed to fetch product')
         const data = await response.json()
         setProduct(data)

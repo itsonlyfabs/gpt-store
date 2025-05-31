@@ -19,11 +19,11 @@ export default function CreateBundlePage() {
   const router = useRouter();
 
   useEffect(() => {
-    fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api") + "/products")
+    fetch("/api/products")
       .then(res => res.json())
       .then(setProducts)
       .catch(() => setProducts([]));
-    fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api") + "/bundles")
+    fetch("/api/bundles")
       .then(res => res.json())
       .then(setBundles)
       .catch(() => setBundles([]));
@@ -51,7 +51,7 @@ export default function CreateBundlePage() {
     setSuccess("");
     setError("");
     try {
-      const res = await fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api") + `/bundles/${id}`, { method: "DELETE" });
+      const res = await fetch("/api/bundles/" + id, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete bundle");
       setBundles(bundles => bundles.filter(b => b.id !== id));
       if (editing && editing.id === id) setEditing(null);
@@ -70,7 +70,7 @@ export default function CreateBundlePage() {
     setError("");
     try {
       const method = editing ? "PUT" : "POST";
-      const url = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api") + "/bundles" + (editing ? `/${editing.id}` : "");
+      const url = "/api/bundles" + (editing ? "/" + editing.id : "");
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -85,7 +85,7 @@ export default function CreateBundlePage() {
       setSelected([]);
       setEditing(null);
       // Refresh bundles list
-      fetch((process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api") + "/bundles")
+      fetch("/api/bundles")
         .then(res => res.json())
         .then(setBundles)
         .catch(() => setBundles([]));

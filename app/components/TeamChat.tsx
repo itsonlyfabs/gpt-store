@@ -105,7 +105,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
   async function fetchChatHistory() {
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`${BACKEND_URL}/api/chat/${toolId}`, { headers })
+      const res = await fetch(`/api/chat/${toolId}`, { headers })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       if (Array.isArray(data.messages)) {
@@ -133,7 +133,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
     if (!sessionId) return setError('No session ID')
     try {
       const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-      const res = await fetch(`${BACKEND_URL}/api/chat/set-team-goal`, {
+      const res = await fetch(`/api/chat/set-team-goal`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ sessionId, teamGoal: goal })
@@ -190,7 +190,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
       setLoading(true)
       const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
       console.log('Generating summary for sessionId:', sessionId);
-      const res = await fetch(`${BACKEND_URL}/api/chat/generate-summary`, {
+      const res = await fetch(`/api/chat/generate-summary`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ session_id: sessionId })
@@ -281,7 +281,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
       setChatHistory(prev => [...prev, optimisticMsg])
       try {
         const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-        await fetch(`${BACKEND_URL}/api/chat/${activeProductId}`, {
+        await fetch(`/api/chat/${activeProductId}`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ message: userMsgContent, conversationId: sessionId })
@@ -290,7 +290,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
         let pollCount = 0
         while (!foundNewAssistant && pollCount < 15) {
           await new Promise(r => setTimeout(r, 1200))
-          const historyRes = await fetch(`${BACKEND_URL}/api/chat/${toolId}`, { headers: await getAuthHeaders() })
+          const historyRes = await fetch(`/api/chat/${toolId}`, { headers: await getAuthHeaders() })
           const historyData = await historyRes.json()
           if (Array.isArray(historyData.messages)) {
             const msgs = historyData.messages as Message[]
@@ -308,7 +308,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
     } else {
       try {
         const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-        await fetch(`${BACKEND_URL}/api/chat/${activeProductId}`, {
+        await fetch(`/api/chat/${activeProductId}`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ message: userMsgContent, conversationId: sessionId })
@@ -317,7 +317,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
         let pollCount = 0
         while (!foundNewAssistant && pollCount < 15) {
           await new Promise(r => setTimeout(r, 1200))
-          const historyRes = await fetch(`${BACKEND_URL}/api/chat/${toolId}`, { headers: await getAuthHeaders() })
+          const historyRes = await fetch(`/api/chat/${toolId}`, { headers: await getAuthHeaders() })
           const historyData = await historyRes.json()
           if (Array.isArray(historyData.messages)) {
             const msgs = historyData.messages as Message[]
@@ -344,7 +344,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
     setInput('')
     try {
       const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-      await fetch(`${BACKEND_URL}/api/chat/ask-the-team`, {
+      await fetch(`/api/chat/ask-the-team`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ sessionId, message: userMsgContent })
@@ -467,7 +467,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
                       setError(null)
                       try {
                         const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-                        const res = await fetch(`${BACKEND_URL}/api/chat/switch-product`, {
+                        const res = await fetch(`/api/chat/switch-product`, {
                           method: 'POST',
                           headers,
                           body: JSON.stringify({ sessionId, toProductId: p.id })

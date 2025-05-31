@@ -18,12 +18,6 @@ function isAdmin(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const url = new URL(req.url);
   const isDiscoverPage = url.searchParams.get('discover') === 'true';
   const isAdminPage = url.searchParams.get('admin') === 'true';
@@ -52,55 +46,61 @@ export async function GET(req: Request) {
         .filter(Boolean)
     }));
     return NextResponse.json(bundlesWithProducts);
-  } else {
-    // For my-library, return user's bundles and saved admin bundles
-    const { data: userBundles, error: userBundlesError } = await supabaseAdmin
-      .from('bundles')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_admin', false);
-    if (userBundlesError) {
-      return NextResponse.json({ error: userBundlesError.message }, { status: 500 });
-    }
-    // Fetch products for each user bundle
-    const { data: bundleProducts, error: bpError } = await supabaseAdmin
-      .from('bundle_products')
-      .select('*');
-    const { data: products, error: productsError } = await supabaseAdmin
-      .from('products')
-      .select('*');
-    const userBundlesWithProducts = (userBundles || []).map(bundle => ({
-      ...bundle,
-      products: (bundleProducts || [])
-        .filter(bp => bp.bundle_id === bundle.id)
-        .map(bp => (products || []).find(p => p.id === bp.product_id))
-        .filter(Boolean)
-    }));
-    // Get admin bundles saved by the user
-    const { data: savedUserBundles, error: savedError } = await supabaseAdmin
-      .from('user_bundles')
-      .select('bundle_id')
-      .eq('user_id', user.id);
-    if (savedError) {
-      return NextResponse.json({ error: savedError.message }, { status: 500 });
-    }
-    const savedBundleIds = (savedUserBundles || []).map(row => row.bundle_id);
-    const { data: savedBundles, error: savedBundlesError } = await supabaseAdmin
-      .from('bundles')
-      .select('*')
-      .in('id', savedBundleIds.length > 0 ? savedBundleIds : ['00000000-0000-0000-0000-000000000000']);
-    if (savedBundlesError) {
-      return NextResponse.json({ error: savedBundlesError.message }, { status: 500 });
-    }
-    const savedBundlesWithProducts = (savedBundles || []).map(bundle => ({
-      ...bundle,
-      products: (bundleProducts || [])
-        .filter(bp => bp.bundle_id === bundle.id)
-        .map(bp => (products || []).find(p => p.id === bp.product_id))
-        .filter(Boolean)
-    }));
-    return NextResponse.json([...userBundlesWithProducts, ...savedBundlesWithProducts]);
   }
+
+  // For my-library, require auth
+  const supabase = createRouteHandlerClient({ cookies });
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  // User's own bundles
+  const { data: userBundles, error: userBundlesError } = await supabaseAdmin
+    .from('bundles')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('is_admin', false);
+  if (userBundlesError) {
+    return NextResponse.json({ error: userBundlesError.message }, { status: 500 });
+  }
+  // Fetch products for each user bundle
+  const { data: bundleProducts, error: bpError } = await supabaseAdmin
+    .from('bundle_products')
+    .select('*');
+  const { data: products, error: productsError } = await supabaseAdmin
+    .from('products')
+    .select('*');
+  const userBundlesWithProducts = (userBundles || []).map(bundle => ({
+    ...bundle,
+    products: (bundleProducts || [])
+      .filter(bp => bp.bundle_id === bundle.id)
+      .map(bp => (products || []).find(p => p.id === bp.product_id))
+      .filter(Boolean)
+  }));
+  // Get admin bundles saved by the user
+  const { data: savedUserBundles, error: savedError } = await supabaseAdmin
+    .from('user_bundles')
+    .select('bundle_id')
+    .eq('user_id', user.id);
+  if (savedError) {
+    return NextResponse.json({ error: savedError.message }, { status: 500 });
+  }
+  const savedBundleIds = (savedUserBundles || []).map(row => row.bundle_id);
+  const { data: savedBundles, error: savedBundlesError } = await supabaseAdmin
+    .from('bundles')
+    .select('*')
+    .in('id', savedBundleIds.length > 0 ? savedBundleIds : ['00000000-0000-0000-0000-000000000000']);
+  if (savedBundlesError) {
+    return NextResponse.json({ error: savedBundlesError.message }, { status: 500 });
+  }
+  const savedBundlesWithProducts = (savedBundles || []).map(bundle => ({
+    ...bundle,
+    products: (bundleProducts || [])
+      .filter(bp => bp.bundle_id === bundle.id)
+      .map(bp => (products || []).find(p => p.id === bp.product_id))
+      .filter(Boolean)
+  }));
+  return NextResponse.json([...userBundlesWithProducts, ...savedBundlesWithProducts]);
 }
 
 export async function POST(req: Request) {
