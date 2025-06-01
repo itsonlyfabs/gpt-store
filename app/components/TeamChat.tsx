@@ -392,7 +392,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
           <div className="bg-white rounded-lg p-4 shadow">
             <h3 className="font-semibold text-lg mb-2">Team Response</h3>
             <div className="prose max-w-none">
-              {summary.replace('Team Response Summary:', '').trim()}
+              {summary ? summary.replace('Team Response Summary:', '').trim() : ''}
             </div>
           </div>
           
