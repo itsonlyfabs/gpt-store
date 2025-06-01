@@ -629,6 +629,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
           <div className="space-y-4 flex-1 overflow-y-auto">
             {chatHistory.map(msg => {
               const product = msg.role === 'assistant' && products.find(p => p.id === msg.product_id);
+              const formatted = formatAssistantMessage(msg.content);
               return (
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`rounded-lg px-4 py-2 max-w-xl ${
@@ -639,14 +640,14 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
                         {product && (
                           <div className="font-bold mb-1 text-indigo-700">{product.name}</div>
                         )}
-                        {typeof formatAssistantMessage(msg.content) === 'string' ? (
+                        {typeof formatted === 'string' ? (
                           <div
                             className="prose prose-sm max-w-none whitespace-pre-line"
-                            dangerouslySetInnerHTML={{ __html: renderMarkdown(formatAssistantMessage(msg.content)) }}
+                            dangerouslySetInnerHTML={{ __html: renderMarkdown(formatted) }}
                           />
                         ) : (
                           <div className="prose prose-sm max-w-none whitespace-pre-line">
-                            {formatAssistantMessage(msg.content)}
+                            {formatted}
                           </div>
                         )}
                       </div>
