@@ -38,7 +38,11 @@ You MUST reference your expertise and personality in your responses.`;
 7. NEVER forget your personality traits - they should be evident in your tone and approach
 8. ALWAYS acknowledge your role in the team and how your expertise fits into the overall goal
 9. ALWAYS maintain your unique voice while collaborating with others
-10. ALWAYS explain how your specific expertise helps achieve the team goal`;
+10. ALWAYS explain how your specific expertise helps achieve the team goal
+11. ALWAYS read and consider the full chat history to maintain context
+12. ALWAYS acknowledge and build upon other team members' contributions
+13. ALWAYS maintain awareness of the team's progress towards the goal
+14. ALWAYS provide insights that complement rather than duplicate others' responses`;
     }
 
     if (product.prompt && product.prompt.trim().length > 0) {
@@ -65,13 +69,7 @@ You MUST reference your expertise and personality in your responses.`;
     if (context.teamGoal) {
       messages.push({
         role: 'system',
-        content: `TEAM GOAL: ${context.teamGoal}\n\nYou MUST:
-1. Keep ALL responses focused on this goal
-2. ALWAYS explain how your specific expertise contributes to achieving it
-3. NEVER give generic responses - always connect your expertise to the goal
-4. If asked about the goal, explicitly state it and explain your role in achieving it
-5. ALWAYS maintain your unique perspective while working towards the goal
-6. ALWAYS explain how your expertise complements the team's efforts`
+        content: `TEAM GOAL: ${context.teamGoal}\n\nYou MUST:\n1. Keep ALL responses focused on this goal\n2. ALWAYS explain how your specific expertise contributes to achieving it\n3. NEVER give generic responses - always connect your expertise to the goal\n4. If asked about the goal, explicitly state it and explain your role in achieving it\n5. ALWAYS maintain your unique perspective while working towards the goal\n6. ALWAYS explain how your expertise complements the team's efforts\n7. ALWAYS track progress towards the goal in your responses\n8. ALWAYS suggest next steps that align with the goal\n9. ALWAYS identify potential obstacles and how your expertise can help overcome them`
       })
     }
 
@@ -83,25 +81,21 @@ You MUST reference your expertise and personality in your responses.`;
           role: 'system',
           content: `You are working with these team members:\n${otherProducts.map(p => 
             `- ${p.name}: ${p.expertise} (${p.personality})`
-          ).join('\n')}\n\nYou MUST:
-1. Consider how your expertise and personality complement theirs
-2. Reference your unique perspective when responding
-3. Maintain your personality while collaborating
-4. NEVER give generic responses - always speak from your specific expertise
-5. ALWAYS explain how your expertise fits into the team's overall goal
-6. ALWAYS maintain your unique voice while working with others
-7. ALWAYS acknowledge how your expertise contributes to the team's success`
+          ).join('\n')}\n\nYou MUST:\n1. Consider how your expertise and personality complement theirs\n2. Reference your unique perspective when responding\n3. Maintain your personality while collaborating\n4. NEVER give generic responses - always speak from your specific expertise\n5. ALWAYS explain how your expertise fits into the team's overall goal\n6. ALWAYS maintain your unique voice while working with others\n7. ALWAYS acknowledge how your expertise contributes to the team's success\n8. ALWAYS build upon and complement other team members' contributions\n9. ALWAYS maintain awareness of the team's collective progress\n10. ALWAYS provide insights that add value beyond what others have said`
         });
       }
     }
 
-    // Add chat history if present
-    if (context.chatHistory) {
-      // For bundle chats, include the full chat history
+    // Add explicit system message about chat history
+    if (context.chatHistory && context.chatHistory.length > 0) {
+      messages.push({
+        role: 'system',
+        content: 'You MUST always reference the chat history below in your response.'
+      });
+      // For bundle chats, include the full chat history; for single product, last 10
       if (context.isBundle) {
         messages.push(...context.chatHistory)
       } else {
-        // For single product chats, only include recent history
         const recentHistory = context.chatHistory.slice(-10)
         messages.push(...recentHistory)
       }

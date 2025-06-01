@@ -5,12 +5,14 @@ import TeamGoalInput from './TeamGoalInput'
 import NotesPanel from './NotesPanel'
 import SummariesPanel from './SummariesPanel'
 import Sidebar from './Sidebar'
+import { marked } from 'marked'
 
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
   created_at: string
+  product_id?: string
 }
 
 interface Product {
@@ -133,10 +135,10 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
     if (!sessionId) return setError('No session ID')
     try {
       const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-      const res = await fetch(`/api/chat/set-team-goal`, {
+      const res = await fetch(`/api/team-goal`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ sessionId, teamGoal: goal })
+        body: JSON.stringify({ session_id: sessionId, team_goal: goal })
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
@@ -281,10 +283,10 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
       setChatHistory(prev => [...prev, optimisticMsg])
       try {
         const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-        await fetch(`/api/chat/${activeProductId}`, {
+        await fetch(`/api/chat/${toolId}`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ message: userMsgContent, conversationId: sessionId })
+          body: JSON.stringify({ content: userMsgContent })
         })
         let foundNewAssistant = false
         let pollCount = 0
@@ -308,10 +310,10 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
     } else {
       try {
         const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-        await fetch(`/api/chat/${activeProductId}`, {
+        await fetch(`/api/chat/${toolId}`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ message: userMsgContent, conversationId: sessionId })
+          body: JSON.stringify({ content: userMsgContent })
         })
         let foundNewAssistant = false
         let pollCount = 0
@@ -338,36 +340,102 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
   }
 
   const handleAskTeam = async () => {
-    if (!input.trim() || isLoading || waitingForResponse || !isBundle || !sessionId) return
-    setWaitingForResponse(true)
-    const userMsgContent = input
-    setInput('')
+    if (!input.trim()) return;
+    setWaitingForResponse(true);
+    setError(null);
     try {
-      const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-      await fetch(`/api/chat/ask-the-team`, {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/api/chat/${toolId}/ask-team`, {
         method: 'POST',
-        headers,
-        body: JSON.stringify({ sessionId, message: userMsgContent })
-      })
-      // Optionally, poll for responses or refresh chat history
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify({ content: input }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      
+      // Add the user message
+      append({
+        role: 'user',
+        content: input,
+      });
+      
+      // Add the team response
+      let summaryContent = 'No summary available.';
+      if (data && typeof data === 'object' && typeof data.summary === 'string') {
+        summaryContent = data.summary;
+      }
+      append({
+        role: 'assistant',
+        content: summaryContent
+      });
+      
+      setInput('');
     } catch (error) {
-      setError('Failed to ask the team')
+      setError(error instanceof Error ? error.message : 'Failed to get team response');
     } finally {
-      setWaitingForResponse(false)
+      setWaitingForResponse(false);
     }
-  }
+  };
 
-  // Add a simple markdown-to-HTML converter for bold and paragraphs
   function formatAssistantMessage(content: string | undefined | null) {
     if (!content) return '';
-    // Replace **bold** with <strong>bold</strong>
-    let html = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    // Split paragraphs by double newlines or single newlines, wrap in <p>
-    html = html
-      .split(/\n{2,}/)
-      .map(paragraph => `<p>${paragraph.replace(/\n/g, '<br/>')}</p>`)
-      .join('')
-    return html
+    
+    // Check if this is a team response
+    if (content.startsWith('Team Response Summary:')) {
+      const [summary, individualResponses] = content.split('\n\nIndividual Team Member Responses:\n\n');
+      
+      return (
+        <div className="space-y-4">
+          <div className="bg-white rounded-lg p-4 shadow">
+            <h3 className="font-semibold text-lg mb-2">Team Response</h3>
+            <div className="prose max-w-none">
+              {summary.replace('Team Response Summary:', '').trim()}
+            </div>
+          </div>
+          
+          {individualResponses && (
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">Individual Responses</h3>
+              {individualResponses.split('\n--- ').map((response, index) => {
+                if (!response.trim()) return null;
+                const [name, ...contentParts] = response.split(' ---\n');
+                const content = contentParts.join(' ---\n');
+                
+                return (
+                  <div key={index} className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-2">{name}</h4>
+                    <div className="prose max-w-none text-gray-700">
+                      {content}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // Regular assistant message
+    return <div className="prose max-w-none">{content}</div>;
+  }
+
+  function escapeHtml(text: string) {
+    return text.replace(/[&<>'"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c] || c;
+    });
+  }
+
+  function renderBold(text: string) {
+    // Escape HTML first, then replace **bold** with <strong>bold</strong>
+    return escapeHtml(text).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  }
+
+  function renderMarkdown(text: string) {
+    return marked.parseInline(text);
   }
 
   return (
@@ -559,19 +627,36 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
             </button>
           </form>
           <div className="space-y-4 flex-1 overflow-y-auto">
-            {chatHistory.map(msg => (
-              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`rounded-lg px-4 py-2 max-w-xl ${
-                  msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-gray-900'
-                }`}>
-                  {msg.role === 'assistant' ? (
-                    <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: formatAssistantMessage(msg.content) }} />
-                  ) : (
-                    <span>{msg.content}</span>
-                  )}
+            {chatHistory.map(msg => {
+              const product = msg.role === 'assistant' && products.find(p => p.id === msg.product_id);
+              return (
+                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`rounded-lg px-4 py-2 max-w-xl ${
+                    msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-gray-900'
+                  }`}>
+                    {msg.role === 'assistant' ? (
+                      <div>
+                        {product && (
+                          <div className="font-bold mb-1 text-indigo-700">{product.name}</div>
+                        )}
+                        {typeof formatAssistantMessage(msg.content) === 'string' ? (
+                          <div
+                            className="prose prose-sm max-w-none whitespace-pre-line"
+                            dangerouslySetInnerHTML={{ __html: renderMarkdown(formatAssistantMessage(msg.content)) }}
+                          />
+                        ) : (
+                          <div className="prose prose-sm max-w-none whitespace-pre-line">
+                            {formatAssistantMessage(msg.content)}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span>{msg.content}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div ref={messagesEndRef} />
             {waitingForResponse && (
               <div className="flex justify-center items-center py-4">
