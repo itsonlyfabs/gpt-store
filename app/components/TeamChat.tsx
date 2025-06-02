@@ -192,14 +192,18 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
       setLoading(true)
       const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
       console.log('Generating summary for sessionId:', sessionId);
-      const res = await fetch(`/api/chat/generate-summary`, {
+      const res = await fetch(`/api/summaries`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ session_id: sessionId })
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      setSummaries(prev => [...prev, { id: Date.now().toString(), content: data.summary, created_at: new Date().toISOString() }])
+      // Use the id and created_at from the backend response if available
+      const summaryObj = typeof data.summary === 'object' && data.summary !== null
+        ? data.summary
+        : { id: undefined, content: data.summary, created_at: new Date().toISOString() };
+      setSummaries(prev => [...prev, summaryObj])
     } catch (error) {
       setError('Failed to generate summary')
     } finally {
@@ -631,11 +635,11 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
               const product = msg.role === 'assistant' && products.find(p => p.id === msg.product_id);
               const formatted = formatAssistantMessage(msg.content);
               return (
-                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`rounded-lg px-4 py-2 max-w-xl ${
-                    msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-gray-900'
-                  }`}>
-                    {msg.role === 'assistant' ? (
+              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`rounded-lg px-4 py-2 max-w-xl ${
+                  msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-gray-900'
+                }`}>
+                  {msg.role === 'assistant' ? (
                       <div>
                         {product && (
                           <div className="font-bold mb-1 text-indigo-700">{product.name}</div>
@@ -651,11 +655,11 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <span>{msg.content}</span>
-                    )}
-                  </div>
+                  ) : (
+                    <span>{msg.content}</span>
+                  )}
                 </div>
+              </div>
               );
             })}
             <div ref={messagesEndRef} />

@@ -427,6 +427,51 @@ export async function POST(request: Request, context: any) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // --- Monthly request quota logic ---
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    let { data: userRequest, error: fetchError } = await supabaseAdmin
+      .from('user_requests')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('month', month)
+      .single();
+    let tier = 'free';
+    let limit = 150;
+    if (userRequest && userRequest.tier === 'pro') {
+      tier = 'pro';
+      limit = 500;
+    }
+    if (!userRequest) {
+      const { data: newRow, error: insertError } = await supabaseAdmin
+        .from('user_requests')
+        .insert({ user_id: user.id, month, request_count: 0, tier })
+        .select()
+        .single();
+      if (insertError) {
+        console.error('Insert error (user_requests):', insertError);
+        return NextResponse.json({ error: 'Failed to initialize usage quota', details: insertError }, { status: 500 });
+      }
+      userRequest = newRow;
+    }
+    if (userRequest.request_count >= limit) {
+      return NextResponse.json({
+        error: `You've hit your limit of ${limit} requests for this month. Upgrade to Pro for more!`,
+        limit,
+        tier,
+        reset: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+      }, { status: 403 });
+    }
+    const { error: updateError } = await supabaseAdmin
+      .from('user_requests')
+      .update({ request_count: userRequest.request_count + 1, updated_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .eq('month', month);
+    if (updateError) {
+      return NextResponse.json({ error: 'Failed to update usage quota' }, { status: 500 });
+    }
+    // --- End quota logic ---
+
     // Fetch the session to get product_id and bundle_id
     const { data: session, error: sessionError } = await supabaseAdmin
       .from('chat_sessions')
@@ -585,6 +630,12 @@ export async function POST(request: Request, context: any) {
       if (!bundleProducts || bundleProducts.length === 0) {
         return NextResponse.json({ error: 'No products found in bundle.' }, { status: 500 });
       }
+      console.log('DEBUG: Inserting user message into chat_messages', {
+        user_id: user.id,
+        session_id: id,
+        product_id: session.is_bundle ? id : (bundleProducts[0]?.id || bundleProducts[0]!.id),
+        content
+      });
       const { data: message, error: messageError } = await supabaseAdmin
         .from('chat_messages')
         .insert({
@@ -598,10 +649,13 @@ export async function POST(request: Request, context: any) {
         })
         .select('id')
         .single();
-
-      if (messageError || !message) {
-        return NextResponse.json({ error: 'Failed to store message' }, { status: 500 });
-      }
+      console.log('DEBUG: chat_messages insert (bundle)', {
+        user_id: user.id,
+        product_id: session.is_bundle ? id : (bundleProducts[0]?.id || bundleProducts[0]!.id),
+        content,
+        message,
+        messageError
+      });
 
       // Build the prompt context with ALL necessary information
       if (!bundleProducts[0]) {
@@ -666,7 +720,7 @@ export async function POST(request: Request, context: any) {
           });
         return NextResponse.json({ 
           response: aiReply,
-          message_id: message.id
+          message_id: message ? message.id : null
         });
       } catch (err) {
         console.error('Error in OpenAI call or prompt building', err, { promptContext });
@@ -748,6 +802,13 @@ export async function POST(request: Request, context: any) {
       })
       .select('id')
       .single();
+    console.log('DEBUG: chat_messages insert (single)', {
+      user_id: user.id,
+      product_id: productIdToUse,
+      content,
+      message,
+      messageError
+    });
     if (messageError || !message) {
       console.error('Failed to store message', messageError);
       return NextResponse.json({ error: 'Failed to store message' }, { status: 500 });
@@ -799,7 +860,7 @@ export async function POST(request: Request, context: any) {
         });
       return NextResponse.json({ 
         response: aiReply,
-        message_id: message.id
+        message_id: message ? message.id : null
       });
     } catch (err) {
       console.error('Error in OpenAI call or prompt building', err, { promptContext });

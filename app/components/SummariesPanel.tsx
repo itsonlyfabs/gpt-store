@@ -39,7 +39,7 @@ export default function SummariesPanel({
         {summaries.map((summary) => {
           const isExpanded = expandedId === summary.id;
           // Show only the first line or first 100 chars as snippet
-          const safeContent = summary.content || '';
+          const safeContent = typeof summary.content === 'string' ? summary.content : '';
           const snippet = (safeContent.split('\n')[0] || '').slice(0, 100) + (safeContent.length > 100 ? '...' : '');
           return (
             <div key={summary.id} className="bg-gray-50 rounded-lg px-3 py-2 cursor-pointer border border-gray-200">

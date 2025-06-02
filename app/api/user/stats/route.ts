@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 interface ChatHistory {
   created_at: string;
@@ -20,34 +21,40 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's chat history
-    const { data: chatHistory, error: chatError } = await supabase
-      .from('chat_history')
-      .select('*')
+    console.log('DEBUG: user.id', user.id);
+
+    // Get user's chat messages (for usage stats)
+    const { data: chatMessages, error: chatMsgError } = await supabaseAdmin
+      .from('chat_messages')
+      .select('user_id, product_id, created_at, role')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
-    if (chatError) {
-      throw chatError;
+    console.log('DEBUG: chatMessages', chatMessages, chatMsgError);
+
+    if (chatMsgError) {
+      throw chatMsgError;
     }
 
     // Get user's purchased tools
-    const { data: purchasedTools, error: toolsError } = await supabase
+    const { data: purchasedTools, error: toolsError } = await supabaseAdmin
       .from('purchases')
       .select('product_id, created_at')
       .eq('user_id', user.id);
+
+    console.log('DEBUG: purchasedTools', purchasedTools, toolsError);
 
     if (toolsError) {
       throw toolsError;
     }
 
     // Calculate statistics
-    const totalChats = chatHistory.length;
+    const totalChats = chatMessages.length;
     const activeTools = new Set(purchasedTools.map(tool => tool.product_id)).size;
     
-    // Calculate monthly usage (now daily usage, only chats)
-    const dailyUsage = (chatHistory as ChatHistory[]).reduce((acc, chat) => {
-      if (!chat.created_at) return acc; // type guard
+    // Calculate daily usage (only user messages)
+    const dailyUsage = (chatMessages as ChatHistory[]).reduce((acc, chat: any) => {
+      if (!chat.created_at || chat.role !== 'user') return acc; // Only count user messages
       const date = new Date(chat.created_at).toISOString().split('T')[0];
       if (!date) return acc;
       if (!acc[date]) {
@@ -77,7 +84,7 @@ export async function GET(req: NextRequest) {
     // Get user's request usage for this month
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    let { data: userRequest, error: fetchError } = await supabase
+    let { data: userRequest, error: fetchError } = await supabaseAdmin
       .from('user_requests')
       .select('*')
       .eq('user_id', user.id)
@@ -93,17 +100,22 @@ export async function GET(req: NextRequest) {
       requestLimit = tier === 'pro' ? 500 : 150;
     }
 
-    return NextResponse.json({
+    const response = {
       totalChats,
+      totalTokens: 0, // Not tracked yet
       activeTools,
-      dailyUsage: dailyUsageArray,
+      lastActive: chatMessages[0]?.created_at || new Date().toISOString(),
+      dailyUsage: dailyUsageArray, // Include dailyUsage for frontend compatibility
+      monthlyUsage: dailyUsageArray.map(day => ({ ...day, tokens: 0 })), // tokens not tracked
+      costSavings: 0, // Not tracked yet
       productivityScore,
-      lastActive: chatHistory[0]?.created_at || new Date().toISOString(),
       requestCount,
       requestLimit,
       tier,
       resetDate
-    });
+    };
+    console.log('DEBUG: /api/user/stats response', response);
+    return NextResponse.json(response);
   } catch (error) {
     console.error('Error fetching user stats:', error);
     return NextResponse.json(
