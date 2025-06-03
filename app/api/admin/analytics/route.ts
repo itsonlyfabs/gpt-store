@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
       const month = new Date(user.created_at).toLocaleString('default', { month: 'short' });
       if (!month) return acc;
       if (!acc[month]) acc[month] = { newUsers: 0 };
-      acc[month].newUsers += 1;
+      acc[month]?.newUsers && (acc[month].newUsers += 1);
       return acc;
     }, {});
     const userGrowthArray = Object.entries(userGrowthData).map(([month, data]) => ({ month, newUsers: data.newUsers }));
