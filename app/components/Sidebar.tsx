@@ -14,7 +14,6 @@ export default function Sidebar() {
     { name: 'My Library', href: '/my-library' },
     { name: 'Profile', href: '/profile' },
     { name: 'Billing', href: '/billing' },
-    { name: 'Account Settings', href: '/settings' },
     { name: 'Support', href: '/support' }
   ]
 

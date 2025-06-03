@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Avatar, Box, Button, Grid, Paper, Typography, TextField, CircularProgress } from '@mui/material'
 import type { Session } from '@supabase/auth-helpers-nextjs'
+import { FiInfo } from 'react-icons/fi'
 
 interface UsageStats {
   totalChats: number
@@ -86,6 +87,7 @@ export default function ProfilePage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [formData, setFormData] = useState({ name: '', email: '' });
+  const [showProductivityInfo, setShowProductivityInfo] = useState(false);
 
   const supabase = createClientComponentClient()
 
@@ -449,7 +451,17 @@ export default function ProfilePage() {
           {/* Usage Statistics */}
           {usageStats && (
             <section className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Usage Statistics</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                Usage Statistics
+                <button
+                  className="ml-2 rounded-full border border-gray-300 bg-white w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                  aria-label="What is the productivity score?"
+                  onClick={() => setShowProductivityInfo(true)}
+                  type="button"
+                >
+                  <FiInfo size={16} />
+                </button>
+              </h2>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-yellow-50 rounded-lg">
                   <p className="text-sm text-yellow-600 font-medium">Productivity Score</p>
@@ -492,6 +504,38 @@ export default function ProfilePage() {
             </section>
           )}
         </div>
+
+        {/* Productivity Score Info Modal */}
+        {showProductivityInfo && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+            <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                onClick={() => setShowProductivityInfo(false)}
+                aria-label="Close info"
+              >
+                ×
+              </button>
+              <h2 className="text-lg font-semibold mb-2">Understanding Your Productivity Score</h2>
+              <p className="text-sm text-gray-700 mb-2">
+                Your productivity score is a measure of how effectively you're using the platform. It's calculated based on:
+              </p>
+              <ul className="text-sm text-gray-700 mb-2 list-disc pl-5">
+                <li>Chat activity (50% weight): The number of meaningful conversations you have with AI assistants</li>
+                <li>Tool usage (50% weight): The variety of AI tools you actively use in your workflow</li>
+              </ul>
+              <p className="text-sm text-gray-700 mb-2">
+                To improve your productivity score:
+              </p>
+              <ul className="text-sm text-gray-700 mb-2 list-disc pl-5">
+                <li>Engage in regular conversations with AI assistants</li>
+                <li>Explore and use different AI tools for various tasks</li>
+                <li>Set clear goals and track your progress</li>
+                <li>Use the platform consistently over time</li>
+              </ul>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
