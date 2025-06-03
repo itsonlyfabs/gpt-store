@@ -111,8 +111,9 @@ export async function POST(request: Request) {
     }
     try {
       const customers = await stripe.customers.list({ email: session.user.email, limit: 1 })
-      if (customers.data.length > 0) {
-        customerId = customers.data[0].id
+      const firstCustomer = customers.data[0]
+      if (customers.data.length > 0 && firstCustomer && 'id' in firstCustomer) {
+        customerId = firstCustomer.id
       } else {
         const customer = await stripe.customers.create({ email: session.user.email })
         customerId = customer.id
