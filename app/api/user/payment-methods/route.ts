@@ -35,7 +35,10 @@ export async function GET(request: Request) {
 
     // Get default payment method
     const customer = await stripe.customers.retrieve(user.stripe_customer_id)
-    const defaultPaymentMethodId = customer.invoice_settings?.default_payment_method
+    let defaultPaymentMethodId: string | null = null
+    if (customer && typeof customer === 'object' && 'invoice_settings' in customer && !('deleted' in customer && customer.deleted)) {
+      defaultPaymentMethodId = (customer as Stripe.Customer).invoice_settings?.default_payment_method as string | null
+    }
 
     // Format payment methods
     const formattedPaymentMethods = paymentMethods.data.map(method => ({
