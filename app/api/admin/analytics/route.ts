@@ -100,6 +100,7 @@ export async function GET(req: NextRequest) {
     const userGrowthData: Record<string, { newUsers: number }> = (userGrowth || []).reduce((acc: Record<string, { newUsers: number }>, user: any) => {
       if (!user || !user.created_at) return acc;
       const month = new Date(user.created_at).toLocaleString('default', { month: 'short' });
+      if (!month) return acc;
       if (!acc[month]) acc[month] = { newUsers: 0 };
       acc[month].newUsers += 1;
       return acc;
