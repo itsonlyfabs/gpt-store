@@ -675,12 +675,12 @@ export default function MyLibraryPage() {
                 </button>
                 <h2 className="text-lg font-semibold mb-2">What is a Bundle Chat?</h2>
                 <p className="text-sm text-gray-700 mb-2">
-                  A <span className="font-semibold">Bundle Chat</span> lets you chat with a team of AI products, each with their own expertise, as if you were in a team meeting. You can ask questions and the most relevant product will answer, or you can <span className="font-semibold">@mention</span> a specific product (by nickname or name) to direct your question to them.
+                  A <span className="font-semibold">Bundle Chat</span> lets you chat with a team of AI products, each with their own expertise. You can select the <span className="font-semibold">active product</span> to direct your question to a specific expert, or use the <span className="font-semibold">Ask Team</span> button to get input from all products at once.
                 </p>
                 <ul className="text-sm text-gray-700 mb-2 list-disc pl-5">
-                  <li>Use <span className="font-mono bg-gray-100 px-1 rounded">@nickname</span> or <span className="font-mono bg-gray-100 px-1 rounded">@product name</span> to mention a product directly.</li>
-                  <li>If you don't mention anyone, the AI will pick the best product to answer.</li>
-                  <li>Think of it like a group chat with different experts.</li>
+                  <li>Switch the active product using the buttons above the chat to ask a specific expert.</li>
+                  <li>Click <span className="font-semibold">Ask Team</span> to get a combined response from all products.</li>
+                  <li>It's like a group chat with different AI experts, each ready to help from their unique perspective.</li>
                 </ul>
                 <a
                   href="/support/documentation/c818c74e-e41d-430f-96ce-3813569af425"

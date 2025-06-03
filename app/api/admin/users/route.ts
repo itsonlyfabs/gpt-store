@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export async function GET(req: NextRequest) {
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
-  const authHeader = req.headers.get('authorization');
-  const cookie = req.headers.get('cookie');
-  const headers: Record<string, string> = {};
-  if (authHeader) headers['Authorization'] = authHeader;
-  if (cookie) headers['cookie'] = cookie;
-
-  const res = await fetch(`${backendUrl}/admin/users`, { headers });
-  if (!res.ok) {
-    return NextResponse.json({ error: 'Failed to fetch admin users' }, { status: res.status });
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('id, email, name, created_at, user_profiles(role)')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    const usersWithRole = (data || []).map((user: any) => ({
+      ...user,
+      role: user.user_profiles?.role || 'user',
+    }));
+    return NextResponse.json(usersWithRole);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message || 'Failed to fetch admin users' }, { status: 500 });
   }
-  const data = await res.json();
-  return NextResponse.json(data);
 } 

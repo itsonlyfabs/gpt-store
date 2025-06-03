@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { marked } from 'marked';
 
 export default function DocumentationArticlePage() {
   const params = useParams();
@@ -23,9 +24,7 @@ export default function DocumentationArticlePage() {
     <div className="max-w-2xl mx-auto py-12 px-4">
       <h1 className="text-3xl font-bold text-gray-900 mb-4">{doc.title}</h1>
       <h2 className="text-lg text-gray-600 mb-6">{doc.subtitle}</h2>
-      <div className="prose prose-lg text-gray-800 whitespace-pre-line bg-white p-6 rounded-lg shadow">
-        {doc.context}
-      </div>
+      <div className="prose prose-lg text-gray-800 bg-white p-6 rounded-lg shadow" dangerouslySetInnerHTML={{ __html: marked.parse(doc.context || '') }} />
     </div>
   );
 } 

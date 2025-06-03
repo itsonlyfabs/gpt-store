@@ -1,43 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
+
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('documentation')
+      .select('*')
+      .eq('id', params.id)
+      .single();
+    if (error) throw error;
+    return NextResponse.json(data);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message || 'Failed to fetch documentation' }, { status: 500 });
+  }
+}
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
-  const authHeader = req.headers.get('authorization');
-  const cookie = req.headers.get('cookie');
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (authHeader) headers['Authorization'] = authHeader;
-  if (cookie) headers['cookie'] = cookie;
-
-  const { title, subtitle, context } = JSON.parse(await req.text());
-  const body = JSON.stringify({ title, subtitle, context });
-  const res = await fetch(`${backendUrl}/admin/documentation/${params.id}`, {
-    method: 'PUT',
-    headers,
-    body,
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    return NextResponse.json({ error: error.error || 'Failed to update documentation' }, { status: res.status });
+  try {
+    const body = await req.json();
+    const { data, error } = await supabaseAdmin
+      .from('documentation')
+      .update(body)
+      .eq('id', params.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return NextResponse.json(data);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message || 'Failed to update documentation' }, { status: 500 });
   }
-  const data = await res.json();
-  return NextResponse.json(data);
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
-  const authHeader = req.headers.get('authorization');
-  const cookie = req.headers.get('cookie');
-  const headers: Record<string, string> = {};
-  if (authHeader) headers['Authorization'] = authHeader;
-  if (cookie) headers['cookie'] = cookie;
-
-  const res = await fetch(`${backendUrl}/admin/documentation/${params.id}`, {
-    method: 'DELETE',
-    headers,
-  });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    return NextResponse.json({ error: error.error || 'Failed to delete documentation' }, { status: res.status });
+  try {
+    const { error } = await supabaseAdmin
+      .from('documentation')
+      .delete()
+      .eq('id', params.id);
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message || 'Failed to delete documentation' }, { status: 500 });
   }
-  return NextResponse.json({ success: true });
 } 

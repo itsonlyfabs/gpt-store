@@ -8,6 +8,7 @@ interface Message {
   content: string
   createdAt: string // ISO date string
   alert?: string // Optional alert message
+  product_id?: string
 }
 
 interface Product {
@@ -112,14 +113,16 @@ export default function Chat({ toolId, toolName }: ChatProps) {
   const allMessages = [...history, ...messages]
 
   // Sort messages by createdAt
-  const sortedMessages = [...messages].sort((a, b) => {
-    if (!a.createdAt || !b.createdAt) return 0
-    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-  })
+  const sortedMessages = Array.isArray(messages)
+    ? [...messages].sort((a, b) => {
+        if (!a.createdAt || !b.createdAt) return 0;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      })
+    : [];
 
   // Check for alert in the latest message
-  const latestMessage = sortedMessages[sortedMessages.length - 1] as any
-  const alertMessage = latestMessage?.alert
+  const latestMessage = Array.isArray(sortedMessages) && sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1] : {};
+  const alertMessage = (latestMessage as any)?.alert;
 
   return (
     <div className="flex flex-col h-full max-h-screen">
@@ -147,18 +150,35 @@ export default function Chat({ toolId, toolName }: ChatProps) {
             No messages yet. Start a conversation!
           </div>
         ) : (
-          sortedMessages.map((message) => (
-            <div key={message.id} className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'} mb-4`}>
-              <div className={`max-w-[70%] rounded-lg p-4 ${message.role === 'assistant' ? 'bg-gray-100' : 'bg-blue-100'}`}>
-                <p className="text-sm">{message.content}</p>
-                {message.createdAt && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(message.createdAt).toLocaleTimeString()}
-                  </p>
-                )}
+          sortedMessages.map((msg) => {
+            const message = (msg as unknown) as Message;
+            const isAssistant = message.role === 'assistant';
+            let productName = '';
+            if (isAssistant && Array.isArray(products) && products.length > 0) {
+              // Try to match product by product_id
+              const matchedProduct = message.product_id
+                ? products.find((p) => p.id === message.product_id)
+                : products[0];
+              if (matchedProduct) {
+                productName = matchedProduct.name;
+              }
+            }
+            return (
+              <div key={message.id} className={`flex ${isAssistant ? 'justify-start' : 'justify-end'} mb-4`}>
+                <div className={`max-w-[70%] rounded-lg p-4 ${isAssistant ? 'bg-gray-100' : 'bg-blue-100'}`}>
+                  {isAssistant && productName && (
+                    <div className="font-bold mb-1 text-indigo-700">{productName}</div>
+                  )}
+                  <p className="text-sm">{message.content}</p>
+                  {typeof message.createdAt === 'string' && message.createdAt && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(message.createdAt).toLocaleTimeString()}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

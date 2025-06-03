@@ -395,9 +395,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
         <div className="space-y-4">
           <div className="bg-white rounded-lg p-4 shadow">
             <h3 className="font-semibold text-lg mb-2">Team Response</h3>
-            <div className="prose max-w-none">
-              {summary ? summary.replace('Team Response Summary:', '').trim() : ''}
-            </div>
+            <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: renderMarkdown(summary ? summary.replace('Team Response Summary:', '').trim() : '') }} />
           </div>
           
           {individualResponses && (
@@ -411,9 +409,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
                 return (
                   <div key={index} className="bg-gray-50 rounded-lg p-4">
                     <h4 className="font-medium text-gray-900 mb-2">{name}</h4>
-                    <div className="prose max-w-none text-gray-700">
-                      {content}
-                    </div>
+                    <div className="prose max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
                   </div>
                 );
               })}
@@ -424,7 +420,7 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
     }
     
     // Regular assistant message
-    return <div className="prose max-w-none">{content}</div>;
+    return <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />;
   }
 
   function escapeHtml(text: string) {

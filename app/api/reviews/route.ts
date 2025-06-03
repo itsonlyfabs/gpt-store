@@ -1,22 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export async function GET(req: NextRequest) {
-  const url = `${backendUrl}/reviews${req.nextUrl.search}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  try {
+    const { searchParams } = new URL(req.url);
+    const productId = searchParams.get('productId');
+    const bundleId = searchParams.get('bundleId');
+    let query = supabaseAdmin
+      .from('reviews')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (productId) query = query.eq('product_id', productId);
+    if (bundleId) query = query.eq('bundle_id', bundleId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return NextResponse.json({ reviews: data || [] });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message || 'Failed to fetch reviews' }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const url = `${backendUrl}/reviews`;
-  const body = await req.text();
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-  });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  try {
+    const body = await req.json();
+    const { data, error } = await supabaseAdmin
+      .from('reviews')
+      .insert([body])
+      .select()
+      .single();
+    if (error) throw error;
+    return NextResponse.json(data);
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message || 'Failed to create review' }, { status: 500 });
+  }
 } 

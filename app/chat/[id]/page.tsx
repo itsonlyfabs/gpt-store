@@ -381,8 +381,8 @@ export default function ChatPage() {
                         : 'bg-gray-100 text-gray-900 rounded-bl-none border border-gray-200'}
                     `}
                   >
-                    {msg.sender === 'assistant' && (
-                      <div className="text-xs text-gray-500 mb-1 font-semibold">Assistant</div>
+                    {msg.sender === 'assistant' && productInfo?.name && (
+                      <div className="font-bold mb-1 text-indigo-700">{productInfo.name}</div>
                     )}
                     <div dangerouslySetInnerHTML={{ __html: formatAssistantMessage(msg.content) }} />
                   </div>
