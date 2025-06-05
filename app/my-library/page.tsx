@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import Image from 'next/image'
 import { FiInfo } from 'react-icons/fi'
+import { XCircle } from 'phosphor-react';
 
 interface PurchasedProduct {
   id: string
@@ -55,6 +56,9 @@ export default function MyLibraryPage() {
   const [bundleChatSessions, setBundleChatSessions] = useState<Record<string, any[]>>({})
   const [showBundleInfo, setShowBundleInfo] = useState(false)
   const [latestMessages, setLatestMessages] = useState<Record<string, string>>({})
+  const [removingProductId, setRemovingProductId] = useState<string | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPurchasedProducts = async () => {
@@ -296,6 +300,33 @@ export default function MyLibraryPage() {
     }
   };
 
+  const handleRemoveProduct = async (productId: string) => {
+    setRemoveError(null);
+    setShowRemoveConfirm(false);
+    setRemovingProductId(null);
+    setLoading(true);
+    try {
+      // Remove all chat messages and sessions for this product
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) throw new Error('Not authenticated');
+      // Delete all chat_messages for this product
+      await supabase.from('chat_messages').delete().eq('user_id', userId).eq('product_id', productId);
+      // Delete all chat_sessions for this product
+      await supabase.from('chat_sessions').delete().eq('user_id', userId).eq('product_id', productId);
+      // Delete all chat_summaries for this product
+      await supabase.from('chat_summaries').delete().eq('user_id', userId).eq('product_id', productId);
+      // Remove from purchases
+      await supabase.from('purchases').delete().eq('user_id', userId).eq('product_id', productId);
+      // Refresh products
+      setProducts(products.filter(p => p.id !== productId));
+    } catch (err: any) {
+      setRemoveError('Failed to remove product. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
@@ -351,15 +382,25 @@ export default function MyLibraryPage() {
               {products.map((product) => (
                 <div
                   key={product.id}
-                  className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200 text-xs"
+                  className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200 text-xs relative"
                 >
-                  <Image
-                    src={product.thumbnail}
-                    alt={product.name}
-                    width={160}
-                    height={90}
-                    className="w-full h-24 object-cover"
-                  />
+                  <div className="relative">
+                    <Image
+                      src={product.thumbnail}
+                      alt={product.name}
+                      width={160}
+                      height={90}
+                      className="w-full h-24 object-cover"
+                    />
+                    <button
+                      className="absolute top-1 right-1 bg-white/80 rounded-full p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors z-10"
+                      title="Remove from library"
+                      onClick={() => { setRemovingProductId(product.id); setShowRemoveConfirm(true); }}
+                      style={{ lineHeight: 0 }}
+                    >
+                      <XCircle size={20} weight="bold" />
+                    </button>
+                  </div>
                   <div className="p-3">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-medium text-gray-900 line-clamp-1">{product.name}</h3>
@@ -377,6 +418,36 @@ export default function MyLibraryPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {showRemoveConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative text-center">
+                <button
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl"
+                  onClick={() => { setShowRemoveConfirm(false); setRemovingProductId(null); }}
+                  aria-label="Close"
+                >
+                  &times;
+                </button>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Remove this product?</h2>
+                <p className="text-gray-600 mb-4">Are you sure you want to remove this product from your library? <br /> <span className='text-red-600 font-semibold'>All chat history and saved recaps for this product will be permanently deleted from your dashboard.</span></p>
+                {removeError && <div className="text-red-600 mb-2">{removeError}</div>}
+                <div className="flex gap-4 justify-center mt-4">
+                  <button
+                    onClick={() => removingProductId && handleRemoveProduct(removingProductId)}
+                    className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition"
+                  >
+                    Yes, Remove
+                  </button>
+                  <button
+                    onClick={() => { setShowRemoveConfirm(false); setRemovingProductId(null); }}
+                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

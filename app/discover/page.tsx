@@ -11,6 +11,7 @@ import { FiRefreshCw } from 'react-icons/fi'
 import { useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import Image from 'next/image'
+import { Rocket, Brain, Heart, Fire, PuzzlePiece, Wrench, Chats, Crown, Book, UsersThree, ShoppingCart, Package } from "phosphor-react";
 
 type SubscriptionType = 'free' | 'pro' | 'all'
 type SortBy = 'relevance' | 'newest' | 'price-asc' | 'price-desc'
@@ -26,48 +27,20 @@ interface Product {
   tier?: string
 }
 
-// Mock products for development
-const MOCK_PRODUCTS: Product[] = [
-  {
-    id: '1',
-    name: 'Focus Enhancement AI',
-    description: 'An AI-powered tool to help you maintain focus and concentration during work sessions.',
-    category: 'Focus & Concentration',
-    thumbnail: 'https://picsum.photos/seed/focus/800/400',
-    subscriptionType: 'subscription',
-    createdAt: '2024-01-01',
-    tier: 'PRO'
-  },
-  {
-    id: '2',
-    name: 'Meditation Guide AI',
-    description: 'Personalized meditation sessions with AI-guided breathing exercises and mindfulness techniques.',
-    category: 'Meditation & Mindfulness',
-    thumbnail: 'https://picsum.photos/seed/meditation/800/400',
-    subscriptionType: 'subscription',
-    createdAt: '2024-01-02',
-    tier: 'PRO'
-  },
-  {
-    id: '3',
-    name: 'Productivity Boost AI',
-    description: 'Smart task management and productivity optimization using AI-driven insights.',
-    category: 'Productivity',
-    thumbnail: 'https://picsum.photos/seed/productivity/800/400',
-    subscriptionType: 'one-time',
-    createdAt: '2024-01-03',
-    tier: 'FREE'
-  },
-]
+const BRAND_COLOR = "#7F7BBA";
+const GOLD_COLOR = "#FFD700";
 
 const categories = [
-  { id: 'focus', name: 'Focus & Concentration', icon: '🎯' },
-  { id: 'meditation', name: 'Meditation & Mindfulness', icon: '🧘‍♂️' },
-  { id: 'productivity', name: 'Productivity', icon: '⚡' },
-  { id: 'creativity', name: 'Creativity', icon: '🎨' },
-  { id: 'stress', name: 'Stress Management', icon: '🌿' },
-  { id: 'sleep', name: 'Sleep & Recovery', icon: '😴' },
-]
+  { id: 'personal-development', name: 'Personal Development', icon: <Rocket size={36} color={BRAND_COLOR} weight="duotone" /> },
+  { id: 'nlp-mindset', name: 'NLP Mindset Work', icon: <Brain size={36} color={BRAND_COLOR} weight="duotone" /> },
+  { id: 'emotional-mastery', name: 'Emotional Mastery', icon: <Heart size={36} color={BRAND_COLOR} weight="duotone" /> },
+  { id: 'business-productivity', name: 'Business & Productivity', icon: <Fire size={36} color={BRAND_COLOR} weight="duotone" /> },
+  { id: 'life-clarity', name: 'Life Clarity & Purpose', icon: <PuzzlePiece size={36} color={BRAND_COLOR} weight="duotone" /> },
+  { id: 'wellness-selfcare', name: 'Wellness & Self-Care', icon: <Wrench size={36} color={BRAND_COLOR} weight="duotone" /> },
+  { id: 'learning-growth', name: 'Learning & Growth', icon: <Book size={36} color={BRAND_COLOR} weight="duotone" /> },
+  { id: 'communication-relationships', name: 'Communication & Relationships', icon: <Chats size={36} color={BRAND_COLOR} weight="duotone" /> },
+  { id: 'signature-collections', name: 'Signature Collections', icon: <Crown size={36} color={GOLD_COLOR} weight="duotone" /> },
+];
 
 export default function DiscoverPage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -183,18 +156,24 @@ export default function DiscoverPage() {
               <div className="mb-8">
                 <h2 className="text-2xl font-semibold text-gray-900 mb-4">Categories</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
-                  {categories.map((category) => (
-                    <button
-                      key={category.id}
-                      onClick={() => handleCategoryClick(category.name)}
-                      className="flex flex-col items-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <span className="text-3xl mb-2">{category.icon}</span>
-                      <span className="text-sm font-medium text-gray-900 text-center">
-                        {category.name}
-                      </span>
-                    </button>
-                  ))}
+                  {categories.map((category) => {
+                    const isSignature = category.id === 'signature-collections';
+                    return (
+                      <button
+                        key={category.id}
+                        onClick={() => handleCategoryClick(category.name)}
+                        className={`flex flex-col items-center p-5 rounded-2xl shadow-sm transition-all border group bg-white hover:shadow-lg hover:bg-[#f6f5fd] hover:scale-105 focus:outline-none focus:ring-2 ${isSignature ? 'border-yellow-400 bg-yellow-50 focus:ring-yellow-400' : 'border-gray-100 focus:ring-[#7F7BBA]'}`}
+                        style={{ minHeight: 120 }}
+                      >
+                        <span className="mb-2 transition-transform group-hover:scale-110">
+                          {category.icon}
+                        </span>
+                        <span className="text-sm font-semibold text-gray-900 text-center">
+                          {category.name}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
                 {/* FREE/PRO filter */}
                 <div className="flex gap-2 mb-2">
@@ -229,14 +208,18 @@ export default function DiscoverPage() {
                         className={`flex-1 flex flex-col items-center p-3 rounded-lg shadow-sm border transition font-semibold text-base ${itemType === 'products' ? 'bg-primary text-white' : 'bg-white text-gray-900 border-gray-200 hover:bg-primary/10'}`}
                         onClick={() => setItemType('products')}
                       >
-                        <span className="text-lg mb-1">🛒</span>
+                        <span className="mb-1">
+                          <ShoppingCart size={32} color={BRAND_COLOR} weight="duotone" />
+                        </span>
                         Products
                       </button>
                       <button
                         className={`flex-1 flex flex-col items-center p-3 rounded-lg shadow-sm border transition font-semibold text-base ${itemType === 'bundles' ? 'bg-primary text-white' : 'bg-white text-gray-900 border-gray-200 hover:bg-primary/10'}`}
                         onClick={() => setItemType('bundles')}
                       >
-                        <span className="text-lg mb-1">📦</span>
+                        <span className="mb-1">
+                          <Package size={32} color={BRAND_COLOR} weight="duotone" />
+                        </span>
                         Bundles
                       </button>
                     </div>

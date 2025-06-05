@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Check, Star } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import CheckoutButton from '@/components/CheckoutButton'
@@ -38,9 +38,11 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [added, setAdded] = useState(false)
+  const [alreadyInLibrary, setAlreadyInLibrary] = useState(false)
   const [addError, setAddError] = useState('')
   const [addLoading, setAddLoading] = useState(false)
   const supabase = createClientComponentClient()
+  const router = useRouter()
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -65,39 +67,39 @@ export default function ProductPage() {
   }, [params.id])
 
   const handleAddToLibrary = async () => {
-    console.log('[AddToLibrary] Button clicked. Product:', product?.id)
     setAddLoading(true)
     setAddError('')
+    setAlreadyInLibrary(false)
     try {
-      console.log('[AddToLibrary] About to get session')
       const { data, error } = await supabase.auth.getSession()
-      console.log('[AddToLibrary] getSession result:', data, error)
       const session = data?.session
       if (!session) throw new Error('Not authenticated')
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
-      console.log('[AddToLibrary] Sending POST to:', `${backendUrl}/user/library`)
       const res = await fetch(`${backendUrl}/user/library`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ productId: product?.id })
+        body: JSON.stringify({ product_id: product?.id })
       })
-      console.log('[AddToLibrary] Response status:', res.status)
+      const result = await res.json();
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}))
-        console.log('[AddToLibrary] Error response:', errData)
-        throw new Error(errData.error || 'Failed to add product to library')
+        throw new Error(result.error || 'Failed to add product to library')
       }
-      setAdded(true)
-      console.log('[AddToLibrary] Product added successfully!')
+      if (result.alreadyInLibrary) {
+        setAlreadyInLibrary(true)
+        setAdded(false)
+        setTimeout(() => router.push('/discover'), 1500)
+      } else {
+        setAdded(true)
+        setAlreadyInLibrary(false)
+        setTimeout(() => router.push('/discover'), 1500)
+      }
     } catch (err: any) {
       setAddError(err.message || 'Error adding to library')
-      console.error('[AddToLibrary] Caught error:', err)
     } finally {
       setAddLoading(false)
-      console.log('[AddToLibrary] Done')
     }
   }
 
@@ -191,7 +193,9 @@ export default function ProductPage() {
                   <div className="bg-white p-6 rounded-lg shadow-sm sticky top-8">
                     <div className="mb-4">
                       {added ? (
-                        <span className="text-green-600 font-medium">Added to your library!</span>
+                        <span className="text-green-600 font-medium">Added to your library! Redirecting...</span>
+                      ) : alreadyInLibrary ? (
+                        <span className="text-green-600 font-medium">Already in your library! Redirecting...</span>
                       ) : (
                         <button
                           onClick={handleAddToLibrary}

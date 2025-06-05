@@ -59,4 +59,63 @@ export async function GET() {
     console.error('Error in library endpoint:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+export async function POST(req: Request) {
+  try {
+    const supabase = createRouteHandlerClient({ cookies });
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('[AddToLibrary] Unauthorized user or error:', userError);
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const { product_id } = await req.json();
+    console.log('[AddToLibrary] Incoming product_id:', product_id);
+    if (!product_id) {
+      console.error('[AddToLibrary] Missing product_id in request body');
+      return NextResponse.json({ error: 'Missing product_id' }, { status: 400 });
+    }
+    // Check if already in library
+    const { data: existing } = await supabaseAdmin
+      .from('purchases')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('product_id', product_id)
+      .eq('status', 'completed')
+      .single();
+    if (existing) {
+      console.log('[AddToLibrary] Product already in library for user:', user.id, product_id);
+      return NextResponse.json({ message: 'Product already in library', alreadyInLibrary: true });
+    }
+    // Check product exists (no price/currency logic)
+    const { data: product, error: productError } = await supabaseAdmin
+      .from('products')
+      .select('id, name')
+      .eq('id', product_id)
+      .single();
+    console.log('[AddToLibrary] Product lookup result:', product, 'Error:', productError);
+    if (productError || !product) {
+      console.error('[AddToLibrary] Product not found or error:', productError, 'ID:', product_id);
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+    // Add to library (no price/currency)
+    const { error: insertError } = await supabaseAdmin
+      .from('purchases')
+      .insert({
+        user_id: user.id,
+        product_id,
+        stripe_session_id: 'manual',
+        status: 'completed',
+        created_at: new Date().toISOString()
+      });
+    if (insertError) {
+      console.error('[AddToLibrary] Failed to insert purchase:', insertError);
+      return NextResponse.json({ error: 'Failed to add product to library' }, { status: 500 });
+    }
+    console.log('[AddToLibrary] Product added to library for user:', user.id, product_id);
+    return NextResponse.json({ message: 'Product added to library', alreadyInLibrary: false });
+  } catch (error) {
+    console.error('Error in add to library:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 } 

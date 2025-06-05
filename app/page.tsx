@@ -101,7 +101,17 @@ export default function Home() {
     fetchProducts();
   }
 
-  const categories = Array.from(new Set(products.map((p) => p.category))).filter(Boolean);
+  const categories = [
+    'Personal Development',
+    'NLP Mindset Work',
+    'Emotional Mastery',
+    'Business & Productivity',
+    'Life Clarity & Purpose',
+    'Wellness & Self-Care',
+    'Learning & Growth',
+    'Communication & Relationships',
+    'Signature Collections',
+  ];
 
   const handleBundleClick = async (bundle: any) => {
     // Check if user is authenticated
@@ -175,15 +185,15 @@ export default function Home() {
           <div className="text-center">
             <div className="flex justify-center mb-4">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/70 border border-gray-200 text-base font-medium text-primary shadow-sm backdrop-blur-sm" style={{ fontWeight: 500 }}>
-                <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5 text-primary"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5 text-primary animated-pulse"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                 AI-powered assistants
               </span>
             </div>
-            <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
+            <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl fade-in-up" style={{ animationDelay: '0.1s' }}>
               <span className="block">Your Personal AI</span>
-              <span className="block text-primary">Enhancement Suite</span>
+              <span className="block text-primary gradient-underline" style={{ position: 'relative', zIndex: 1 }}>Enhancement Suite</span>
             </h1>
-            <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
+            <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl fade-in-up" style={{ animationDelay: '0.3s' }}>
               Discover a curated collection of AI tools designed to enhance your focus, productivity, and personal growth.
             </p>
           </div>
@@ -448,6 +458,45 @@ export default function Home() {
           </div>
         </div>
       </div>
+      <style jsx global>{`
+@keyframes pulse {
+  0% { transform: scale(1); filter: drop-shadow(0 0 0 #7F7BBA); }
+  50% { transform: scale(1.15); filter: drop-shadow(0 0 8px #7F7BBA88); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 0 #7F7BBA); }
+}
+@keyframes fadeInUp {
+  0% { opacity: 0; transform: translateY(30px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes wave {
+  0% { background-position-x: 0, 0; }
+  100% { background-position-x: 40px, 0; }
+}
+.animated-pulse { animation: pulse 1.2s cubic-bezier(.4,0,.2,1) infinite; }
+.fade-in-up { animation: fadeInUp 1s cubic-bezier(.4,0,.2,1) both; }
+.gradient-underline {
+  position: relative;
+  display: inline-block;
+}
+.gradient-underline::after {
+  content: '';
+  display: block;
+  height: 9px;
+  width: 100%;
+  background:
+    repeating-linear-gradient(90deg, rgba(127,123,186,0.25) 0px, rgba(127,123,186,0.25) 10px, transparent 10px, transparent 20px),
+    linear-gradient(90deg, #7F7BBA 0%, #A18AFF 100%);
+  background-size: 40px 12px, 100% 12px;
+  background-repeat: repeat-x, no-repeat;
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  z-index: 10;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px 0 #7F7BBA33;
+  animation: fadeInUp 1.2s 0.3s both, wave 3s linear infinite;
+}
+`}</style>
     </div>
   )
 } 

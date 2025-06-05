@@ -433,46 +433,84 @@ export default function BillingPage() {
             <div className="bg-white shadow rounded-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Payment Methods</h2>
               {paymentMethods.length > 0 ? (
-                <div className="space-y-4">
-                  {paymentMethods.map((method) => (
-                    <div
-                      key={method.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-4">
-                        <FiCreditCard className="text-gray-400" size={24} />
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {method.brand.charAt(0).toUpperCase() + method.brand.slice(1)} ending in {method.last4}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Expires {method.exp_month}/{method.exp_year}
-                          </p>
+                <>
+                  <div className="space-y-4">
+                    {paymentMethods.map((method) => (
+                      <div
+                        key={method.id}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div className="flex items-center gap-4">
+                          <FiCreditCard className="text-gray-400" size={24} />
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {method.brand.charAt(0).toUpperCase() + method.brand.slice(1)} ending in {method.last4}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Expires {method.exp_month}/{method.exp_year}
+                            </p>
+                          </div>
                         </div>
+                        {method.isDefault ? (
+                          <span className="px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full">
+                            Default
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleUpdatePaymentMethod(method.id)}
+                            className="text-primary hover:text-primary/80"
+                          >
+                            Set as default
+                          </button>
+                        )}
                       </div>
-                      {method.isDefault ? (
-                        <span className="px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full">
-                          Default
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleUpdatePaymentMethod(method.id)}
-                          className="text-primary hover:text-primary/80"
-                        >
-                          Set as default
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                  <div className="text-center mt-8">
+                    <button
+                      onClick={async () => {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (!session) {
+                          window.location.href = '/auth/login';
+                          return;
+                        }
+                        const res = await fetch('/api/user/payment-methods/portal', {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': `Bearer ${session.access_token}`
+                          }
+                        });
+                        const { url } = await res.json();
+                        window.location.href = url;
+                      }}
+                      className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+                    >
+                      Add/Manage Payment Method
+                    </button>
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-8">
                   <p className="text-gray-500 mb-4">No payment methods added</p>
                   <button
-                    onClick={() => window.location.href = '/discover'}
+                    onClick={async () => {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) {
+                        window.location.href = '/auth/login';
+                        return;
+                      }
+                      const res = await fetch('/api/user/payment-methods/portal', {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${session.access_token}`
+                        }
+                      });
+                      const { url } = await res.json();
+                      window.location.href = url;
+                    }}
                     className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
                   >
-                    Add Payment Method
+                    Add/Manage Payment Method
                   </button>
                 </div>
               )}
