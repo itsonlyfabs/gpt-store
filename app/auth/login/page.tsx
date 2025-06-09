@@ -37,7 +37,7 @@ function LoginForm() {
           await new Promise(resolve => setTimeout(resolve, 500))
           
           // Use window.location for a hard redirect
-          window.location.href = redirectTo
+          window.location.href = decodeURIComponent(redirectTo)
         } catch (err) {
           console.error('Redirect error:', err)
           setError('Failed to redirect after login. Please try refreshing the page.')

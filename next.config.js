@@ -44,11 +44,12 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: `
               default-src 'self';
-              script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co;
+              script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://js.stripe.com;
               style-src 'self' 'unsafe-inline';
               img-src 'self' blob: data: https://*.supabase.co https://picsum.photos https://fastly.picsum.photos;
               font-src 'self';
               connect-src 'self' http://localhost:3000 https://*.supabase.co wss://*.supabase.co https://tcmkyzcbndmaqxfjvpfs.supabase.co https://api.supabase.co;
+              frame-src https://js.stripe.com;
               frame-ancestors 'none';
             `.replace(/\s+/g, ' ').trim()
           }

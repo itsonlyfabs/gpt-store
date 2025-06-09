@@ -126,7 +126,10 @@ export default function Home() {
 
   useEffect(() => {
     setBundlesLoading(true);
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/bundles`)
+    const url = isSignedIn
+      ? `${process.env.NEXT_PUBLIC_API_URL}/bundles`
+      : `${process.env.NEXT_PUBLIC_API_URL}/bundles?discover=true`;
+    fetch(url)
       .then(res => {
         if (!res.ok) {
           throw new Error('Failed to fetch bundles');
@@ -139,7 +142,7 @@ export default function Home() {
         setBundles([]);
       })
       .finally(() => setBundlesLoading(false));
-  }, []);
+  }, [isSignedIn]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">

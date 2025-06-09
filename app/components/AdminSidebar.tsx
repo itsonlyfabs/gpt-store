@@ -15,7 +15,8 @@ export default function AdminSidebar() {
     { name: 'Products', href: '/admin?section=products' },
     { name: 'Bundles', href: '/admin?section=bundles' },
     { name: 'Reviews', href: '/admin?section=reviews' },
-    { name: 'Documentation', href: '/admin?section=documentation' }
+    { name: 'Documentation', href: '/admin?section=documentation' },
+    { name: 'Emails', href: '/admin/emails' }
   ]
 
   return (
@@ -33,7 +34,8 @@ export default function AdminSidebar() {
       <nav className="space-y-1 flex-1">
         {navigation.map((item) => {
           const section = item.href.split('=')[1] || '';
-          const isActive = pathname.startsWith('/admin') && currentSection === section;
+          const isActive = (item.name === 'Emails' && pathname === '/admin/emails') ||
+            (pathname.startsWith('/admin') && currentSection === section && item.name !== 'Emails');
           return (
             <Link
               key={item.name}

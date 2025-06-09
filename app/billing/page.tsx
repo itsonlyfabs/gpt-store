@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { FiCreditCard, FiUser, FiBell, FiLock } from 'react-icons/fi'
 import { Check } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 interface Subscription {
   id: string
@@ -44,11 +45,32 @@ export default function BillingPage() {
   const [plans, setPlans] = useState<Plan[]>([])
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month')
   const supabase = createClientComponentClient()
+  const { user, loading: userLoading } = useAuth();
+  const [emailNotifications, setEmailNotifications] = useState(false);
+  const [marketingEmails, setMarketingEmails] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState('');
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState('');
 
   useEffect(() => {
     fetchSubscriptionData()
     fetchPlans()
-  }, [billingInterval])
+    if (user) {
+      setProfileName(user.user_metadata?.name || '');
+      setProfileEmail(user.email || '');
+      // Fetch notification/marketing preferences from backend
+      fetch('/api/user/profile')
+        .then(res => res.json())
+        .then(data => {
+          if (typeof data.email_notifications === 'boolean') setEmailNotifications(data.email_notifications);
+          if (typeof data.marketing_emails === 'boolean') setMarketingEmails(data.marketing_emails);
+          if (typeof data.name === 'string') setProfileName(data.name);
+          if (typeof data.email === 'string') setProfileEmail(data.email);
+        });
+    }
+  }, [billingInterval, user])
 
   const fetchSubscriptionData = async () => {
     try {
@@ -201,7 +223,63 @@ export default function BillingPage() {
     }
   }
 
+  // Add a new handler for Stripe checkout for Pro plans
+  const handleUpgradeToPro = async (plan: Plan) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      const res = await fetch('/api/plans/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ planId: plan.id, source: 'billing' })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.sessionId) {
+        alert(data.error || 'Failed to start checkout');
+        return;
+      }
+      const { loadStripe } = await import('@stripe/stripe-js');
+      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+      if (!stripe) {
+        alert('Stripe failed to load');
+        return;
+      }
+      await stripe.redirectToCheckout({ sessionId: data.sessionId });
+    } catch (err) {
+      alert('Failed to start checkout');
+    }
+  };
+
   const filteredPlans = plans.filter(plan => plan.name === 'Free' || plan.name === 'Pro')
+
+  // Save handler
+  const handleSaveProfile = async () => {
+    setProfileSaving(true);
+    setProfileSaveError('');
+    setProfileSaveSuccess('');
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: profileName,
+          email: profileEmail,
+          email_notifications: emailNotifications,
+          marketing_emails: marketingEmails,
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update profile');
+      setProfileSaveSuccess('Profile updated successfully!');
+    } catch (err: any) {
+      setProfileSaveError(err.message || 'Failed to update profile');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -357,7 +435,7 @@ export default function BillingPage() {
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${billingInterval === 'year' ? 'bg-white text-primary shadow' : 'text-gray-600'}`}
                     onClick={() => setBillingInterval('year')}
                   >
-                    YEARLY <span className="ml-1 text-xs text-green-600 font-semibold">(SAVE 20%)</span>
+                    YEARLY <span className="ml-1 text-xs text-green-600 font-semibold">(SAVE 30%)</span>
                   </button>
                 </div>
               </div>
@@ -408,7 +486,7 @@ export default function BillingPage() {
                           </div>
                         ) : (
                           <button
-                            onClick={() => handleSubscribe(plan.id)}
+                            onClick={() => plan.name === 'Pro' ? handleUpgradeToPro(plan) : handleSubscribe(plan.id)}
                             className={`mt-8 w-full rounded-lg px-4 py-2 text-center font-medium ${
                               plan.price > (subscription ? subscription.plan?.price || 0 : 0)
                                 ? 'bg-primary text-white hover:bg-primary/90'
@@ -532,6 +610,8 @@ export default function BillingPage() {
                       <input
                         type="text"
                         id="name"
+                        value={profileName}
+                        onChange={e => setProfileName(e.target.value)}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                       />
                     </div>
@@ -542,6 +622,8 @@ export default function BillingPage() {
                       <input
                         type="email"
                         id="email"
+                        value={profileEmail}
+                        onChange={e => setProfileEmail(e.target.value)}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
                       />
                     </div>
@@ -558,6 +640,8 @@ export default function BillingPage() {
                       </div>
                       <input
                         type="checkbox"
+                        checked={emailNotifications}
+                        onChange={e => setEmailNotifications(e.target.checked)}
                         className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                       />
                     </div>
@@ -568,6 +652,8 @@ export default function BillingPage() {
                       </div>
                       <input
                         type="checkbox"
+                        checked={marketingEmails}
+                        onChange={e => setMarketingEmails(e.target.checked)}
                         className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                       />
                     </div>
@@ -579,18 +665,23 @@ export default function BillingPage() {
                   <div className="space-y-4">
                     <button
                       className="w-full flex items-center justify-between px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                      onClick={() => window.location.href = '/auth/forgot-password'}
                     >
                       <span>Change Password</span>
                       <FiLock className="text-gray-400" />
                     </button>
-                    <button
-                      className="w-full flex items-center justify-between px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                    >
-                      <span>Two-Factor Authentication</span>
-                      <FiLock className="text-gray-400" />
-                    </button>
                   </div>
                 </div>
+
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={profileSaving}
+                  className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+                >
+                  {profileSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+                {profileSaveSuccess && <div className="mt-2 text-green-600">{profileSaveSuccess}</div>}
+                {profileSaveError && <div className="mt-2 text-red-600">{profileSaveError}</div>}
               </div>
             </div>
           )}
