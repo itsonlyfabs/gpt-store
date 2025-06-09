@@ -30,7 +30,8 @@ interface ChatProduct {
 }
 
 export default function ChatPage() {
-  const { id } = useParams()
+  const params = useParams() as Record<string, string>;
+  const id = params.id;
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [messages, setMessages] = useState<any[]>([])
