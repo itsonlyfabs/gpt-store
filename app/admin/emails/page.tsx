@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import AdminSidebar from '@/components/AdminSidebar';
 import MDEditor from '@uiw/react-md-editor';
@@ -20,7 +20,15 @@ interface Email {
   updated_at: string;
 }
 
-export default function AdminEmailsPage() {
+export default function AdminEmailsPageWrapper() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AdminEmailsPage />
+    </Suspense>
+  );
+}
+
+function AdminEmailsPage() {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
