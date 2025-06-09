@@ -188,8 +188,10 @@ export default function AdminEmailsPage() {
   scheduledEmails.forEach(e => {
     if (e.scheduled_at) {
       const date = e.scheduled_at.slice(0, 10); // YYYY-MM-DD
-      if (!calendarEvents[date]) calendarEvents[date] = [];
-      calendarEvents[date].push({ type: e.type, id: e.id, title: e.title });
+      if (date) {
+        if (!calendarEvents[date]) calendarEvents[date] = [];
+        calendarEvents[date].push({ type: e.type, id: e.id, title: e.title });
+      }
     }
   });
 
