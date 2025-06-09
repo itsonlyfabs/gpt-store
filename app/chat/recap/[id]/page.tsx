@@ -7,7 +7,8 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import ReactMarkdown from 'react-markdown'
 
 export default function ChatRecapPage() {
-  const { id } = useParams()
+  const params = useParams() as Record<string, string>;
+  const id = params.id;
   const supabase = createClientComponentClient()
   const [recap, setRecap] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
