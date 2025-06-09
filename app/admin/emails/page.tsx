@@ -190,7 +190,7 @@ export default function AdminEmailsPage() {
       const date = e.scheduled_at.slice(0, 10); // YYYY-MM-DD
       if (date) {
         if (!calendarEvents[date]) calendarEvents[date] = [];
-        calendarEvents[date].push({ type: e.type, id: e.id, title: e.title });
+        calendarEvents[date]?.push({ type: e.type, id: e.id, title: e.title });
       }
     }
   });
