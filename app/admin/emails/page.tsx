@@ -183,12 +183,14 @@ export default function AdminEmailsPage() {
     });
 
   // Calendar events: map scheduled emails to dates
-  const scheduledEmails = emails.filter(e => e.scheduled_at);
+  const scheduledEmails = emails.filter(e => !!e.scheduled_at);
   const calendarEvents: Record<string, { type: string; id: string; title: string }[]> = {};
   scheduledEmails.forEach(e => {
-    const date = e.scheduled_at!.slice(0, 10); // YYYY-MM-DD
-    if (!calendarEvents[date]) calendarEvents[date] = [];
-    calendarEvents[date].push({ type: e.type, id: e.id, title: e.title });
+    if (e.scheduled_at) {
+      const date = e.scheduled_at.slice(0, 10); // YYYY-MM-DD
+      if (!calendarEvents[date]) calendarEvents[date] = [];
+      calendarEvents[date].push({ type: e.type, id: e.id, title: e.title });
+    }
   });
 
   return (
