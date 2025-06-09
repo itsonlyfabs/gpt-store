@@ -9,7 +9,8 @@ import { Check } from "lucide-react";
 import Sidebar from '@/components/Sidebar';
 
 export default function BundleDetailsPage() {
-  const { id } = useParams();
+  const params = useParams() as Record<string, string>;
+  const id = params.id;
   const router = useRouter();
   const supabase = createClientComponentClient();
   const [bundle, setBundle] = useState<any>(null);
