@@ -5,9 +5,9 @@ import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 
 export default function AdminSidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname() || '';
   const searchParams = useSearchParams()
-  const currentSection = searchParams.get('section') || 'users';
+  const currentSection = searchParams?.get('section') || 'users';
 
   const navigation = [
     { name: 'Analytics', href: '/admin?section=analytics' },
