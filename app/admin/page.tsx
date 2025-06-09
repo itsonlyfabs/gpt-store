@@ -60,7 +60,7 @@ export default function AdminPageWrapper() {
 function AdminPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const section = searchParams.get('section') || 'users';
+  const section = searchParams?.get('section') || 'users';
   const { user, session, loading } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
