@@ -41,9 +41,9 @@ function PricingPage() {
 
   // Capture intent on mount if redirected after login
   useEffect(() => {
-    const startCheckout = searchParams.get('startCheckout') === '1'
-    const planName = searchParams.get('plan')
-    const interval = searchParams.get('interval') as 'month' | 'year' | null
+    const startCheckout = searchParams?.get('startCheckout') === '1'
+    const planName = searchParams?.get('plan')
+    const interval = searchParams?.get('interval') as 'month' | 'year' | null
     if (startCheckout && planName && interval) {
       autoCheckoutIntent.current = { planName, interval }
     }
