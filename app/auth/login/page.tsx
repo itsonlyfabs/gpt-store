@@ -30,7 +30,7 @@ function LoginForm() {
       if (event === 'SIGNED_IN' && session) {
         try {
           setRedirecting(true)
-          const redirectTo = searchParams.get('redirectTo') || '/discover'
+          const redirectTo = searchParams?.get('redirectTo') || '/discover'
           console.log('Redirecting to:', redirectTo)
           
           // Force a small delay to ensure session is properly set
@@ -47,8 +47,8 @@ function LoginForm() {
     })
 
     // Check for verification status
-    const verified = searchParams.get('verified')
-    const verificationError = searchParams.get('error')
+    const verified = searchParams?.get('verified')
+    const verificationError = searchParams?.get('error')
 
     if (verified === 'true') {
       setSuccess('Email verified successfully! You can now log in.')
