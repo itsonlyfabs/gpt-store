@@ -12,35 +12,53 @@ function EmailVerificationCallbackInner() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const handleEmailVerification = async () => {
+    const handleCallback = async () => {
       try {
         // Check for error parameters
         const errorCode = searchParams.get('error_code')
         const errorDescription = searchParams.get('error_description')
-        
         if (errorCode) {
           throw new Error(errorDescription || 'Verification failed')
         }
 
-        // Get the verification code from the URL
+        // Poll for session (OAuth flow)
+        let session = null
+        for (let i = 0; i < 15; i++) { // poll for up to 3 seconds
+          const { data } = await supabase.auth.getSession()
+          if (data.session?.user) {
+            session = data.session
+            break
+          }
+          await new Promise(res => setTimeout(res, 200))
+        }
+        if (session?.user) {
+          // Create or update user profile
+          await supabase
+            .from('profiles')
+            .upsert({
+              id: session.user.id,
+              email: session.user.email,
+              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Anonymous',
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'id' })
+          // Redirect to dashboard
+          router.push('/discover')
+          return
+        }
+
+        // If not authenticated, handle email verification flow
         const code = searchParams.get('code')
-        
         if (!code) {
           throw new Error('Missing verification code')
         }
-
-        // Exchange the code for a session
         const { data, error: verifyError } = await supabase.auth.exchangeCodeForSession(code)
-        
         if (verifyError) {
           console.error('Verification error:', verifyError)
           throw verifyError
         }
-
         if (!data.session) {
           throw new Error('No session received after verification')
         }
-
         // Create or update user profile
         const { error: profileError } = await supabase
           .from('profiles')
@@ -49,15 +67,10 @@ function EmailVerificationCallbackInner() {
             email: data.session.user.email,
             name: data.session.user.user_metadata?.name || data.session.user.email?.split('@')[0] || 'Anonymous',
             updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'id'
-          })
-
+          }, { onConflict: 'id' })
         if (profileError) {
           console.error('Profile update error:', profileError)
-          // Continue anyway as the user is verified
         }
-
         // Redirect to login with success message
         router.push('/auth/login?verified=true')
       } catch (err) {
@@ -70,8 +83,7 @@ function EmailVerificationCallbackInner() {
         }, 3000)
       }
     }
-
-    handleEmailVerification()
+    handleCallback()
   }, [router, searchParams])
 
   return (

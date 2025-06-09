@@ -126,14 +126,13 @@ export default function CreateBundlePage() {
 
             <div>
               <label htmlFor="image" className="block text-sm font-medium text-gray-700">
-                Image URL
+                Image URL (optional)
               </label>
               <input
                 type="url"
                 id="image"
                 value={image}
                 onChange={(e) => setImage(e.target.value)}
-                required
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
               />
             </div>

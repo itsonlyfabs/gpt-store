@@ -6,7 +6,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 const faqs = [
   {
     question: 'What can I do with Genio?',
-    answer: 'You can set goals, track your progress, analyze your usage, and get personalized guidance to help you grow and succeed. The platform brings together analytics, coaching, and resources to support your journey.'
+    answer: 'Genio lets you access powerful product chats and team chats, as well as curated bundles of AI tools tailored to your needs. Whether you want to solve a specific problem, collaborate with your team, or explore new AI-powered solutions, Genio adapts to you. The platform is constantly growing, with more and more specialized products and bundles being added to help you achieve your goals and personalize your experience.'
   },
   {
     question: 'Do you offer a free trial?',
@@ -14,11 +14,11 @@ const faqs = [
   },
   {
     question: 'What are the main features of the platform?',
-    answer: 'Key features include:\n- Personalized analytics dashboard\n- Product usage tracking\n- Goal setting and AI coaching\n- Resource library with guides and tips\n- Secure account management\n- Mobile-friendly design\n- Instant support via chat assistant'
+    answer: 'Key features include:\n- Personal and team chat with AI-powered products\n- Curated bundles for specific needs\n- Personalized analytics dashboard\n- Product usage tracking\n- Goal setting and AI coaching\n- Resource library with guides and tips\n- Secure account management\n- Mobile-friendly design\n- Instant support via the contact form below'
   },
   {
     question: 'How can I track my progress or results?',
-    answer: 'Your dashboard shows your progress and usage trends. Check it regularly to see how you\'re doing and where you can improve and use the Goal Setting and AI-Coach to correct your direction!'
+    answer: 'Your dashboard shows your progress, usage trends, and the results you are achieving with Genio. Regularly check your analytics to see how you are solving problems, what products are helping you most, and how you can further personalize your experience for even better outcomes.'
   },
   {
     question: 'Is my data secure and private?',
@@ -26,7 +26,7 @@ const faqs = [
   },
   {
     question: 'How do I get help if I\'m stuck?',
-    answer: 'Click the chat bubble in the bottom-right corner to talk to the onboarding assistant. You can also visit our support page or check the resource library for guides and FAQs.'
+    answer: 'Use the contact support form below to reach our team. We\'re here to help you with any questions or issues.'
   },
   {
     question: 'Can I use the platform on mobile devices?',
@@ -34,15 +34,15 @@ const faqs = [
   },
   {
     question: 'How do I upgrade or manage my subscription?',
-    answer: 'Go to your account settings and select "Subscription." From there, you can upgrade, downgrade, or manage your plan at any time.'
+    answer: 'Go to your account dashboard and select "Billing." From there, you can upgrade, downgrade, or manage your plan at any time.'
   },
   {
     question: 'What should I do if I encounter a bug or issue?',
-    answer: 'Please report any bugs using the chat assistant or the support page. Our team will investigate and get back to you as soon as possible.'
+    answer: 'Please report any bugs using the contact support form below. Our team will investigate and get back to you as soon as possible.'
   },
   {
     question: 'How can I get the most out of the platform over time?',
-    answer: 'Set clear goals, check your analytics regularly, explore new resources, and use the chat assistant whenever you have questions. Consistent use leads to better results and ongoing growth. New products and bundles come out every week!'
+    answer: 'Set clear goals, check your analytics regularly, explore new resources, and use the contact support form whenever you have questions. Consistent use leads to better results and ongoing growth. New products and bundles come out every week!'
   },
 ];
 
@@ -73,7 +73,12 @@ export default function SupportClientSection() {
     setError('');
     setSuccess(false);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contactForm),
+      });
+      if (!res.ok) throw new Error('Failed to send message.');
       setSuccess(true);
       setContactForm({ name: '', email: '', subject: '', message: '' });
     } catch (err) {

@@ -813,7 +813,7 @@ function BundleForm({ products, editingBundle, onClose, onSaved }: { products: a
     <form onSubmit={handleSubmit} className="space-y-4">
       <input name="name" value={form.name} onChange={handleChange} placeholder="Bundle Name" className="w-full border p-2" required />
       <textarea name="description" value={form.description} onChange={handleChange} placeholder="Description" className="w-full border p-2" required />
-      <input name="image" value={form.image} onChange={handleChange} placeholder="Image URL" className="w-full border p-2" required />
+      <input name="image" value={form.image} onChange={handleChange} placeholder="Image URL (optional)" className="w-full border p-2" />
       <div>
         <div className="font-semibold mb-2">Select Products for this Bundle:</div>
         <div className="max-h-48 overflow-y-auto border rounded p-2 bg-gray-50">
