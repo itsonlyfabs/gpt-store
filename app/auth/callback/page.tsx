@@ -15,8 +15,8 @@ function EmailVerificationCallbackInner() {
     const handleCallback = async () => {
       try {
         // Check for error parameters
-        const errorCode = searchParams.get('error_code')
-        const errorDescription = searchParams.get('error_description')
+        const errorCode = searchParams?.get('error_code')
+        const errorDescription = searchParams?.get('error_description')
         if (errorCode) {
           throw new Error(errorDescription || 'Verification failed')
         }
@@ -47,7 +47,7 @@ function EmailVerificationCallbackInner() {
         }
 
         // If not authenticated, handle email verification flow
-        const code = searchParams.get('code')
+        const code = searchParams?.get('code')
         if (!code) {
           throw new Error('Missing verification code')
         }
