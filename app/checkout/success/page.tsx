@@ -7,8 +7,8 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 function CheckoutSuccessPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const sessionId = searchParams.get('session_id')
-  const productId = searchParams.get('product_id')
+  const sessionId = searchParams?.get('session_id')
+  const productId = searchParams?.get('product_id')
   const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState<string>('')
   const supabase = createClientComponentClient();
