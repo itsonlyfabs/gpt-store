@@ -30,7 +30,8 @@ const allowedOrigins = [
   process.env.FRONTEND_URL, // Production frontend URL
   'https://gpt-store.vercel.app', // Vercel default domain
   'https://gpt-store-mauve.vercel.app', // Additional Vercel domain
-  'https://mygenio.xyz'
+  'https://mygenio.xyz',
+  'https://www.mygenio.xyz'
 ];
 
 console.log('Allowed origins:', allowedOrigins);

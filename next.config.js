@@ -51,6 +51,7 @@ const nextConfig = {
               connect-src 'self' http://localhost:3000 https://*.supabase.co wss://*.supabase.co https://tcmkyzcbndmaqxfjvpfs.supabase.co https://api.supabase.co;
               frame-src https://js.stripe.com;
               frame-ancestors 'none';
+              connect-src 'self' https://gpt-store-backend.onrender.com
             `.replace(/\s+/g, ' ').trim()
           }
         ]
