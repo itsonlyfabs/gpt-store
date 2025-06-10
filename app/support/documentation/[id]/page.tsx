@@ -4,8 +4,8 @@ import { useParams } from 'next/navigation';
 import { marked } from 'marked';
 
 export default function DocumentationArticlePage() {
-  const params = useParams();
-  const { id } = params;
+  const params = useParams() as Record<string, string>;
+  const id = params.id;
   const [doc, setDoc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
