@@ -17,9 +17,6 @@ const logger = require('./utils/logger');
 
 const app = express();
 const port = process.env.PORT || 3002;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
 
 // Global logging middleware
 app.use((req, res, next) => {
