@@ -48,10 +48,9 @@ const nextConfig = {
               style-src 'self' 'unsafe-inline';
               img-src 'self' blob: data: https://*.supabase.co https://picsum.photos https://fastly.picsum.photos;
               font-src 'self';
-              connect-src 'self' http://localhost:3000 https://*.supabase.co wss://*.supabase.co https://tcmkyzcbndmaqxfjvpfs.supabase.co https://api.supabase.co;
+              connect-src 'self' https://*.supabase.co wss://*.supabase.co https://tcmkyzcbndmaqxfjvpfs.supabase.co https://api.supabase.co https://gpt-store-backend.onrender.com https://www.mygenio.xyz;
               frame-src https://js.stripe.com;
               frame-ancestors 'none';
-              connect-src 'self' https://gpt-store-backend.onrender.com
             `.replace(/\s+/g, ' ').trim()
           }
         ]
