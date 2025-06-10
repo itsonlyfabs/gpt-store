@@ -33,7 +33,7 @@ interface Product {
 }
 
 export default function ProductPage() {
-  const params = useParams()
+  const params = useParams() as Record<string, string>
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
