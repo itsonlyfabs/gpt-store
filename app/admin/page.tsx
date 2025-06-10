@@ -460,8 +460,17 @@ function AdminPage() {
     fetchAdminData();
   }, [session, user, loading, router, error]);
 
-  // Unique categories from products
-  const productCategories = Array.from(new Set(products.map((p) => p.category))).filter(Boolean);
+  // Use the new categories for the filter
+  const productCategories = [
+    'Personal Development',
+    'NLP Mindset Work',
+    'Emotional Mastery',
+    'Business & Productivity',
+    'Life Clarity & Purpose',
+    'Wellness & Self-Care',
+    'Learning & Growth',
+    'Communication & Relationships',
+  ];
 
   // Filtered products and bundles by category
   const filteredProducts = products.filter(p =>
