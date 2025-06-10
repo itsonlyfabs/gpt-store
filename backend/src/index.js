@@ -94,6 +94,6 @@ app.use(errorHandler);
 
 // Start server
 app.listen(port, () => {
-  logger.info(`Server is running on port ${process.env.PORT || 3000}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`Server is running on port ${process.env.PORT || 3002}`);
+  logger.info(`Environment: ${process.env.NODE_ENV || 'production'}`);
 });
