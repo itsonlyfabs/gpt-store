@@ -23,18 +23,18 @@ export async function POST(request: Request) {
     }
 
     // Get user's Stripe customer ID from Supabase
-    const { data: user, error: userError } = await supabase
-      .from('users')
+    const { data: userProfile, error: userProfileError } = await supabase
+      .from('user_profiles')
       .select('stripe_customer_id')
       .eq('id', session.user.id)
       .single()
 
-    if (userError || !user || !user.stripe_customer_id) {
+    if (userProfileError || !userProfile || !userProfile.stripe_customer_id) {
       return NextResponse.json({ error: 'No Stripe customer found' }, { status: 404 })
     }
 
     // Update customer's default payment method
-    await stripe.customers.update(user.stripe_customer_id, {
+    await stripe.customers.update(userProfile.stripe_customer_id, {
       invoice_settings: {
         default_payment_method: paymentMethodId
       }

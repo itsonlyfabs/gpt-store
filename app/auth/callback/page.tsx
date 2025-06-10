@@ -42,7 +42,10 @@ function EmailVerificationCallbackInner() {
               updated_at: new Date().toISOString()
             }, { onConflict: 'id' })
           // Redirect to dashboard
-          router.push('/discover')
+          const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL
+            ? `${process.env.NEXT_PUBLIC_APP_URL}/discover`
+            : '/discover';
+          router.push(dashboardUrl)
           return
         }
 
