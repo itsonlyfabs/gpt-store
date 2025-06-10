@@ -16,7 +16,10 @@ const errorHandler = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3002;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 // Global logging middleware
 app.use((req, res, next) => {
@@ -30,6 +33,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL, // Production frontend URL
   'https://gpt-store.vercel.app', // Vercel default domain
   'https://gpt-store-mauve.vercel.app', // Additional Vercel domain
+  'https://mygenio.xyz'
 ];
 
 console.log('Allowed origins:', allowedOrigins);
