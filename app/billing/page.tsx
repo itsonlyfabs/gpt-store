@@ -372,7 +372,7 @@ export default function BillingPage() {
                           {subscription.plan && typeof subscription.plan.price === 'number' ? (
                             subscription.plan.price === 0 ? 'Free' : `$${(subscription.plan.price / 100).toFixed(2)}`
                           ) : '-'}
-                          {subscription.plan && typeof subscription.plan.price === 'number' && subscription.plan.price !== 0 ? (billingInterval === 'month' ? '/month' : '/user/month') : ''}
+                          {subscription.plan && typeof subscription.plan.price === 'number' && subscription.plan.price !== 0 ? (billingInterval === 'month' ? '/month' : '/user/year') : ''}
                         </p>
                       </div>
                     </div>
@@ -472,7 +472,9 @@ export default function BillingPage() {
                             <span className="text-2xl font-bold text-gray-900">
                               {plan.price === 0 ? 'Free' : `$${(plan.price / 100).toFixed(2)}`}
                             </span>
-                            <span className="text-gray-500">{plan.price === 0 ? '' : billingInterval === 'month' ? '/month' : '/user/month'}</span>
+                            <span className="text-gray-500">
+                              {plan.price === 0 ? '' : billingInterval === 'month' ? '/month' : '/user/year'}
+                            </span>
                           </p>
                         </div>
                         <ul className="mt-8 space-y-4">

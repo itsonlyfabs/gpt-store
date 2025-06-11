@@ -121,6 +121,11 @@ function PricingPage() {
     }
   }
 
+  // Filter plans based on interval and business logic
+  const filteredPlans = billingInterval === 'year'
+    ? plans.filter(plan => plan.name === 'Pro' && plan.interval === 'year')
+    : plans.filter(plan => (plan.name === 'Free' || plan.name === 'Pro') && plan.interval === 'month')
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Logo header */}
@@ -160,7 +165,7 @@ function PricingPage() {
 
           <div className="mt-8 flex justify-center">
             <div className="grid gap-8 md:grid-cols-2">
-              {plans.map((plan) => (
+              {filteredPlans.map((plan) => (
                 <div
                   key={plan.id}
                   className={`relative rounded-2xl border ${
@@ -186,7 +191,7 @@ function PricingPage() {
                           ? 'Free'
                           : `$${(plan.price / 100).toFixed(2)}`}
                       </span>
-                      <span className="text-gray-600">{plan.price === 0 ? '' : billingInterval === 'month' ? '/month' : '/user/month'}</span>
+                      <span className="text-gray-600">{plan.price === 0 ? '' : billingInterval === 'month' ? '/month' : '/user/year'}</span>
                     </p>
                   </div>
 
