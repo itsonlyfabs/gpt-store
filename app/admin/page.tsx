@@ -40,8 +40,9 @@ interface Bundle {
   name: string;
   description: string;
   image: string;
-  product_ids: string[];
   tier: 'FREE' | 'PRO';
+  is_admin: boolean;
+  products: any[];
 }
 
 if (typeof window !== 'undefined') {
@@ -266,7 +267,7 @@ function AdminPage() {
         name: bundle.name,
         description: bundle.description || '',
         image: bundle.image || '',
-        product_ids: bundle.product_ids || [],
+        product_ids: bundle.products.map(p => p.id),
         tier: bundle.tier || 'FREE'
       });
       setIsEditBundleModalOpen(true);
@@ -481,8 +482,8 @@ function AdminPage() {
   const filteredBundles = bundles.filter(b => {
     // Find if any product in the bundle matches the search and/or selected category
     if (selectedBundleCategory === '' && bundleCategorySearch.trim() === '') return true;
-    return b.product_ids.some(pid => {
-      const prod = products.find(p => p.id === pid);
+    return b.products.some(p => {
+      const prod = products.find(p => p.id === p.id);
       if (!prod) return false;
       const matchesCategory = selectedBundleCategory === '' || prod.category === selectedBundleCategory;
       const matchesSearch = bundleCategorySearch.trim() === '' || prod.category.toLowerCase().includes(bundleCategorySearch.trim().toLowerCase());
@@ -708,7 +709,7 @@ function AdminPage() {
                           <td className="px-4 py-2">{bundle.name}</td>
                           <td className="px-4 py-2">{bundle.description}</td>
                           <td className="px-4 py-2">
-                            {bundle.product_ids.length} products
+                            {(bundle.products || []).length} products
                           </td>
                           <td className="px-4 py-2">{bundle.tier}</td>
                           <td className="px-4 py-2">
@@ -906,11 +907,11 @@ function AdminPage() {
                   <label key={product.id} className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={editBundleForm.product_ids.includes(product.id)}
+                      checked={(editBundleForm.product_ids || []).includes(product.id)}
                       onChange={(e) => {
                         const newProductIds = e.target.checked
-                          ? [...editBundleForm.product_ids, product.id]
-                          : editBundleForm.product_ids.filter(id => id !== product.id);
+                          ? [...(editBundleForm.product_ids || []), product.id]
+                          : (editBundleForm.product_ids || []).filter(id => id !== product.id);
                         setEditBundleForm({ ...editBundleForm, product_ids: newProductIds });
                       }}
                       className="rounded"

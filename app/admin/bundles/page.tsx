@@ -11,7 +11,6 @@ interface Bundle {
   description: string
   image: string
   tier: string
-  product_ids: string[]
   is_admin: boolean
   products: any[]
 }
