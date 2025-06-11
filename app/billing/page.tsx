@@ -253,7 +253,10 @@ export default function BillingPage() {
     }
   };
 
-  const filteredPlans = plans.filter(plan => plan.name === 'Free' || plan.name === 'Pro')
+  // Filter plans based on interval and business logic
+  const filteredPlans = billingInterval === 'year'
+    ? plans.filter(plan => plan.name === 'Pro' && plan.interval === 'year')
+    : plans.filter(plan => (plan.name === 'Free' || plan.name === 'Pro') && plan.interval === 'month')
 
   // Save handler
   const handleSaveProfile = async () => {
