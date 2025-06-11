@@ -77,12 +77,15 @@ router.post('/', async (req, res) => {
       category,
       thumbnail,
       features,
-      assistant_id,
+      expertise,
+      personality,
+      style,
+      prompt,
       tier // 'FREE' or 'PRO'
     } = req.body;
 
     // Basic validation
-    if (!name || !description || !category || !thumbnail || !assistant_id || !tier) {
+    if (!name || !description || !category || !thumbnail || !tier || !features || !expertise || !personality || !style || !prompt) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -95,7 +98,10 @@ router.post('/', async (req, res) => {
           category,
           thumbnail,
           features: Array.isArray(features) ? features : [],
-          assistant_id,
+          expertise,
+          personality,
+          style,
+          prompt,
           tier
         }
       ])
