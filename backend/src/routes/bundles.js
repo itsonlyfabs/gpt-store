@@ -5,24 +5,26 @@ const { supabaseAdmin } = require('../lib/supabase');
 // Create a new bundle
 router.post('/', async (req, res) => {
   try {
-    const { name, description, image, productIds } = req.body;
-    if (!name || !description || !image || !Array.isArray(productIds) || productIds.length === 0) {
+    const { name, description, image, productIds, tier, is_admin = false, created_by = null } = req.body;
+    if (!name || !description || !image || !Array.isArray(productIds) || productIds.length === 0 || !tier) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-    const { data, error } = await supabaseAdmin
+    // Insert bundle (no product_ids column)
+    const { data: bundle, error: bundleError } = await supabaseAdmin
       .from('bundles')
       .insert([
-        {
-          name,
-          description,
-          image,
-          product_ids: productIds,
-        }
+        { name, description, image, tier, is_admin, created_by }
       ])
       .select()
       .single();
-    if (error) throw error;
-    res.status(201).json(data);
+    if (bundleError) throw bundleError;
+    // Insert into bundle_products
+    const bundleProductRows = productIds.map(pid => ({ bundle_id: bundle.id, product_id: pid }));
+    const { error: bpError } = await supabaseAdmin
+      .from('bundle_products')
+      .insert(bundleProductRows);
+    if (bpError) throw bpError;
+    res.status(201).json(bundle);
   } catch (error) {
     console.error('Bundle creation error:', error);
     res.status(500).json({ error: 'Failed to create bundle' });

@@ -94,7 +94,7 @@ router.post('/', async (req, res) => {
           description,
           category,
           thumbnail,
-          features: features || [],
+          features: Array.isArray(features) ? features : [],
           assistant_id,
           tier
         }
