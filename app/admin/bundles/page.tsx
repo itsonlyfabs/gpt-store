@@ -139,15 +139,11 @@ export default function AdminBundlesPage() {
                   <p className="text-gray-500 text-sm mb-4">
                     {bundle.description}
                   </p>
-                  {Array.isArray(bundle.products) && bundle.products.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {bundle.products.map((product: any) => (
-                        <span key={product.id} className="inline-block px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20">
-                          {product.name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  {(bundle.products || []).map((product: any) => (
+                    <span key={product.id} className="inline-block px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20">
+                      {product.name}
+                    </span>
+                  ))}
                   <div className="flex justify-end space-x-2">
                     <button
                       onClick={() => handleEditBundle(bundle.id)}
