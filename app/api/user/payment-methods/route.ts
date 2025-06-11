@@ -30,12 +30,32 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user's Stripe customer ID from user_profiles
+    // Ensure user_profiles row exists for this user
     let { data: userProfile, error: userProfileError } = await supabase
       .from('user_profiles')
       .select('id, email, stripe_customer_id')
       .eq('id', session.user.id)
       .single()
+
+    if (userProfileError || !userProfile) {
+      // Try to create the user_profiles row if missing
+      const { error: insertError } = await supabase
+        .from('user_profiles')
+        .insert({ id: session.user.id, email: session.user.email })
+      if (insertError) {
+        return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 })
+      }
+      // Try to fetch again
+      const { data: newUserProfile, error: newUserProfileError } = await supabase
+        .from('user_profiles')
+        .select('id, email, stripe_customer_id')
+        .eq('id', session.user.id)
+        .single()
+      if (newUserProfileError || !newUserProfile) {
+        return NextResponse.json({ error: 'User profile not found after insert' }, { status: 500 })
+      }
+      userProfile = newUserProfile;
+    }
 
     let stripeCustomerId = userProfile?.stripe_customer_id;
     if (!userProfileError && userProfile && !stripeCustomerId) {
