@@ -93,10 +93,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json(formattedPaymentMethods)
   } catch (error) {
-    console.error('Error fetching payment methods:', error)
+    console.error('Error fetching payment methods:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch payment methods' },
+      { error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
-    )
+    );
   }
 } 
