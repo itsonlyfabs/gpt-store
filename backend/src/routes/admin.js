@@ -391,9 +391,10 @@ router.get("/bundles", [authMiddleware, adminMiddleware], async (req, res) => {
       console.error("Supabase error in products fetch:", productsError);
       throw productsError;
     }
-    // Attach product objects to each bundle
+    // Attach product objects to each bundle and always include product_ids
     let bundlesWithProducts = bundles.map((bundle) => ({
       ...bundle,
+      product_ids: bundle.product_ids || [],
       products: (bundle.product_ids || [])
         .map((pid) => products.find((p) => p.id === pid))
         .filter(Boolean),
@@ -468,13 +469,12 @@ router.put(
       console.log("User:", req.user);
       const { id } = req.params;
       // Accept both productIds and product_ids for compatibility
-      const { name, description, image, tier, product_ids, productIds } =
-        req.body;
+      const { name, description, image, tier, product_ids, productIds } = req.body;
       const finalProductIds = product_ids || productIds;
-      // Update bundle fields (no product_ids column)
+      // Update bundle fields, including product_ids array
       const { data: bundle, error: bundleError } = await supabaseAdmin
         .from("bundles")
-        .update({ name, description, image, tier, is_admin: true })
+        .update({ name, description, image, tier, is_admin: true, product_ids: finalProductIds })
         .eq("id", id)
         .select()
         .single();
@@ -483,9 +483,7 @@ router.put(
         throw bundleError;
       }
       // Update bundle_products join table
-      // 1. Delete existing bundle_products for this bundle
       await supabaseAdmin.from("bundle_products").delete().eq("bundle_id", id);
-      // 2. Insert new bundle_products
       let products = [];
       if (Array.isArray(finalProductIds) && finalProductIds.length > 0) {
         const bundleProductRows = finalProductIds.map((pid) => ({
