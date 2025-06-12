@@ -267,7 +267,7 @@ function AdminPage() {
         name: bundle.name,
         description: bundle.description || '',
         image: bundle.image || '',
-        product_ids: bundle.products.map(p => p.id),
+        product_ids: (bundle.products || []).map(p => p.id),
         tier: bundle.tier || 'FREE'
       });
       setIsEditBundleModalOpen(true);
@@ -280,13 +280,17 @@ function AdminPage() {
 
   const handleSaveBundle = async (bundleId: string) => {
     try {
+      const payload = {
+        ...editBundleForm,
+        product_ids: editBundleForm.product_ids || [],
+      };
       const response = await fetch(`/api/admin/bundles/${bundleId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`
         },
-        body: JSON.stringify(editBundleForm)
+        body: JSON.stringify(payload)
       });
       const data = await response.json();
       if (!response.ok) {

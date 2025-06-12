@@ -5,15 +5,15 @@ const { supabaseAdmin } = require('../lib/supabase');
 // Create a new bundle
 router.post('/', async (req, res) => {
   try {
-    const { name, description, image, productIds, tier } = req.body;
+    const { name, description, image, productIds, tier, is_admin } = req.body;
     if (!name || !description || !image || !Array.isArray(productIds) || productIds.length === 0 || !tier) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
-    // Insert bundle with is_admin: true for admin dashboard
+    // Insert bundle with is_admin: true for admin dashboard (or as provided)
     const { data: bundle, error: bundleError } = await supabaseAdmin
       .from('bundles')
       .insert([
-        { name, description, image, tier, is_admin: true }
+        { name, description, image, tier, is_admin: typeof is_admin === 'boolean' ? is_admin : true }
       ])
       .select()
       .single();
