@@ -3,11 +3,33 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export async function GET(req: NextRequest) {
   try {
-    const { data, error } = await supabaseAdmin
+    // Fetch all bundles
+    const { data: bundles, error: bundlesError } = await supabaseAdmin
       .from('bundles')
       .select('*');
-    if (error) throw error;
-    return NextResponse.json(data);
+    if (bundlesError) throw bundlesError;
+    // Fetch all bundle_products
+    const { data: bundleProducts, error: bpError } = await supabaseAdmin
+      .from('bundle_products')
+      .select('*');
+    if (bpError) throw bpError;
+    // Fetch all products
+    const { data: products, error: productsError } = await supabaseAdmin
+      .from('products')
+      .select('*');
+    if (productsError) throw productsError;
+    // Attach product objects and count to each bundle
+    const bundlesWithProducts = (bundles || []).map(bundle => {
+      const productIds = (bundleProducts || [])
+        .filter(bp => bp.bundle_id === bundle.id)
+        .map(bp => bp.product_id);
+      return {
+        ...bundle,
+        products: productIds.map(pid => (products || []).find(p => p.id === pid)).filter(Boolean),
+        productsCount: productIds.length,
+      };
+    });
+    return NextResponse.json(bundlesWithProducts);
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message || 'Failed to fetch bundles' }, { status: 500 });
   }
