@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function CreateBundlePage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -17,6 +18,7 @@ export default function CreateBundlePage() {
   const [bundles, setBundles] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
   const router = useRouter();
+  const supabase = createClientComponentClient();
 
   useEffect(() => {
     fetch("/api/products")
@@ -69,11 +71,16 @@ export default function CreateBundlePage() {
     setError("");
     setSuccess("");
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
       const method = editing ? "PUT" : "POST";
       const url = editing ? `/api/admin/bundles/${editing.id}` : "/api/admin/bundles";
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {})
+        },
         body: JSON.stringify({ ...form, productIds: selected }),
       });
       if (!res.ok) {
