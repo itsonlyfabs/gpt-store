@@ -15,6 +15,7 @@ interface Bundle {
   is_admin: boolean
   products: Product[]
   productsCount: number
+  category?: string
 }
 
 export default function AdminBundlesPage() {
@@ -23,6 +24,19 @@ export default function AdminBundlesPage() {
   const [error, setError] = useState('')
   const router = useRouter()
   const supabase = createClientComponentClient()
+
+  const categories = [
+    'Personal Development',
+    'NLP Mindset Work',
+    'Emotional Mastery',
+    'Business & Productivity',
+    'Life Clarity & Purpose',
+    'Wellness & Self-Care',
+    'Learning & Growth',
+    'Communication & Relationships',
+    'Signature Collections',
+  ];
+  const [selectedCategory, setSelectedCategory] = useState('');
 
   useEffect(() => {
     fetchBundles()
@@ -101,10 +115,26 @@ export default function AdminBundlesPage() {
           </button>
         </div>
 
+        {/* Category filter dropdown */}
+        <div className="mb-4 flex gap-2 items-center">
+          <label className="font-medium">Category:</label>
+          <select
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value)}
+            className="px-2 py-1 rounded border"
+          >
+            <option value="">All Categories</option>
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Table header */}
-        <div className="grid grid-cols-5 font-bold border-b pb-2 mb-4">
+        <div className="grid grid-cols-6 font-bold border-b pb-2 mb-4">
           <div>Name</div>
           <div>Description</div>
+          <div>Category</div>
           <div>Products</div>
           <div>Tier</div>
           <div>Actions</div>
@@ -113,18 +143,21 @@ export default function AdminBundlesPage() {
         {loading ? (
           <div>Loading...</div>
         ) : (
-          bundles.map((bundle) => (
-            <div key={bundle.id} className="grid grid-cols-5 items-center border-b py-2">
-              <div>{bundle.name}</div>
-              <div>{bundle.description}</div>
-              <div>{typeof bundle.productsCount === 'number' ? `${bundle.productsCount} products` : (bundle.products?.length || 0) + ' products'}</div>
-              <div>{bundle.tier}</div>
-              <div className="flex gap-2">
-                <button onClick={() => handleEditBundle(bundle.id)} className="text-blue-600 hover:underline">Edit</button>
-                <button onClick={() => handleDeleteBundle(bundle.id)} className="text-red-600 hover:underline">Delete</button>
+          bundles
+            .filter(bundle => !selectedCategory || bundle.category === selectedCategory)
+            .map((bundle) => (
+              <div key={bundle.id} className="grid grid-cols-6 items-center border-b py-2">
+                <div>{bundle.name}</div>
+                <div>{bundle.description}</div>
+                <div>{bundle.category || '-'}</div>
+                <div>{typeof bundle.productsCount === 'number' ? `${bundle.productsCount} products` : (bundle.products?.length || 0) + ' products'}</div>
+                <div>{bundle.tier}</div>
+                <div className="flex gap-2">
+                  <button onClick={() => handleEditBundle(bundle.id)} className="text-blue-600 hover:underline">Edit</button>
+                  <button onClick={() => handleDeleteBundle(bundle.id)} className="text-red-600 hover:underline">Delete</button>
+                </div>
               </div>
-            </div>
-          ))
+            ))
         )}
       </div>
     </div>
