@@ -319,7 +319,7 @@ router.post('/bundles', [authMiddleware, adminMiddleware], async (req, res) => {
   try {
     console.log('POST /api/admin/bundles - Request body:', req.body);
     console.log('User:', req.user);
-    const { name, description, image, product_ids } = req.body;
+    const { name, description, image, product_ids, tier } = req.body;
 
     // Basic validation
     if (!name || !description || !image || !product_ids || !Array.isArray(product_ids)) {
@@ -328,13 +328,21 @@ router.post('/bundles', [authMiddleware, adminMiddleware], async (req, res) => {
 
     const { data: bundle, error: bundleError } = await supabaseAdmin
       .from('bundles')
-      .insert([{ name, description, image, product_ids, tier: 'FREE' }])
+      .insert([{ name, description, image, tier: tier || 'FREE', is_admin: true }])
       .select()
       .single();
 
     if (bundleError) {
       console.error('Supabase error in bundle creation:', bundleError);
       throw bundleError;
+    }
+
+    // Insert into bundle_products join table
+    if (Array.isArray(product_ids) && product_ids.length > 0) {
+      const bundleProductRows = product_ids.map(pid => ({ bundle_id: bundle.id, product_id: pid }));
+      await supabaseAdmin
+        .from('bundle_products')
+        .insert(bundleProductRows);
     }
 
     console.log('Bundle created successfully:', bundle);
@@ -350,11 +358,12 @@ router.put('/bundles/:id', [authMiddleware, adminMiddleware], async (req, res) =
     console.log('PUT /api/admin/bundles/:id - Request body:', req.body);
     console.log('User:', req.user);
     const { id } = req.params;
-    const { name, description, image, product_ids } = req.body;
+    const { name, description, image, product_ids, tier } = req.body;
 
+    // Update bundle fields (no product_ids column)
     const { data: bundle, error: bundleError } = await supabaseAdmin
       .from('bundles')
-      .update({ name, description, image, product_ids, tier: 'FREE' })
+      .update({ name, description, image, tier })
       .eq('id', id)
       .select()
       .single();
@@ -362,6 +371,20 @@ router.put('/bundles/:id', [authMiddleware, adminMiddleware], async (req, res) =
     if (bundleError) {
       console.error('Supabase error in bundle update:', bundleError);
       throw bundleError;
+    }
+
+    // Update bundle_products join table
+    // 1. Delete existing bundle_products for this bundle
+    await supabaseAdmin
+      .from('bundle_products')
+      .delete()
+      .eq('bundle_id', id);
+    // 2. Insert new bundle_products
+    if (Array.isArray(product_ids) && product_ids.length > 0) {
+      const bundleProductRows = product_ids.map(pid => ({ bundle_id: id, product_id: pid }));
+      await supabaseAdmin
+        .from('bundle_products')
+        .insert(bundleProductRows);
     }
 
     console.log('Bundle updated successfully:', bundle);
