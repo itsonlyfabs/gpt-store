@@ -407,6 +407,7 @@ router.get("/bundles", [authMiddleware, adminMiddleware], async (req, res) => {
       return {
         ...bundle,
         products: productIds.map((pid) => products.find((p) => p.id === pid)).filter(Boolean),
+        productsCount: productIds.length,
       };
     });
     res.json(bundlesWithProducts);

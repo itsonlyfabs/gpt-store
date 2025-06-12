@@ -14,6 +14,7 @@ interface Bundle {
   tier: string
   is_admin: boolean
   products: Product[]
+  productsCount: number
 }
 
 export default function AdminBundlesPage() {
@@ -100,71 +101,30 @@ export default function AdminBundlesPage() {
           </button>
         </div>
 
+        {/* Table header */}
+        <div className="grid grid-cols-5 font-bold border-b pb-2 mb-4">
+          <div>Name</div>
+          <div>Description</div>
+          <div>Products</div>
+          <div>Tier</div>
+          <div>Actions</div>
+        </div>
+        {/* Table rows */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="bg-gray-200 h-48 rounded-t-lg"></div>
-                <div className="bg-white p-4 rounded-b-lg">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <div>Loading...</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {bundles.map((bundle) => (
-              <div
-                key={bundle.id}
-                className="bg-white rounded-lg shadow-sm overflow-hidden"
-              >
-                <div className="relative">
-                  <img
-                    src={bundle.image}
-                    alt={bundle.name}
-                    className="w-full h-48 object-cover"
-                  />
-                  <div className="absolute top-2 right-2">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      bundle.tier === 'PRO' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
-                    }`}>
-                      {bundle.tier}
-                    </span>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {bundle.name}
-                  </h3>
-                  <p className="text-gray-500 text-sm mb-4">
-                    {bundle.description}
-                  </p>
-                  {(bundle.products || []).map((product: any) => (
-                    <span key={product.id} className="inline-block px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium border border-primary/20">
-                      {product.name}
-                    </span>
-                  ))}
-                  <div className="flex justify-end space-x-2">
-                    <button
-                      onClick={() => handleEditBundle(bundle.id)}
-                      className="p-2 text-gray-600 hover:text-primary transition-colors"
-                      title="Edit bundle"
-                    >
-                      <FiEdit2 />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteBundle(bundle.id)}
-                      className="p-2 text-gray-600 hover:text-red-600 transition-colors"
-                      title="Delete bundle"
-                    >
-                      <FiTrash2 />
-                    </button>
-                  </div>
-                </div>
+          bundles.map((bundle) => (
+            <div key={bundle.id} className="grid grid-cols-5 items-center border-b py-2">
+              <div>{bundle.name}</div>
+              <div>{bundle.description}</div>
+              <div>{typeof bundle.productsCount === 'number' ? `${bundle.productsCount} products` : (bundle.products?.length || 0) + ' products'}</div>
+              <div>{bundle.tier}</div>
+              <div className="flex gap-2">
+                <button onClick={() => handleEditBundle(bundle.id)} className="text-blue-600 hover:underline">Edit</button>
+                <button onClick={() => handleDeleteBundle(bundle.id)} className="text-red-600 hover:underline">Delete</button>
               </div>
-            ))}
-          </div>
+            </div>
+          ))
         )}
       </div>
     </div>
