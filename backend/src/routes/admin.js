@@ -383,7 +383,15 @@ router.get("/bundles", [authMiddleware, adminMiddleware], async (req, res) => {
       console.error("Supabase error in bundles fetch:", bundlesError);
       throw bundlesError;
     }
-    // Fetch all products (for mapping)
+    // Fetch all bundle_products
+    const { data: bundleProducts, error: bpError } = await supabaseAdmin
+      .from("bundle_products")
+      .select("*");
+    if (bpError) {
+      console.error("Supabase error in bundle_products fetch:", bpError);
+      throw bpError;
+    }
+    // Fetch all products
     const { data: products, error: productsError } = await supabaseAdmin
       .from("products")
       .select("*");
@@ -391,14 +399,16 @@ router.get("/bundles", [authMiddleware, adminMiddleware], async (req, res) => {
       console.error("Supabase error in products fetch:", productsError);
       throw productsError;
     }
-    // Attach product objects to each bundle and always include product_ids
-    let bundlesWithProducts = bundles.map((bundle) => ({
-      ...bundle,
-      product_ids: bundle.product_ids || [],
-      products: (bundle.product_ids || [])
-        .map((pid) => products.find((p) => p.id === pid))
-        .filter(Boolean),
-    }));
+    // Attach product objects to each bundle using bundle_products
+    let bundlesWithProducts = bundles.map((bundle) => {
+      const productIds = bundleProducts
+        .filter((bp) => bp.bundle_id === bundle.id)
+        .map((bp) => bp.product_id);
+      return {
+        ...bundle,
+        products: productIds.map((pid) => products.find((p) => p.id === pid)).filter(Boolean),
+      };
+    });
     res.json(bundlesWithProducts);
   } catch (error) {
     console.error("Error in GET /api/admin/bundles:", error);
@@ -469,12 +479,12 @@ router.put(
       console.log("User:", req.user);
       const { id } = req.params;
       // Accept both productIds and product_ids for compatibility
-      const { name, description, image, tier, product_ids, productIds } = req.body;
-      const finalProductIds = product_ids || productIds;
-      // Update bundle fields, including product_ids array
+      const { name, description, image, tier, productIds, product_ids } = req.body;
+      const finalProductIds = productIds || product_ids || [];
+      // Update bundle fields (do NOT update product_ids column)
       const { data: bundle, error: bundleError } = await supabaseAdmin
         .from("bundles")
-        .update({ name, description, image, tier, is_admin: true, product_ids: finalProductIds })
+        .update({ name, description, image, tier, is_admin: true })
         .eq("id", id)
         .select()
         .single();
