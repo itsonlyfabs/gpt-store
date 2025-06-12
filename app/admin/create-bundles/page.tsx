@@ -66,15 +66,15 @@ export default function CreateBundlePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setSuccess("");
     setError("");
+    setSuccess("");
     try {
       const method = editing ? "PUT" : "POST";
-      const url = "/api/bundles" + (editing ? "/" + editing.id : "");
+      const url = editing ? `/api/admin/bundles/${editing.id}` : "/api/admin/bundles";
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, productIds: selected })
+        body: JSON.stringify({ ...form, productIds: selected }),
       });
       if (!res.ok) {
         const data = await res.json();

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi'
+import type { Product } from '../../types/product'
 
 interface Bundle {
   id: string
@@ -12,7 +13,7 @@ interface Bundle {
   image: string
   tier: string
   is_admin: boolean
-  products: any[]
+  products: Product[]
 }
 
 export default function AdminBundlesPage() {

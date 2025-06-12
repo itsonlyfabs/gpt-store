@@ -19,16 +19,19 @@ router.post('/', async (req, res) => {
       .single();
     if (bundleError) throw bundleError;
     // Insert into bundle_products
-    const bundleProductRows = productIds.map(pid => ({ bundle_id: bundle.id, product_id: pid }));
-    const { error: bpError } = await supabaseAdmin
-      .from('bundle_products')
-      .insert(bundleProductRows);
-    if (bpError) throw bpError;
-    // Fetch products for this bundle
-    const { data: products } = await supabaseAdmin
-      .from('products')
-      .select('*')
-      .in('id', productIds);
+    let products = [];
+    if (Array.isArray(productIds) && productIds.length > 0) {
+      const bundleProductRows = productIds.map(pid => ({ bundle_id: bundle.id, product_id: pid }));
+      await supabaseAdmin
+        .from('bundle_products')
+        .insert(bundleProductRows);
+      // Fetch products for this bundle
+      const { data: fetchedProducts } = await supabaseAdmin
+        .from('products')
+        .select('*')
+        .in('id', productIds);
+      products = fetchedProducts || [];
+    }
     res.status(201).json({ ...bundle, products });
   } catch (error) {
     console.error('Bundle creation error:', error);
@@ -99,17 +102,19 @@ router.put('/:id', async (req, res) => {
       .from('bundle_products')
       .delete()
       .eq('bundle_id', id);
+    let products = [];
     if (Array.isArray(product_ids) && product_ids.length > 0) {
       const bundleProductRows = product_ids.map(pid => ({ bundle_id: id, product_id: pid }));
       await supabaseAdmin
         .from('bundle_products')
         .insert(bundleProductRows);
+      // Fetch products for this bundle
+      const { data: fetchedProducts } = await supabaseAdmin
+        .from('products')
+        .select('*')
+        .in('id', product_ids);
+      products = fetchedProducts || [];
     }
-    // Fetch products for this bundle
-    const { data: products } = await supabaseAdmin
-      .from('products')
-      .select('*')
-      .in('id', product_ids || []);
     res.json({ ...bundle, products });
   } catch (error) {
     console.error('Bundle update error:', error);

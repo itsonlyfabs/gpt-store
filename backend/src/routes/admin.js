@@ -338,15 +338,22 @@ router.post('/bundles', [authMiddleware, adminMiddleware], async (req, res) => {
     }
 
     // Insert into bundle_products join table
+    let products = [];
     if (Array.isArray(product_ids) && product_ids.length > 0) {
       const bundleProductRows = product_ids.map(pid => ({ bundle_id: bundle.id, product_id: pid }));
       await supabaseAdmin
         .from('bundle_products')
         .insert(bundleProductRows);
+      // Fetch products for this bundle
+      const { data: fetchedProducts } = await supabaseAdmin
+        .from('products')
+        .select('*')
+        .in('id', product_ids);
+      products = fetchedProducts || [];
     }
 
     console.log('Bundle created successfully:', bundle);
-    res.status(201).json(bundle);
+    res.status(201).json({ ...bundle, products });
   } catch (error) {
     console.error('Error in POST /api/admin/bundles:', error);
     res.status(500).json({ error: error.message });
@@ -363,7 +370,7 @@ router.put('/bundles/:id', [authMiddleware, adminMiddleware], async (req, res) =
     // Update bundle fields (no product_ids column)
     const { data: bundle, error: bundleError } = await supabaseAdmin
       .from('bundles')
-      .update({ name, description, image, tier })
+      .update({ name, description, image, tier, is_admin: true })
       .eq('id', id)
       .select()
       .single();
@@ -380,15 +387,22 @@ router.put('/bundles/:id', [authMiddleware, adminMiddleware], async (req, res) =
       .delete()
       .eq('bundle_id', id);
     // 2. Insert new bundle_products
+    let products = [];
     if (Array.isArray(product_ids) && product_ids.length > 0) {
       const bundleProductRows = product_ids.map(pid => ({ bundle_id: id, product_id: pid }));
       await supabaseAdmin
         .from('bundle_products')
         .insert(bundleProductRows);
+      // Fetch products for this bundle
+      const { data: fetchedProducts } = await supabaseAdmin
+        .from('products')
+        .select('*')
+        .in('id', product_ids);
+      products = fetchedProducts || [];
     }
 
     console.log('Bundle updated successfully:', bundle);
-    res.json(bundle);
+    res.json({ ...bundle, products });
   } catch (error) {
     console.error('Error in PUT /api/admin/bundles/:id:', error);
     res.status(500).json({ error: error.message });

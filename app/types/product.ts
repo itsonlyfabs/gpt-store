@@ -15,7 +15,7 @@ export interface Bundle {
   id: string
   name: string
   description: string
-  product_ids: string[]
+  products: Product[]
   created_at?: string
   updated_at?: string
 } 

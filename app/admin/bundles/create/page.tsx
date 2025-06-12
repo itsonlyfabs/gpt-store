@@ -60,8 +60,7 @@ export default function BundleCreationPage() {
           description,
           image,
           tier,
-          product_ids: selectedProducts,
-          is_admin: true
+          productIds: selectedProducts
         }),
       })
 

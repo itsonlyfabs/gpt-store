@@ -9,10 +9,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (cookie) headers['cookie'] = cookie;
 
   const body = await req.text();
+  let parsedBody: any = {};
+  try {
+    parsedBody = JSON.parse(body);
+  } catch {}
+  parsedBody.is_admin = true;
   const res = await fetch(`${backendUrl}/admin/bundles/${params.id}`, {
     method: 'PUT',
     headers,
-    body,
+    body: JSON.stringify(parsedBody),
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));

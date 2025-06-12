@@ -282,7 +282,7 @@ function AdminPage() {
     try {
       const payload = {
         ...editBundleForm,
-        product_ids: editBundleForm.product_ids || [],
+        productIds: editBundleForm.product_ids || [],
       };
       const response = await fetch(`/api/admin/bundles/${bundleId}`, {
         method: 'PUT',
