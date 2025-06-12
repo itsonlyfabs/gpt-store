@@ -21,7 +21,16 @@ export async function POST(req: NextRequest) {
   if (authHeader) headers['Authorization'] = authHeader;
   if (cookie) headers['cookie'] = cookie;
 
-  const body = await req.text();
+  let body = await req.text();
+  let parsedBody: any = {};
+  try {
+    parsedBody = JSON.parse(body);
+  } catch {}
+  if (parsedBody.productIds) {
+    parsedBody.product_ids = parsedBody.productIds;
+    delete parsedBody.productIds;
+  }
+  body = JSON.stringify(parsedBody);
   const res = await fetch(`${backendUrl}/admin/bundles`, {
     method: 'POST',
     headers,
