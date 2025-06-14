@@ -58,6 +58,8 @@ export default function ChatPage() {
   const [showNotes, setShowNotes] = useState(false)
   const [showSummaries, setShowSummaries] = useState(false)
   const [summariesLoading, setSummariesLoading] = useState(false)
+  const [resetCount, setResetCount] = useState(0)
+  const [resetSuccess, setResetSuccess] = useState(false)
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -73,12 +75,12 @@ export default function ChatPage() {
         if (data.session && data.session.is_bundle) {
           setSession(data.session)
           setCheckingBundle(false)
-          // Set bundle info for TeamChat
-          if (data.session && data.session.bundle_id && data.session.title && data.session.description) {
+          // Set bundle info for TeamChat from data.bundle
+          if (data.bundle) {
             setBundle({
-              id: data.session.bundle_id,
-              name: data.session.title,
-              description: data.session.description
+              id: data.bundle.id,
+              name: data.bundle.name,
+              description: data.bundle.description
             });
           }
         } else {
@@ -290,6 +292,9 @@ export default function ChatPage() {
                     },
                     body: JSON.stringify({ reset: true })
                   })
+                  setResetSuccess(true)
+                  setResetCount(c => c + 1)
+                  setTimeout(() => setResetSuccess(false), 2000)
                 }
               }}
             >
@@ -298,7 +303,8 @@ export default function ChatPage() {
           </div>
           {saveError && <div className="text-red-500 text-sm mt-2">{saveError}</div>}
           {downloadError && <div className="text-red-500 text-sm mt-2">{downloadError}</div>}
-          <Chat toolId={id as string} toolName={productInfo?.name} toolDescription={productInfo?.description} />
+          {resetSuccess && <div className="text-green-600 text-sm mt-2">Chat reset!</div>}
+          <Chat key={resetCount} toolId={id as string} toolName={productInfo?.name} toolDescription={productInfo?.description} />
         </div>
       </main>
     </div>

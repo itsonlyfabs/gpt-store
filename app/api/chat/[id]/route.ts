@@ -318,12 +318,15 @@ export async function GET(request: Request, context: any) {
     let products: any[] = [];
     let title = session.title;
     let description = session.description;
+    let bundle = null;
     if (session.is_bundle && session.bundle_id) {
-      const { data: bundle, error: bundleError } = await supabaseAdmin
+      const { data: bundleData, error: bundleError } = await supabaseAdmin
         .from('bundles')
         .select('*')
         .eq('id', session.bundle_id)
         .single();
+      bundle = bundleData;
+      console.log('DEBUG: bundle from DB', bundle);
       if (!bundleError && bundle && bundle.product_ids && bundle.product_ids.length > 0) {
         const { data: bundleProducts, error: productsError } = await supabaseAdmin
           .from('products')
@@ -334,9 +337,10 @@ export async function GET(request: Request, context: any) {
         } else {
           products = [];
         }
-        // Always use latest bundle info
+        // Always set title and description to bundle name/description
         title = bundle.name;
         description = bundle.description;
+        console.log('DEBUG: setting session title/description to', title, description);
       } else {
         products = [];
       }
@@ -348,6 +352,7 @@ export async function GET(request: Request, context: any) {
         .eq('id', session.product_id)
         .single();
       if (!productError && product) {
+        // Always set title and description to product name/description
         title = product.name;
         description = product.description;
         products = [product];
@@ -386,6 +391,7 @@ export async function GET(request: Request, context: any) {
       session: { ...session, title, description }, 
       messages, 
       products, 
+      bundle,
       active_product_id: session.active_product_id,
       team_goal: session.team_goal,
       notes: notes || [],

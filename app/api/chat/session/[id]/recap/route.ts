@@ -126,14 +126,28 @@ export async function POST(request: Request, { params }: { params: { id: string 
         .replace(/^\n+/, ''); // Remove leading blank lines
     }
     // Save the recap
+    let updateFields: any = {
+      saved: true,
+      recap: finalRecap
+    };
+    if (is_bundle) {
+      updateFields.title = bundleName;
+      updateFields.description = bundleDescription;
+    } else if (session.product_id) {
+      // Fetch product name/description for single product chat
+      const { data: product } = await supabaseAdmin
+        .from('products')
+        .select('name, description')
+        .eq('id', session.product_id)
+        .single();
+      if (product) {
+        updateFields.title = product.name;
+        updateFields.description = product.description;
+      }
+    }
     const { error: updateError } = await supabaseAdmin
       .from('chat_sessions')
-      .update({ 
-        saved: true,
-        recap: finalRecap,
-        title: is_bundle ? bundleName : (session.title || (is_bundle ? team_title : 'Chat Recap')),
-        description: is_bundle ? bundleDescription : session.description
-      })
+      .update(updateFields)
       .eq('id', id)
       .eq('user_id', user.id);
 
