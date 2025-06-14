@@ -298,7 +298,7 @@ export default function ChatPage() {
           </div>
           {saveError && <div className="text-red-500 text-sm mt-2">{saveError}</div>}
           {downloadError && <div className="text-red-500 text-sm mt-2">{downloadError}</div>}
-          <Chat toolId={id as string} toolName={productInfo?.name} toolDescription={productInfo?.description} session={session} />
+          <Chat toolId={id as string} toolName={productInfo?.name} toolDescription={productInfo?.description} />
         </div>
       </main>
     </div>
