@@ -167,19 +167,23 @@ export default function BundleCreationPage() {
               </select>
             </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <div>
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+                Category <span className="text-red-500">*</span>
+              </label>
               <select
+                id="category"
                 value={category}
                 onChange={e => setCategory(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
               >
                 <option value="">Select a category</option>
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
+              <p className="mt-1 text-sm text-gray-500">Select the category this bundle belongs to. This is required and must match the Supabase 'category' column.</p>
             </div>
 
             <div>

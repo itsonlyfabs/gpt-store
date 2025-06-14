@@ -9,7 +9,7 @@ import { Product } from '@/types/product'
 console.log('NEXT.JS CHAT API ROUTE LOADED');
 
 // Helper function to generate a context summary
-async function generateContextSummary(sessionId: string, productId: string, openaiApiKey: string) {
+const generateContextSummary = async function(sessionId: string, productId: string, openaiApiKey: string) {
   try {
     // Fetch the last 30 messages for context
     const { data: chatHistory, error: historyError } = await supabaseAdmin
@@ -70,7 +70,7 @@ async function generateContextSummary(sessionId: string, productId: string, open
 }
 
 // Helper function to handle "Ask the team" feature
-async function handleAskTheTeam(sessionId: string, content: string, products: any[], openaiApiKey: string, session: any, user: any) {
+const handleAskTheTeam = async function(sessionId: string, content: string, products: any[], openaiApiKey: string, session: any, user: any) {
   try {
     // Fetch the last 10 messages for context (excluding the current message)
     const { data: recentMessages, error: recentMessagesError } = await supabaseAdmin
@@ -88,7 +88,7 @@ async function handleAskTheTeam(sessionId: string, content: string, products: an
       : content;
 
     // Store the user's message
-    const { data: message, error: messageError } = await supabaseAdmin
+    const { data: userMessage, error: messageError } = await supabaseAdmin
       .from('chat_messages')
       .insert({
         session_id: sessionId,
@@ -102,8 +102,8 @@ async function handleAskTheTeam(sessionId: string, content: string, products: an
       .select('id')
       .single();
 
-    if (messageError || !message) {
-      console.error('Error storing user message:', messageError);
+    if (messageError || !userMessage) {
+      console.error('Failed to store message', messageError);
       return NextResponse.json({ error: 'Failed to store message' }, { status: 500 });
     }
 
@@ -180,7 +180,7 @@ async function handleAskTheTeam(sessionId: string, content: string, products: an
         .insert({
           session_id: sessionId,
           conversation_id: sessionId,
-          message_id: message.id,
+          message_id: userMessage.id,
           product_id: product.id,
           content: aiReply,
           created_at: new Date().toISOString(),
@@ -248,7 +248,7 @@ async function handleAskTheTeam(sessionId: string, content: string, products: an
     return NextResponse.json({ 
       responses: teamResponses,
       summary,
-      message_id: message.id
+      message_id: userMessage.id
     });
   } catch (error) {
     console.error('Error handling ask the team:', error);
@@ -401,10 +401,13 @@ export async function GET(request: Request, context: any) {
 }
 
 export async function POST(request: Request, context: any) {
+  let userMessageSingle: any = null;
+  let aiReply: string | null = null;
   console.log('POST handler entered for chat API', context?.params?.id);
   const { id } = context.params;
   try {
     const { content, role, askTeam, teamGoal, noteContent, generateSummary, reset } = await request.json();
+    const userRole = role || 'user';
     console.log('POST body:', { content, role, askTeam, teamGoal, noteContent, generateSummary, reset });
     
     // Handle chat reset
@@ -636,7 +639,7 @@ export async function POST(request: Request, context: any) {
         product_id: session.is_bundle ? id : (bundleProducts[0]?.id || bundleProducts[0]!.id),
         content
       });
-      const { data: message, error: messageError } = await supabaseAdmin
+      const { data: userMessageSingle, error: messageErrorSingle } = await supabaseAdmin
         .from('chat_messages')
         .insert({
           session_id: id,
@@ -644,7 +647,7 @@ export async function POST(request: Request, context: any) {
           user_id: user.id,
           product_id: session.is_bundle ? id : (bundleProducts[0]?.id || bundleProducts[0]!.id),
           content,
-          role: 'user',
+          role: userRole,
           created_at: new Date().toISOString(),
         })
         .select('id')
@@ -653,8 +656,8 @@ export async function POST(request: Request, context: any) {
         user_id: user.id,
         product_id: session.is_bundle ? id : (bundleProducts[0]?.id || bundleProducts[0]!.id),
         content,
-        message,
-        messageError
+        userMessageSingle,
+        messageErrorSingle
       });
 
       // Build the prompt context with ALL necessary information
@@ -700,6 +703,10 @@ export async function POST(request: Request, context: any) {
           }),
         });
         const data = await response.json();
+        if (!response.ok) {
+          console.error('OpenAI API error:', data);
+          return NextResponse.json({ error: 'OpenAI API error', openai: data }, { status: 500 });
+        }
         console.log('DEBUG: OpenAI response:', data);
         const aiReply = data.choices?.[0]?.message?.content;
         if (typeof aiReply !== 'string') {
@@ -720,11 +727,13 @@ export async function POST(request: Request, context: any) {
           });
         return NextResponse.json({ 
           response: aiReply,
-          message_id: message ? message.id : null
+          message_id: userMessageSingle ? userMessageSingle.id : null
         });
       } catch (err) {
-        console.error('Error in OpenAI call or prompt building', err, { promptContext });
-        return NextResponse.json({ error: 'Internal server error (OpenAI or prompt)' }, { status: 500 });
+        return NextResponse.json({
+          response: aiReply,
+          message_id: null
+        });
       }
     }
 
@@ -734,43 +743,19 @@ export async function POST(request: Request, context: any) {
       return NextResponse.json({ error: 'OpenAI API key not set' }, { status: 500 });
     }
 
-    // If this is a bundle chat, fetch all products for context
-    let bundleProducts: Product[] = [];
-    let activeProduct: Product | null = null;
-    if (session.is_bundle && session.bundle_id) {
-      const { data: bundle, error: bundleError } = await supabaseAdmin
-        .from('bundles')
-        .select('product_ids')
-        .eq('id', session.bundle_id)
-        .single();
-      if (!bundleError && bundle?.product_ids) {
-        const { data: products, error: productsError } = await supabaseAdmin
-          .from('products')
-          .select('id, name, description, expertise, personality, style, prompt, assistant_id')
-          .in('id', bundle.product_ids);
-        if (!productsError && products) {
-          bundleProducts = products as Product[];
-          // Find the active product
-          if (session.active_product_id) {
-            activeProduct = bundleProducts.find(p => p.id === session.active_product_id) || bundleProducts[0] || null;
-          } else {
-            activeProduct = bundleProducts[0] || null;
-          }
-        }
-      }
-    } else if (session.product_id) {
-      // For single product, always use latest product info
-      const { data: product, error: productError } = await supabaseAdmin
-        .from('products')
-        .select('id, name, description, expertise, personality, style, prompt, assistant_id')
-        .eq('id', session.product_id)
-        .single();
-      if (!productError && product) {
-        activeProduct = product;
-      }
+    // Fetch the active product for this chat session
+    const activeProductId = session.active_product_id || session.product_id;
+    if (!activeProductId) {
+      return NextResponse.json({ error: 'No product_id found for chat session.' }, { status: 500 });
     }
-    // Ensure bundleProducts is always an array
-    if (!Array.isArray(bundleProducts)) bundleProducts = [];
+    const { data: activeProduct, error: productError } = await supabaseAdmin
+      .from('products')
+      .select('*')
+      .eq('id', activeProductId)
+      .single();
+    if (productError || !activeProduct) {
+      return NextResponse.json({ error: 'No active product found for chat.', details: productError }, { status: 500 });
+    }
     // Fetch the last 20 messages for context
     const { data: recentMessages, error: historyError } = await supabaseAdmin
       .from('chat_messages')
@@ -782,36 +767,23 @@ export async function POST(request: Request, context: any) {
       console.error('Failed to fetch chat history', historyError);
       return NextResponse.json({ error: 'Failed to fetch chat history' }, { status: 500 });
     }
-    // After finding activeProduct, ensure it is not null or undefined
-    if (!activeProduct) {
-      return NextResponse.json({ error: 'No active product found for chat.' }, { status: 500 });
-    }
-    // Now activeProduct is always a valid Product
-    const productIdToUse = activeProduct.id;
-    // Store the user's message
-    const { data: message, error: messageError } = await supabaseAdmin
+    // Store the user's message before generating assistant reply
+    const { data: userMessageSingle, error: messageErrorSingle } = await supabaseAdmin
       .from('chat_messages')
       .insert({
         session_id: id,
         conversation_id: id,
         user_id: user.id,
-        product_id: productIdToUse,
+        product_id: activeProduct.id,
         content,
         role: 'user',
         created_at: new Date().toISOString(),
       })
       .select('id')
       .single();
-    console.log('DEBUG: chat_messages insert (single)', {
-      user_id: user.id,
-      product_id: productIdToUse,
-      content,
-      message,
-      messageError
-    });
-    if (messageError || !message) {
-      console.error('Failed to store message', messageError);
-      return NextResponse.json({ error: 'Failed to store message' }, { status: 500 });
+    if (messageErrorSingle || !userMessageSingle) {
+      console.error('Failed to store user message', messageErrorSingle);
+      return NextResponse.json({ error: 'Failed to store user message' }, { status: 500 });
     }
     // Build the prompt context with ALL necessary information
     const promptContext = {
@@ -819,7 +791,7 @@ export async function POST(request: Request, context: any) {
       chatHistory: recentMessages?.reverse() || [], // Reverse to get chronological order
       product: activeProduct,
       isBundle: session.is_bundle,
-      bundleProducts: bundleProducts // always an array
+      bundleProducts: session.is_bundle ? [activeProduct] : [] // always an array
     };
     try {
       // Build the prompt with enhanced context
@@ -840,6 +812,10 @@ export async function POST(request: Request, context: any) {
         }),
       });
       const data = await response.json();
+      if (!response.ok) {
+        console.error('OpenAI API error:', data);
+        return NextResponse.json({ error: 'OpenAI API error', openai: data }, { status: 500 });
+      }
       console.log('DEBUG: OpenAI response:', data);
       const aiReply = data.choices?.[0]?.message?.content;
       if (typeof aiReply !== 'string') {
@@ -853,21 +829,23 @@ export async function POST(request: Request, context: any) {
           session_id: id,
           conversation_id: id,
           user_id: user.id,
-          product_id: productIdToUse,
+          product_id: activeProduct.id,
           content: aiReply,
           role: 'assistant',
           created_at: new Date().toISOString(),
         });
       return NextResponse.json({ 
         response: aiReply,
-        message_id: message ? message.id : null
+        message_id: userMessageSingle ? userMessageSingle.id : null
       });
     } catch (err) {
-      console.error('Error in OpenAI call or prompt building', err, { promptContext });
-      return NextResponse.json({ error: 'Internal server error (OpenAI or prompt)' }, { status: 500 });
+      return NextResponse.json({
+        response: aiReply,
+        message_id: null
+      });
     }
   } catch (error: any) {
     console.error('Chat API error:', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Internal server error', response: aiReply || null, message_id: userMessageSingle ? userMessageSingle.id : null }, { status: 500 });
   }
 } 

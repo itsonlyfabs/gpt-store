@@ -73,6 +73,14 @@ export default function ChatPage() {
         if (data.session && data.session.is_bundle) {
           setSession(data.session)
           setCheckingBundle(false)
+          // Set bundle info for TeamChat
+          if (data.session && data.session.bundle_id && data.session.title && data.session.description) {
+            setBundle({
+              id: data.session.bundle_id,
+              name: data.session.title,
+              description: data.session.description
+            });
+          }
         } else {
           setSession(data.session)
           setCheckingBundle(false)
@@ -110,63 +118,10 @@ export default function ChatPage() {
   }
 
   if (session?.is_bundle) {
-    return <TeamChat toolId={id as string} toolName="Team Chat" />
+    return <TeamChat toolId={id as string} toolName={bundle?.name || 'Team Chat'} toolDescription={bundle?.description || ''} />
   }
 
-  // Handlers for notes and summaries
-  const handleAddNote = async (content: string) => {
-    const { data: { session: supaSession } } = await supabase.auth.getSession();
-    const accessToken = supaSession?.access_token;
-    const res = await fetch('/api/notes', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-      },
-      body: JSON.stringify({ session_id: id, content })
-    })
-    const data = await res.json()
-    if (data.note) setNotes((prev: any[]) => [...prev, data.note])
-  }
-  const handleDeleteNote = async (noteId: string) => {
-    const { data: { session: supaSession } } = await supabase.auth.getSession();
-    const accessToken = supaSession?.access_token;
-    await fetch(`/api/notes?id=${noteId}`, {
-      method: 'DELETE',
-      headers: {
-        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-      }
-    })
-    setNotes((prev: any[]) => prev.filter((n) => n.id !== noteId))
-  }
-  const handleGenerateSummary = async () => {
-    setSummariesLoading(true)
-    const { data: { session: supaSession } } = await supabase.auth.getSession();
-    const accessToken = supaSession?.access_token;
-    const res = await fetch('/api/summaries', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-      },
-      body: JSON.stringify({ session_id: id })
-    })
-    const data = await res.json()
-    if (data.summary) setSummaries((prev: any[]) => [data.summary, ...prev])
-    setSummariesLoading(false)
-  }
-  const handleDeleteSummary = async (summaryId: string) => {
-    const { data: { session: supaSession } } = await supabase.auth.getSession();
-    const accessToken = supaSession?.access_token;
-    await fetch(`/api/summaries?id=${summaryId}`, {
-      method: 'DELETE',
-      headers: {
-        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-      }
-    })
-    setSummaries((prev: any[]) => prev.filter((s) => s.id !== summaryId))
-  }
-
+  // Restore full product chat UI
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
@@ -189,26 +144,70 @@ export default function ChatPage() {
           {showNotes && (
             <NotesPanel
               notes={notes}
-              onAddNote={handleAddNote}
-              onDeleteNote={handleDeleteNote}
+              onAddNote={async (content: string) => {
+                // Add note logic
+                const { data: { session: supaSession } } = await supabase.auth.getSession();
+                const accessToken = supaSession?.access_token;
+                const res = await fetch('/api/notes', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+                  },
+                  body: JSON.stringify({ session_id: id, content })
+                })
+                const data = await res.json()
+                if (data.note) setNotes((prev: any[]) => [...prev, data.note])
+              }}
+              onDeleteNote={async (noteId: string) => {
+                // Delete note logic
+                const { data: { session: supaSession } } = await supabase.auth.getSession();
+                const accessToken = supaSession?.access_token;
+                await fetch(`/api/notes?id=${noteId}`, {
+                  method: 'DELETE',
+                  headers: {
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+                  }
+                })
+                setNotes((prev: any[]) => prev.filter((n) => n.id !== noteId))
+              }}
             />
           )}
           {showSummaries && (
             <SummariesPanel
               summaries={summaries}
-              onGenerateSummary={handleGenerateSummary}
-              onDeleteSummary={handleDeleteSummary}
+              onGenerateSummary={async () => {
+                setSummariesLoading(true)
+                const { data: { session: supaSession } } = await supabase.auth.getSession();
+                const accessToken = supaSession?.access_token;
+                const res = await fetch('/api/summaries', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+                  },
+                  body: JSON.stringify({ session_id: id })
+                })
+                const data = await res.json()
+                if (data.summary) setSummaries((prev: any[]) => [data.summary, ...prev])
+                setSummariesLoading(false)
+              }}
+              onDeleteSummary={async (summaryId: string) => {
+                const { data: { session: supaSession } } = await supabase.auth.getSession();
+                const accessToken = supaSession?.access_token;
+                await fetch(`/api/summaries?id=${summaryId}`, {
+                  method: 'DELETE',
+                  headers: {
+                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+                  }
+                })
+                setSummaries((prev: any[]) => prev.filter((s) => s.id !== summaryId))
+              }}
               isLoading={summariesLoading}
             />
           )}
         </div>
         <div className="w-full max-w-2xl mx-auto px-6 pt-10">
-          {productInfo && (
-            <>
-              <h1 className="text-3xl font-bold text-gray-900 mb-1">{productInfo.name}</h1>
-              <div className="text-gray-500 text-sm mb-2">{productInfo.description}</div>
-            </>
-          )}
           <div className="flex gap-3 mb-6">
               <button
               className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
@@ -299,100 +298,9 @@ export default function ChatPage() {
           </div>
           {saveError && <div className="text-red-500 text-sm mt-2">{saveError}</div>}
           {downloadError && <div className="text-red-500 text-sm mt-2">{downloadError}</div>}
-          <div className="flex items-center w-full mb-6">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={async (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  if (input.trim()) {
-                    const userMsg = { sender: 'user', content: input };
-                    setMessages(prev => [...prev, userMsg])
-                    setInput('')
-                    setLoading(true)
-                    const { data: { session: supaSession } } = await supabase.auth.getSession();
-                    const accessToken = supaSession?.access_token;
-                    // Send user message and get assistant reply
-                    const postRes = await fetch(`/api/chat/${id}`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-                      },
-                      body: JSON.stringify({ content: input, role: 'user' })
-                    })
-                    const postData = await postRes.json();
-                    if (postData.response) {
-                      setMessages(prev => [...prev, { sender: 'assistant', content: postData.response }])
-                    }
-                    setLoading(false)
-                  }
-                }
-              }}
-              placeholder="Type your message..."
-              className="flex-1 p-3 border rounded text-lg"
-            />
-            <button
-              onClick={async () => {
-                if (input.trim()) {
-                  const userMsg = { sender: 'user', content: input };
-                  setMessages(prev => [...prev, userMsg])
-                  setInput('')
-                  setLoading(true)
-                  const { data: { session: supaSession } } = await supabase.auth.getSession();
-                  const accessToken = supaSession?.access_token;
-                  // Send user message and get assistant reply
-                  const postRes = await fetch(`/api/chat/${id}`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-                    },
-                    body: JSON.stringify({ content: input, role: 'user' })
-                  })
-                  const postData = await postRes.json();
-                  if (postData.response) {
-                    setMessages(prev => [...prev, { sender: 'assistant', content: postData.response }])
-                  }
-                  setLoading(false)
-                }
-              }}
-              disabled={loading}
-              className="ml-3 px-6 py-3 bg-primary text-white rounded font-semibold hover:bg-primary-dark transition disabled:opacity-50 text-lg"
-            >
-              <span>Send</span>
-            </button>
-          </div>
-          <div className="flex-1 w-full max-w-2xl mx-auto overflow-y-auto" ref={messagesEndRef}>
-            {messages.length === 0 ? (
-              <div className="text-gray-400 text-center mt-8">No messages yet. Start the conversation!</div>
-            ) : (
-              messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`mb-4 flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`inline-block p-3 rounded-lg max-w-[80%] break-words shadow-sm
-                      ${msg.sender === 'user'
-                        ? 'bg-blue-500 text-white rounded-br-none'
-                        : 'bg-gray-100 text-gray-900 rounded-bl-none border border-gray-200'}
-                    `}
-                  >
-                    {msg.sender === 'assistant' && productInfo?.name && (
-                      <div className="font-bold mb-1 text-indigo-700">{productInfo.name}</div>
-                    )}
-                    <div dangerouslySetInnerHTML={{ __html: formatAssistantMessage(msg.content) }} />
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          <Chat toolId={id as string} toolName={productInfo?.name} toolDescription={productInfo?.description} session={session} />
         </div>
       </main>
     </div>
-  )
+  );
 } 

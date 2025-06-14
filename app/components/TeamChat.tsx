@@ -37,11 +37,12 @@ interface Summary {
 interface TeamChatProps {
   toolId: string
   toolName: string
+  toolDescription?: string
 }
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
-export default function TeamChat({ toolId, toolName }: TeamChatProps) {
+export default function TeamChat({ toolId, toolName, toolDescription }: TeamChatProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [chatHistory, setChatHistory] = useState<Message[]>([])
@@ -443,8 +444,8 @@ export default function TeamChat({ toolId, toolName }: TeamChatProps) {
       <Sidebar />
       <main className="flex-1 flex flex-row overflow-hidden">
         <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">{teamTitle}</h1>
-          <div className="text-gray-500 text-sm mb-2">{teamDescription}</div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-1">{teamTitle || toolName}</h1>
+          {toolDescription && <div className="text-gray-500 text-sm mb-2">{toolDescription}</div>}
           {isBundle && (
             <div className="flex gap-3 mb-6">
               <button

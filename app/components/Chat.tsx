@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { useChat, Message as UIMessage } from 'ai/react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { marked } from 'marked'
 
 interface Message {
   id: string
@@ -15,18 +15,23 @@ interface Product {
   id: string
   name: string
   assistant_id?: string
+  description?: string
 }
 
 interface ChatProps {
   toolId: string
   toolName: string
+  toolDescription?: string
 }
 
-export default function Chat({ toolId, toolName }: ChatProps) {
+export default function Chat({ toolId, toolName, toolDescription }: ChatProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<Message[]>([])
-  const [products, setProducts] = useState<Product[] | null>(null)
+  const [session, setSession] = useState<any>(null)
+  const [product, setProduct] = useState<Product | null>(null)
+  const [input, setInput] = useState('')
+  const [isResponding, setIsResponding] = useState(false)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const supabase = createClientComponentClient()
 
@@ -38,7 +43,7 @@ export default function Chat({ toolId, toolName }: ChatProps) {
     return headers
   }
 
-  // Fetch session info (including products) on mount
+  // Fetch session info (including product_id) on mount
   useEffect(() => {
     const fetchSession = async () => {
       try {
@@ -46,60 +51,25 @@ export default function Chat({ toolId, toolName }: ChatProps) {
         const response = await fetch(`/api/chat/${toolId}`, { headers })
         if (!response.ok) return
         const data = await response.json()
-        if (data.products) setProducts(data.products)
+        if (data.session) setSession(data.session)
+        setHistory((data.messages || []).map((m: any) => ({
+          ...m,
+          createdAt: m.created_at || m.createdAt,
+          role: (m.role || '').toLowerCase()
+        })))
+        // Fetch product if product_id exists
+        if (data.session?.product_id) {
+          const { data: prod } = await supabase
+            .from('products')
+            .select('id, name, description')
+            .eq('id', data.session.product_id)
+            .single()
+          if (prod) setProduct(prod)
+        }
       } catch {}
+      setIsLoading(false)
     }
     fetchSession()
-  }, [toolId])
-
-  // AI SDK chat hook for streaming
-  const { messages, input, handleInputChange, handleSubmit, isLoading: isResponding } = useChat({
-    api: `/api/chat/${toolId}`,
-    initialMessages: [],
-    onResponse: (response: Response) => {
-      if (!response.ok) {
-        setError('Failed to send message')
-        return
-      }
-      // Store message in history API
-      const newMessage = {
-        role: 'user' as const,
-        content: input,
-        createdAt: new Date().toISOString(),
-        id: Math.random().toString(36).substring(7)
-      }
-      // Optionally: send with auth if needed
-      getAuthHeaders().then(headers => {
-        fetch('/api/chat/history', {
-          method: 'POST', 
-          headers: { ...headers, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            toolId: toolId,
-            message: newMessage
-          })
-        }).catch(console.error)
-      })
-    }
-  })
-
-  // Fetch chat history
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        setIsLoading(true)
-        const headers = await getAuthHeaders()
-        const response = await fetch(`/api/chat/${toolId}`, { headers })
-        if (!response.ok) throw new Error('Failed to fetch chat history')
-        const data = await response.json()
-        setHistory(data.messages || [])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load chat history')
-        console.error('Chat history error:', err)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchHistory()
   }, [toolId])
 
   // Scroll to bottom on new messages
@@ -107,14 +77,42 @@ export default function Chat({ toolId, toolName }: ChatProps) {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
-  }, [messages])
+  }, [history])
 
-  // Combine history with current messages
-  const allMessages = [...history, ...messages]
+  // Custom send message handler
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim()) return
+    setIsResponding(true)
+    setError(null)
+    try {
+      const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
+      const response = await fetch(`/api/chat/${toolId}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ content: input })
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        setError(data.error || 'Failed to send message')
+        setIsResponding(false)
+        return
+      }
+      // Refetch chat history after sending
+      const historyRes = await fetch(`/api/chat/${toolId}`, { headers: await getAuthHeaders() })
+      const historyData = await historyRes.json()
+      setHistory(historyData.messages || [])
+      setInput('')
+    } catch (err: any) {
+      setError(err.message || 'Failed to send message')
+    } finally {
+      setIsResponding(false)
+    }
+  }
 
   // Sort messages by createdAt
-  const sortedMessages = Array.isArray(messages)
-    ? [...messages].sort((a, b) => {
+  const sortedMessages = Array.isArray(history)
+    ? [...history].sort((a, b) => {
         if (!a.createdAt || !b.createdAt) return 0;
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       })
@@ -124,80 +122,32 @@ export default function Chat({ toolId, toolName }: ChatProps) {
   const latestMessage = Array.isArray(sortedMessages) && sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1] : {};
   const alertMessage = (latestMessage as any)?.alert;
 
+  // Helper to render markdown for assistant messages
+  function renderMarkdown(text: string) {
+    return { __html: marked.parseInline(text) };
+  }
+
+  // Get chat title and description
+  const chatTitle = session?.title || product?.name || toolName || 'Assistant';
+  const chatDescription = product?.description || toolDescription || '';
+
   return (
     <div className="flex flex-col h-full max-h-screen">
-      <div className="flex-none p-4 border-b">
-        <h2 className="text-lg font-semibold">{toolName}</h2>
-        {products && products.length > 0 && (
-          <div className="text-sm text-gray-600 mt-1">
-            <b>Chat products:</b> {products.map(p => p.name).join(', ')}
-          </div>
+      {/* Title and description at the top */}
+      <div className="flex-none p-6 border-b bg-white">
+        <h1 className="text-3xl font-bold text-gray-900 mb-1">{chatTitle}</h1>
+        {chatDescription && (
+          <div className="text-gray-500 text-sm mb-2">{chatDescription}</div>
         )}
       </div>
 
-      <div 
-        ref={chatContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
-      >
-        {isLoading ? (
-          <div className="flex justify-center items-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          </div>
-        ) : error ? (
-          <div className="text-red-500 text-center">{error}</div>
-        ) : allMessages.length === 0 ? (
-          <div className="text-center text-gray-500">
-            No messages yet. Start a conversation!
-          </div>
-        ) : (
-          sortedMessages.map((msg) => {
-            const message = (msg as unknown) as Message;
-            const isAssistant = message.role === 'assistant';
-            let productName = '';
-            if (isAssistant && Array.isArray(products) && products.length > 0) {
-              // Try to match product by product_id
-              const matchedProduct = message.product_id
-                ? products.find((p) => p.id === message.product_id)
-                : products[0];
-              if (matchedProduct) {
-                productName = matchedProduct.name;
-              }
-            }
-            return (
-              <div key={message.id} className={`flex ${isAssistant ? 'justify-start' : 'justify-end'} mb-4`}>
-                <div className={`max-w-[70%] rounded-lg p-4 ${isAssistant ? 'bg-gray-100' : 'bg-blue-100'}`}>
-                  {isAssistant && productName && (
-                    <div className="font-bold mb-1 text-indigo-700">{productName}</div>
-                  )}
-                  <p className="text-sm">{message.content}</p>
-                  {typeof message.createdAt === 'string' && message.createdAt && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(message.createdAt).toLocaleTimeString()}
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {alertMessage && (
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
-          <p className="font-bold">Alert</p>
-          <p>{alertMessage}</p>
-        </div>
-      )}
-
-      <form 
-        onSubmit={handleSubmit}
-        className="flex-none p-4 border-t"
-      >
-        <div className="flex space-x-4">
+      {/* Chat input and send button just below the chat controls */}
+      <div className="flex-none px-6 pt-6 pb-2 border-b bg-white">
+        <form onSubmit={handleSendMessage} className="flex gap-2">
           <input
             type="text"
             value={input}
-            onChange={handleInputChange}
+            onChange={e => setInput(e.target.value)}
             placeholder="Type your message..."
             className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={isResponding}
@@ -213,8 +163,59 @@ export default function Chat({ toolId, toolName }: ChatProps) {
           >
             {isResponding ? 'Sending...' : 'Send'}
           </button>
+        </form>
+      </div>
+
+      {/* Chat messages area */}
+      <div 
+        ref={chatContainerRef}
+        className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50"
+      >
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+        ) : error ? (
+          <div className="text-red-500 text-center">{error}</div>
+        ) : sortedMessages.length === 0 ? (
+          <div className="text-center text-gray-500">
+            No messages yet. Start a conversation!
+          </div>
+        ) : (
+          sortedMessages.map((msg) => {
+            const isAssistant = msg.role === 'assistant';
+            return (
+              <div key={msg.id} className={`flex ${isAssistant ? 'justify-start' : 'justify-end'} mb-2`}>
+                <div className={`max-w-[70%] rounded-lg px-5 py-4 shadow-sm ${isAssistant ? 'bg-white text-gray-900 border border-gray-200' : 'bg-blue-500 text-white'} relative`}>
+                  {/* Sender name */}
+                  <div className={`font-semibold mb-1 ${msg.role === 'assistant' ? 'text-primary' : 'text-black'}`}>
+                    {msg.role === 'assistant' ? (product?.name || session?.title || 'Assistant') : 'You'}
+                  </div>
+                  {/* Message content */}
+                  {isAssistant ? (
+                    <div className="prose prose-sm max-w-none whitespace-pre-line" dangerouslySetInnerHTML={renderMarkdown(msg.content)} />
+                  ) : (
+                    <div className="text-sm whitespace-pre-line">{msg.content}</div>
+                  )}
+                  {/* Timestamp */}
+                  {typeof msg.createdAt === 'string' && msg.createdAt && (
+                    <div className="text-xs text-gray-400 mt-2 text-right">
+                      {new Date(msg.createdAt).toLocaleTimeString()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {alertMessage && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4" role="alert">
+          <p className="font-bold">Alert</p>
+          <p>{alertMessage}</p>
         </div>
-      </form>
+      )}
     </div>
   )
 } 

@@ -59,6 +59,9 @@ export default function MyLibraryPage() {
   const [removingProductId, setRemovingProductId] = useState<string | null>(null);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [removingBundleId, setRemovingBundleId] = useState<string | null>(null);
+  const [showRemoveBundleConfirm, setShowRemoveBundleConfirm] = useState(false);
+  const [removeBundleError, setRemoveBundleError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPurchasedProducts = async () => {
@@ -237,6 +240,35 @@ export default function MyLibraryPage() {
     fetchLatestMessages();
   }, [chatSessions]);
 
+  // One-time cleanup of orphaned chat sessions for the current user
+  useEffect(() => {
+    const cleanupOrphanedSessions = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return;
+      const { data: sessions } = await supabase
+        .from('chat_sessions')
+        .select('id, product_id')
+        .eq('user_id', userId);
+      if (sessions && sessions.length > 0) {
+        const { data: allProducts } = await supabase
+          .from('products')
+          .select('id');
+        const validProductIds = new Set((allProducts || []).map((p: any) => p.id));
+        const orphanedSessionIds = sessions
+          .filter((s: any) => s.product_id && !validProductIds.has(s.product_id))
+          .map((s: any) => s.id);
+        if (orphanedSessionIds.length > 0) {
+          await supabase
+            .from('chat_sessions')
+            .delete()
+            .in('id', orphanedSessionIds);
+        }
+      }
+    };
+    cleanupOrphanedSessions();
+  }, []);
+
   const handleOpenChat = async (productId: string) => {
     const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id;
@@ -320,6 +352,27 @@ export default function MyLibraryPage() {
       await supabase.from('purchases').delete().eq('user_id', userId).eq('product_id', productId);
       // Refresh products
       setProducts(products.filter(p => p.id !== productId));
+      // Clean up orphaned chat sessions (sessions with missing product)
+      const { data: sessions } = await supabase
+        .from('chat_sessions')
+        .select('id, product_id')
+        .eq('user_id', userId);
+      if (sessions && sessions.length > 0) {
+        // Get all valid product IDs
+        const { data: allProducts } = await supabase
+          .from('products')
+          .select('id');
+        const validProductIds = new Set((allProducts || []).map((p: any) => p.id));
+        const orphanedSessionIds = sessions
+          .filter((s: any) => s.product_id && !validProductIds.has(s.product_id))
+          .map((s: any) => s.id);
+        if (orphanedSessionIds.length > 0) {
+          await supabase
+            .from('chat_sessions')
+            .delete()
+            .in('id', orphanedSessionIds);
+        }
+      }
     } catch (err: any) {
       setRemoveError('Failed to remove product. Please try again.');
     } finally {
@@ -526,16 +579,10 @@ export default function MyLibraryPage() {
                               setShowBundleModal(true);
                             }
                           }}>Edit</button>
-                          <button className="px-3 py-1 border border-red-500 text-red-500 bg-white hover:bg-red-50 rounded text-xs" onClick={async () => {
-                            if (!window.confirm('Are you sure you want to delete this bundle?')) return;
-                            setBundleLoading(true);
-                            await fetch(`/api/bundles/${bundle.id}`, { method: 'DELETE' });
-                            // Refresh bundles
-                            const res = await fetch('/api/bundles');
-                            const data = await res.json();
-                            setBundles(data);
-                            setBundleLoading(false);
-                          }}>Delete</button>
+                          <button className="px-3 py-1 border border-red-500 text-red-500 bg-white hover:bg-red-50 rounded text-xs" onClick={() => {
+                            setRemovingBundleId(bundle.id);
+                            setShowRemoveBundleConfirm(true);
+                          }}>Remove</button>
                         </>
                       ) : (
                         <>
@@ -544,19 +591,9 @@ export default function MyLibraryPage() {
                             setEditingBundle({ ...bundle, id: undefined, user_id: undefined });
                             setShowBundleModal(true);
                           }}>Clone</button>
-                          <button className="px-3 py-1 border border-red-500 text-red-500 bg-white hover:bg-red-50 rounded text-xs" onClick={async () => {
-                            // Remove admin bundle from user's library (persistent)
-                            setBundleLoading(true);
-                            await fetch(`/api/bundles/remove`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ bundle_id: bundle.id })
-                            });
-                            // Refresh bundles
-                            const res = await fetch('/api/bundles');
-                            const data = await res.json();
-                            setBundles(data);
-                            setBundleLoading(false);
+                          <button className="px-3 py-1 border border-red-500 text-red-500 bg-white hover:bg-red-50 rounded text-xs" onClick={() => {
+                            setRemovingBundleId(bundle.id);
+                            setShowRemoveBundleConfirm(true);
                           }}>Remove</button>
                         </>
                       )}
@@ -761,6 +798,61 @@ export default function MyLibraryPage() {
                 >
                   Read full documentation
                 </a>
+              </div>
+            </div>
+          )}
+
+          {showRemoveBundleConfirm && removingBundleId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative text-center">
+                <button
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl"
+                  onClick={() => { setShowRemoveBundleConfirm(false); setRemovingBundleId(null); setRemoveBundleError(null); }}
+                  aria-label="Close"
+                >
+                  &times;
+                </button>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Remove this bundle?</h2>
+                <p className="text-gray-600 mb-4">Are you sure you want to remove this bundle from your library? <br /> <span className='text-red-600 font-semibold'>All saved chats linked to this bundle will be permanently deleted as well.</span></p>
+                {removeBundleError && <div className="text-red-600 mb-2">{removeBundleError}</div>}
+                <div className="flex gap-4 justify-center mt-4">
+                  <button
+                    onClick={async () => {
+                      setRemoveBundleError(null);
+                      setShowRemoveBundleConfirm(false);
+                      setBundleLoading(true);
+                      try {
+                        // Remove the bundle (user or admin)
+                        const bundle = bundles.find(b => b.id === removingBundleId);
+                        if (bundle?.user_id) {
+                          await fetch(`/api/bundles/${removingBundleId}`, { method: 'DELETE' });
+                        } else {
+                          await fetch(`/api/bundles/remove`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ bundle_id: removingBundleId })
+                          });
+                        }
+                        // Remove from local state immediately
+                        setBundles(prev => prev.filter(b => b.id !== removingBundleId));
+                      } catch (err) {
+                        setRemoveBundleError('Failed to remove bundle. Please try again.');
+                      } finally {
+                        setBundleLoading(false);
+                        setRemovingBundleId(null);
+                      }
+                    }}
+                    className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition"
+                  >
+                    Yes, Remove
+                  </button>
+                  <button
+                    onClick={() => { setShowRemoveBundleConfirm(false); setRemovingBundleId(null); setRemoveBundleError(null); }}
+                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           )}

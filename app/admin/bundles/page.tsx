@@ -15,7 +15,7 @@ interface Bundle {
   is_admin: boolean
   products: Product[]
   productsCount: number
-  category?: string
+  category: string
 }
 
 export default function AdminBundlesPage() {
@@ -50,7 +50,12 @@ export default function AdminBundlesPage() {
         throw new Error('Failed to fetch bundles')
       }
       const data = await response.json()
-      setBundles(data)
+      // Map categories to category if needed
+      const mapped = (data as any[]).map((bundle: any) => ({
+        ...bundle,
+        category: bundle.category || bundle.categories || '-',
+      }))
+      setBundles(mapped)
     } catch (err) {
       console.error('Error fetching bundles:', err)
       setError('Failed to load bundles')
@@ -116,12 +121,12 @@ export default function AdminBundlesPage() {
         </div>
 
         {/* Category filter dropdown */}
-        <div className="mb-4 flex gap-2 items-center">
-          <label className="font-medium">Category:</label>
+        <div className="mb-6 flex gap-2 items-center">
+          <label className="font-medium text-gray-700">Filter by Category:</label>
           <select
             value={selectedCategory}
             onChange={e => setSelectedCategory(e.target.value)}
-            className="px-2 py-1 rounded border"
+            className="px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
           >
             <option value="">All Categories</option>
             {categories.map(cat => (
@@ -131,7 +136,7 @@ export default function AdminBundlesPage() {
         </div>
 
         {/* Table header */}
-        <div className="grid grid-cols-6 font-bold border-b pb-2 mb-4">
+        <div className="grid grid-cols-6 gap-4 font-bold border-b pb-2 mb-4 text-gray-700">
           <div>Name</div>
           <div>Description</div>
           <div>Category</div>
@@ -146,15 +151,25 @@ export default function AdminBundlesPage() {
           bundles
             .filter(bundle => !selectedCategory || bundle.category === selectedCategory)
             .map((bundle) => (
-              <div key={bundle.id} className="grid grid-cols-6 items-center border-b py-2">
-                <div>{bundle.name}</div>
-                <div>{bundle.description}</div>
-                <div>{bundle.category || '-'}</div>
-                <div>{typeof bundle.productsCount === 'number' ? `${bundle.productsCount} products` : (bundle.products?.length || 0) + ' products'}</div>
-                <div>{bundle.tier}</div>
+              <div key={bundle.id} className="grid grid-cols-6 gap-4 items-center border-b py-4">
+                <div className="font-medium">{bundle.name}</div>
+                <div className="text-gray-600">{bundle.description}</div>
+                <div className="text-gray-600">{bundle.category || '-'}</div>
+                <div className="text-gray-600">{typeof bundle.productsCount === 'number' ? `${bundle.productsCount} products` : (bundle.products?.length || 0) + ' products'}</div>
+                <div className="text-gray-600">{bundle.tier}</div>
                 <div className="flex gap-2">
-                  <button onClick={() => handleEditBundle(bundle.id)} className="text-blue-600 hover:underline">Edit</button>
-                  <button onClick={() => handleDeleteBundle(bundle.id)} className="text-red-600 hover:underline">Delete</button>
+                  <button 
+                    onClick={() => handleEditBundle(bundle.id)} 
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteBundle(bundle.id)} 
+                    className="text-red-600 hover:text-red-800 hover:underline"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))

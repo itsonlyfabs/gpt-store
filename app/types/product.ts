@@ -15,7 +15,7 @@ export interface Bundle {
   id: string
   name: string
   description: string
-  category?: string
+  category: string
   products: Product[]
   productsCount?: number
   created_at?: string
