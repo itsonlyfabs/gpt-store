@@ -278,74 +278,81 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
     console.log('handleSendMessage called', { input, activeProductId, toolId, sessionId })
-    if (!input.trim() || isLoading || waitingForResponse || !activeProductId || !sessionId) return
+    if (!input.trim() || isLoading || waitingForResponse) return
+    
+    // For bundle chat, we need an active product
+    if (isBundle && !activeProductId) {
+      setError('Please select a product to chat with')
+      return
+    }
+
     setWaitingForResponse(true)
     const userMsgContent = input
     setInput('')
-    if (isBundle) {
-      let prevAssistantCount = chatHistory.filter(m => m.role === 'assistant').length
+
+    try {
+      const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
+      
+      // Add optimistic message
       const optimisticMsg: Message = {
         id: `temp-${Date.now()}`,
         role: 'user',
         content: userMsgContent,
         created_at: new Date().toISOString(),
+        product_id: activeProductId || undefined
       }
       setChatHistory(prev => [...prev, optimisticMsg])
-      try {
-        const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-        await fetch(`/api/chat/${toolId}`, {
+
+      // Send message to backend
+      const response = await fetch(`/api/chat/${toolId}`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ content: userMsgContent })
+        body: JSON.stringify({ 
+          content: userMsgContent,
+          product_id: activeProductId,
+          is_bundle: isBundle
         })
-        let foundNewAssistant = false
-        let pollCount = 0
-        while (!foundNewAssistant && pollCount < 15) {
-          await new Promise(r => setTimeout(r, 1200))
-          const historyRes = await fetch(`/api/chat/${toolId}`, { headers: await getAuthHeaders() })
-          const historyData = await historyRes.json()
-          if (Array.isArray(historyData.messages)) {
-            const msgs = historyData.messages as Message[]
-            setChatHistory(msgs)
-            const assistantCount = msgs.filter((m: Message) => m.role === 'assistant').length
-            if (assistantCount > prevAssistantCount) foundNewAssistant = true
-          }
-          pollCount++
-        }
-      } catch (error: any) {
-        setError(error.message || 'Failed to send message')
-      } finally {
-        setWaitingForResponse(false)
+        })
+
+      if (!response.ok) {
+        throw new Error('Failed to send message')
       }
-    } else {
-      try {
-        const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-        await fetch(`/api/chat/${toolId}`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ content: userMsgContent })
-        })
+
+      // Poll for new messages
         let foundNewAssistant = false
         let pollCount = 0
         while (!foundNewAssistant && pollCount < 15) {
           await new Promise(r => setTimeout(r, 1200))
           const historyRes = await fetch(`/api/chat/${toolId}`, { headers: await getAuthHeaders() })
           const historyData = await historyRes.json()
+        
           if (Array.isArray(historyData.messages)) {
             const msgs = historyData.messages as Message[]
             setChatHistory(msgs)
+          
+          if (isBundle) {
+            const assistantCount = msgs.filter(m => m.role === 'assistant').length
+            const prevAssistantCount = chatHistory.filter(m => m.role === 'assistant').length
+            if (assistantCount > prevAssistantCount) foundNewAssistant = true
+    } else {
             if (msgs.length > 0) {
               const lastMsg = msgs[msgs.length - 1]
               if (lastMsg && lastMsg.role === 'assistant') foundNewAssistant = true
             }
           }
+        }
           pollCount++
+      }
+
+      if (!foundNewAssistant) {
+        throw new Error('Timeout waiting for response')
         }
       } catch (error: any) {
         setError(error.message || 'Failed to send message')
+      // Remove optimistic message on error
+      setChatHistory(prev => prev.filter(msg => msg.id !== `temp-${Date.now()}`))
       } finally {
         setWaitingForResponse(false)
-      }
     }
   }
 
@@ -453,7 +460,8 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
           <div className="text-gray-500 text-sm mb-2">{teamDescription || "No description set for this bundle."}</div>
         </div>
         {isBundle && (
-          <div className="flex gap-3 mb-6">
+          <>
+            <div className="flex gap-3 mb-4">
             <button
               className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
               onClick={async () => {
@@ -478,7 +486,6 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
                   const data = await res.json()
                   if (data.success) {
                     setError(null)
-                    // Optionally, you could redirect to a recap page or show a success message
                   } else {
                     setError(data.error || 'Failed to save chat recap')
                   }
@@ -528,9 +535,10 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
               {loading ? 'Resetting...' : 'Reset'}
             </button>
           </div>
-        )}
-        {isBundle && products.length > 0 && (
-          <div className="mb-4 flex items-center gap-2">
+            {/* Products list below the buttons */}
+            <div className="mb-4">
+              {products.length > 0 ? (
+                <div className="flex items-center gap-2">
             <span className="font-semibold text-gray-700 text-sm">Active Product:</span>
             {products.map((p) => (
               <button
@@ -564,6 +572,11 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
               </button>
             ))}
           </div>
+              ) : (
+                <div className="text-red-500 text-sm">No products found in this bundle.</div>
+              )}
+            </div>
+          </>
         )}
         {isBundle && (
           <div className="flex items-center justify-between mb-4">

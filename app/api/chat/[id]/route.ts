@@ -327,11 +327,23 @@ export async function GET(request: Request, context: any) {
         .single();
       bundle = bundleData;
       console.log('DEBUG: bundle from DB', bundle);
-      if (!bundleError && bundle && bundle.product_ids && bundle.product_ids.length > 0) {
+      // Fetch product_ids from bundle_products join table
+      const { data: bundleProductRows, error: bundleProductsError } = await supabaseAdmin
+        .from('bundle_products')
+        .select('product_id')
+        .eq('bundle_id', session.bundle_id);
+      const productIds = Array.isArray(bundleProductRows) ? bundleProductRows.map(row => row.product_id).filter(Boolean) : [];
+      console.log('DEBUG: filtered productIds', productIds);
+      if (productIds.length === 0) {
+        console.log('DEBUG: No productIds found after filtering.');
+      }
+      if (!bundleProductsError && productIds.length > 0) {
         const { data: bundleProducts, error: productsError } = await supabaseAdmin
           .from('products')
-          .select('id, name, assistant_id, description, expertise, personality, style, prompt')
-          .in('id', bundle.product_ids);
+          .select('id, name, description, expertise, personality, style, prompt')
+          .in('id', productIds);
+        console.log('DEBUG: productsError', productsError);
+        console.log('DEBUG: bundleProducts', bundleProducts);
         if (!productsError && bundleProducts) {
           products = Array.isArray(bundleProducts) ? bundleProducts : [];
         } else {
@@ -601,23 +613,21 @@ export async function POST(request: Request, context: any) {
       }
       let productIds: string[] = [];
       if (session.bundle_id) {
-        const { data: bundle, error: bundleError } = await supabaseAdmin
-          .from('bundles')
-          .select('product_ids')
-          .eq('id', session.bundle_id)
-          .single();
-        if (!bundleError && bundle?.product_ids) {
-          productIds = bundle.product_ids;
-        }
+        // Fetch product_ids from bundle_products join table
+        const { data: bundleProductRows, error: bundleProductsError } = await supabaseAdmin
+          .from('bundle_products')
+          .select('product_id')
+          .eq('bundle_id', session.bundle_id);
+        productIds = Array.isArray(bundleProductRows) ? bundleProductRows.map(row => row.product_id).filter(Boolean) : [];
+        console.log('DEBUG: filtered productIds (POST)', productIds);
       }
-      console.log('Bundle productIds:', productIds);
       // Fetch ALL products with their complete attributes for the bundle
       const { data: bundleProducts, error: productsError } = await supabaseAdmin
         .from('products')
-        .select('id, name, description, expertise, personality, style, prompt, assistant_id')
+        .select('id, name, description, expertise, personality, style, prompt')
         .in('id', productIds);
-
-      console.log('Bundle products fetched:', bundleProducts);
+      console.log('DEBUG: productsError (POST)', productsError);
+      console.log('DEBUG: bundleProducts (POST)', bundleProducts);
 
       if (productsError || !bundleProducts) {
         return NextResponse.json({ error: 'Products not found' }, { status: 404 });
