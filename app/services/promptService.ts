@@ -25,31 +25,31 @@ IMPORTANT: You MUST maintain these specific attributes in EVERY response:
 - Your personality: ${product.personality}
 - Your communication style: ${product.style}
 
-You MUST reference your expertise and personality in your responses.`;
+You should reference your expertise and personality only when it is relevant to the user's question or if the user asks about it. Do not introduce yourself or your expertise unless asked. Focus your response strictly on the user's question and the chat context.`;
 
     if (isBundle) {
       persona += `\n\nYou are part of a team chat. You MUST:
 1. ALWAYS maintain your unique expertise and personality in EVERY response
-2. ALWAYS reference your specific expertise when contributing
+2. ALWAYS reference your specific expertise when contributing, but only if it is relevant to the user's question or if the user asks
 3. ALWAYS maintain your communication style while collaborating
-4. ALWAYS be aware of the team goal and explain how your expertise contributes to it
+4. ALWAYS be aware of the team goal and explain how your expertise contributes to it if relevant
 5. ALWAYS consider how your expertise complements other team members
 6. NEVER give generic responses - always speak from your unique perspective
 7. NEVER forget your personality traits - they should be evident in your tone and approach
-8. ALWAYS acknowledge your role in the team and how your expertise fits into the overall goal
+8. ALWAYS acknowledge your role in the team and how your expertise fits into the overall goal if asked
 9. ALWAYS maintain your unique voice while collaborating with others
-10. ALWAYS explain how your specific expertise helps achieve the team goal
+10. ALWAYS explain how your specific expertise helps achieve the team goal if relevant
 11. ALWAYS read and consider the full chat history to maintain context
-12. ALWAYS acknowledge and build upon other team members' contributions
+12. ALWAYS acknowledge and build upon other team members' contributions if relevant
 13. ALWAYS maintain awareness of the team's progress towards the goal
 14. ALWAYS provide insights that complement rather than duplicate others' responses`;
     }
 
     if (product.prompt && product.prompt.trim().length > 0) {
       // Combine persona fields and custom prompt
-      return `${persona}\n\nAdditional instructions:\n${product.prompt}\n\nREMEMBER: You MUST maintain this persona and expertise in EVERY response.`;
+      return `${persona}\n\nAdditional instructions:\n${product.prompt}\n\nREMEMBER: Only mention your expertise, personality, or background if the user asks about it or if it is directly relevant to the user's question. Otherwise, focus strictly on the user's question and the chat context.`;
     }
-    return `${persona}\n\nREMEMBER: You MUST maintain this persona and expertise in EVERY response.`;
+    return `${persona}\n\nREMEMBER: Only mention your expertise, personality, or background if the user asks about it or if it is directly relevant to the user's question. Otherwise, focus strictly on the user's question and the chat context.`;
   }
 
   /**
@@ -58,47 +58,53 @@ You MUST reference your expertise and personality in your responses.`;
   static buildSingleProductPrompt(context: PromptContext): ChatMessage[] {
     const messages: ChatMessage[] = []
 
-    // Add system message for the product
-    const systemMessage = this.buildProductSystemMessage(context.product, context.isBundle)
-    messages.push({
-      role: 'system',
-      content: systemMessage
-    })
+    // Add strong system message for team/bundle context
+    const isTeam = !!context.isBundle;
+    const systemMessage = isTeam
+      ? `You are ${context.product.name}, one of several experts in a team chat.\n\nIMPORTANT:\n- Only answer as ${context.product.name}.\n- Do NOT claim to be another expert.\n- Only mention your expertise, personality, or background if the user asks about it or if it is directly relevant to the user's question.\n- Otherwise, focus your response strictly on the user's question and the current chat context.\n- You are part of a team. Reference the chat history below in your response.\n- If another team member has already answered, do not repeat their answer; instead, add your unique perspective.\n- If you are asked about the team, list the other team members by name.\n- If you are asked about previous responses, summarize or reference them.\n- Always be aware you are collaborating in a team chat.`
+      : `You are ${context.product.name}. Only answer as yourself. Maintain your unique expertise, personality, and style, but only mention them if the user asks or if it is directly relevant to the user's question. Do not introduce yourself unless asked.`;
+    messages.push({ role: 'system', content: systemMessage })
+
+    // Add product persona/prompt
+    const persona = this.buildProductSystemMessage(context.product, context.isBundle)
+    messages.push({ role: 'system', content: persona })
 
     // Add team goal if present
     if (context.teamGoal) {
       messages.push({
         role: 'system',
-        content: `TEAM GOAL: ${context.teamGoal}\n\nYou MUST:\n1. Keep ALL responses focused on this goal\n2. ALWAYS explain how your specific expertise contributes to achieving it\n3. NEVER give generic responses - always connect your expertise to the goal\n4. If asked about the goal, explicitly state it and explain your role in achieving it\n5. ALWAYS maintain your unique perspective while working towards the goal\n6. ALWAYS explain how your expertise complements the team's efforts\n7. ALWAYS track progress towards the goal in your responses\n8. ALWAYS suggest next steps that align with the goal\n9. ALWAYS identify potential obstacles and how your expertise can help overcome them`
+        content: `TEAM GOAL: ${context.teamGoal}`
       })
     }
 
     // Add bundle context if this is a bundle chat
-    if (context.isBundle && context.bundleProducts) {
+    if (isTeam && context.bundleProducts) {
       const otherProducts = context.bundleProducts.filter(p => p.id !== context.product.id);
       if (otherProducts.length > 0) {
         messages.push({
           role: 'system',
-          content: `You are working with these team members:\n${otherProducts.map(p => 
-            `- ${p.name}: ${p.expertise} (${p.personality})`
-          ).join('\n')}\n\nYou MUST:\n1. Consider how your expertise and personality complement theirs\n2. Reference your unique perspective when responding\n3. Maintain your personality while collaborating\n4. NEVER give generic responses - always speak from your specific expertise\n5. ALWAYS explain how your expertise fits into the team's overall goal\n6. ALWAYS maintain your unique voice while working with others\n7. ALWAYS acknowledge how your expertise contributes to the team's success\n8. ALWAYS build upon and complement other team members' contributions\n9. ALWAYS maintain awareness of the team's collective progress\n10. ALWAYS provide insights that add value beyond what others have said`
+          content: `You are working with these team members:\n${otherProducts.map(p => `- ${p.name}: ${p.expertise} (${p.personality})`).join('\n')}`
         });
       }
     }
 
-    // Add explicit system message about chat history
+    // Add the last 20 messages, tagging each with the speaker
     if (context.chatHistory && context.chatHistory.length > 0) {
-      messages.push({
-        role: 'system',
-        content: 'You MUST always reference the chat history below in your response.'
+      const taggedHistory = context.chatHistory.slice(-20).map((msg: any) => {
+        let speaker = 'User';
+        if (msg.role === 'assistant' && msg.product_id && context.bundleProducts) {
+          const prod = context.bundleProducts.find(p => p.id === msg.product_id);
+          if (prod) speaker = prod.name;
+        }
+        if (msg.role === 'user') speaker = 'User';
+        // If this is a team/bundle chat and msg.product_id is null, treat as "Team"
+        if (isTeam && msg.role === 'assistant' && !msg.product_id) speaker = 'Team';
+        return `[${speaker}]: ${msg.content}`;
       });
-      // For bundle chats, include the full chat history; for single product, last 10
-      if (context.isBundle) {
-        messages.push(...context.chatHistory)
-      } else {
-        const recentHistory = context.chatHistory.slice(-10)
-        messages.push(...recentHistory)
-      }
+      messages.push({
+        role: 'user',
+        content: taggedHistory.join('\n')
+      });
     }
 
     return messages

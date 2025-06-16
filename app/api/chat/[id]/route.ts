@@ -302,16 +302,24 @@ export async function GET(request: Request, context: any) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Fetch messages
-    const { data: messages, error: msgError } = await supabaseAdmin
-      .from('chat_messages')
-      .select('id, content, created_at, product_id, role')
-      .eq('session_id', id)
-      .order('created_at', { ascending: true });
-
-    if (msgError) {
-      console.error('Error fetching messages:', msgError);
-      return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
+    // Fetch chat messages
+    let messages = [];
+    if (session.is_bundle) {
+      // For bundle/team chat, return all messages for the session (including Ask Team)
+      const { data: allMsgs } = await supabaseAdmin
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', session.id)
+        .order('created_at', { ascending: true });
+      messages = allMsgs || [];
+    } else {
+      // For single product chat, filter by product_id if needed
+      const { data: prodMsgs } = await supabaseAdmin
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', session.id)
+        .order('created_at', { ascending: true });
+      messages = prodMsgs || [];
     }
 
     // If bundle chat, fetch bundle and products, and always use latest title, description

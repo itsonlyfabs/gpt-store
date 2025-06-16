@@ -40,7 +40,7 @@ interface TeamChatProps {
   toolDescription?: string
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
 
 export default function TeamChat({ toolId, toolName, toolDescription }: TeamChatProps) {
   const [loading, setLoading] = useState(false)
@@ -110,6 +110,7 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
       const headers = await getAuthHeaders()
       const res = await fetch(`/api/chat/${toolId}`, { headers })
       const data = await res.json()
+      console.log('fetchChatHistory messages:', data.messages)
       if (data.error) throw new Error(data.error)
       if (Array.isArray(data.messages)) {
         setChatHistory(data.messages)
@@ -319,40 +320,41 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
       }
 
       // Poll for new messages
-        let foundNewAssistant = false
-        let pollCount = 0
-        while (!foundNewAssistant && pollCount < 15) {
-          await new Promise(r => setTimeout(r, 1200))
-          const historyRes = await fetch(`/api/chat/${toolId}`, { headers: await getAuthHeaders() })
-          const historyData = await historyRes.json()
-        
-          if (Array.isArray(historyData.messages)) {
-            const msgs = historyData.messages as Message[]
-            setChatHistory(msgs)
-          
-          if (isBundle) {
-            const assistantCount = msgs.filter(m => m.role === 'assistant').length
-            const prevAssistantCount = chatHistory.filter(m => m.role === 'assistant').length
-            if (assistantCount > prevAssistantCount) foundNewAssistant = true
-    } else {
-            if (msgs.length > 0) {
-              const lastMsg = msgs[msgs.length - 1]
-              if (lastMsg && lastMsg.role === 'assistant') foundNewAssistant = true
-            }
+      let foundNewAssistant = false
+      let pollCount = 0
+      let lastAssistantId = null
+      let lastAssistantCreatedAt = null
+      if (chatHistory.length > 0) {
+        const lastAssistant = [...chatHistory].reverse().find(m => m.role === 'assistant')
+        lastAssistantId = lastAssistant?.id
+        lastAssistantCreatedAt = lastAssistant?.created_at
+      }
+      while (!foundNewAssistant && pollCount < 15) {
+        await new Promise(r => setTimeout(r, 1200))
+        const historyRes = await fetch(`/api/chat/${toolId}`, { headers: await getAuthHeaders() })
+        const historyData = await historyRes.json()
+      
+        if (Array.isArray(historyData.messages)) {
+          const msgs = historyData.messages as Message[]
+          setChatHistory(msgs)
+          // Find the latest assistant message
+          const newAssistant = [...msgs].reverse().find(m => m.role === 'assistant')
+          if (newAssistant && (newAssistant.id !== lastAssistantId || newAssistant.created_at !== lastAssistantCreatedAt)) {
+            foundNewAssistant = true
           }
         }
-          pollCount++
+        pollCount++
       }
 
       if (!foundNewAssistant) {
         throw new Error('Timeout waiting for response')
-        }
-      } catch (error: any) {
-        setError(error.message || 'Failed to send message')
+      }
+    } catch (error: any) {
+      setError(error.message || 'Failed to send message')
       // Remove optimistic message on error
       setChatHistory(prev => prev.filter(msg => msg.id !== `temp-${Date.now()}`))
-      } finally {
-        setWaitingForResponse(false)
+    } finally {
+      setWaitingForResponse(false)
     }
   }
 
@@ -362,34 +364,19 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
     setError(null);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`/api/chat/${toolId}/ask-team`, {
+      const res = await fetch(`${BACKEND_URL}/api/ask-team`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...headers,
         },
-        body: JSON.stringify({ content: input }),
+        body: JSON.stringify({ session_id: sessionId, content: input }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      
-      // Add the user message
-      append({
-        role: 'user',
-        content: input,
-      });
-      
-      // Add the team response
-      let summaryContent = 'No summary available.';
-      if (data && typeof data === 'object' && typeof data.summary === 'string') {
-        summaryContent = data.summary;
-      }
-      append({
-        role: 'assistant',
-        content: summaryContent
-      });
-      
       setInput('');
+      // After Ask Team, fetch the latest chat history from backend
+      await fetchChatHistory();
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to get team response');
     } finally {
@@ -648,7 +635,8 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
         </form>
         <div className="space-y-4 flex-1 overflow-y-auto">
           {chatHistory.map(msg => {
-            const product = msg.role === 'assistant' && products.find(p => p.id === msg.product_id);
+            const isAskTeam = msg.role === 'assistant' && !msg.product_id;
+            const product = msg.role === 'assistant' && msg.product_id ? products.find(p => p.id === msg.product_id) : null;
             const formatted = formatAssistantMessage(msg.content);
             return (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -657,9 +645,11 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
               }`}>
                 {msg.role === 'assistant' ? (
                     <div>
-                      {product && (
+                      {isAskTeam ? (
+                        <div className="font-bold mb-1 text-indigo-700">Team</div>
+                      ) : product ? (
                         <div className="font-bold mb-1 text-indigo-700">{product.name}</div>
-                      )}
+                      ) : null}
                       {typeof formatted === 'string' ? (
                         <div
                           className="prose prose-sm max-w-none whitespace-pre-line"

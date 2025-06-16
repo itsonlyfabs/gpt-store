@@ -18,6 +18,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    if (!user || !user.id) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 });
+    }
+
     // Fetch the session
     const { data: session, error: sessionError } = await supabaseAdmin
       .from('chat_sessions')
@@ -30,34 +34,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Store the user's message
-    const { data: message, error: messageError } = await supabaseAdmin
-      .from('chat_messages')
-      .insert({
-        session_id,
-        user_id: user.id,
-        content,
-        role: 'user',
-        created_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
-
-    if (messageError || !message) {
-      console.error('Error storing user message:', messageError);
-      return NextResponse.json({ error: 'Failed to store message' }, { status: 500 });
+    if (!session || !session.id) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
     // Fetch all products in the bundle
-    const { data: products, error: productsError } = await supabaseAdmin
+    let productIds: string[] = [];
+    if (session.is_bundle && session.bundle_id) {
+      const bundleProductRows = (await supabaseAdmin.from('bundle_products').select('product_id').eq('bundle_id', session.bundle_id)).data;
+      if (Array.isArray(bundleProductRows)) {
+        productIds = bundleProductRows.map((row: any) => row.product_id).filter(Boolean);
+      }
+    } else if (!session.is_bundle && session.product_id) {
+      productIds = [session.product_id];
+    }
+    const { data: productsRaw, error: productsError } = await supabaseAdmin
       .from('products')
-      .select('id, name, assistant_id')
-      .in('id', session.is_bundle && session.bundle_id ? 
-        (await supabaseAdmin.from('bundles').select('product_ids').eq('id', session.bundle_id).single()).data?.product_ids || [] : 
-        [session.product_id])
-      .filter('assistant_id', 'not.is', null);
-
-    if (productsError || !products) {
+      .select('id, name, prompt')
+      .in('id', productIds);
+    const products = Array.isArray(productsRaw) ? productsRaw : [];
+    if (productsError || products.length === 0) {
       return NextResponse.json({ error: 'Products not found' }, { status: 404 });
     }
 
@@ -67,124 +63,93 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'OpenAI API key not set' }, { status: 500 });
     }
 
-    // Get responses from all products
+    // Insert the Ask Team user message into chat_messages
+    const userMessagePayload = {
+      session_id: session.id,
+      conversation_id: session.id,
+      user_id: user.id,
+      content,
+      role: 'user',
+      product_id: null, // Always null for Ask Team
+      created_at: new Date().toISOString(),
+    };
+    console.log('Inserting Ask Team user message:', userMessagePayload);
+    const { data: userInsertResult, error: userInsertError } = await supabaseAdmin
+      .from('chat_messages')
+      .insert(userMessagePayload)
+      .select('*')
+      .single();
+    console.log('Inserted user message result:', userInsertResult, userInsertError);
+
+    // Fetch last 20 chat messages for context
+    const { data: chatMessages } = await supabaseAdmin
+      .from('chat_messages')
+      .select('role, content, product_id')
+      .eq('session_id', session.id)
+      .order('created_at', { ascending: true })
+      .limit(20);
+
+    // Get responses from all products using OpenAI Chat Completion API
     const teamResponses = [];
     for (const product of products) {
-      if (!product.assistant_id) continue;
+      const productPrompt = product.prompt || '';
+      const systemPrompt = `You are ${product.name}. ${productPrompt} Only answer as ${product.name}. Do not claim to be another expert. If the user refers to another expert, acknowledge them by name. Always maintain your own identity.`;
+      const briefInstruction = 'Please answer in a single short sentence (max 100 characters). ';
+      // Format chat history with speaker tags
+      const history = (chatMessages || []).map(msg => {
+        if (msg.role === 'user') return `[User]: ${msg.content}`;
+        const prodName = products.find(p => p.id === msg.product_id)?.name || 'Team';
+        return `[${prodName}]: ${msg.content}`;
+      }).join('\n');
+      const fullPrompt = `${briefInstruction}\nChat history:\n${history}\n\nUser question: ${content}`;
 
-      // Create a thread for this product
-      const threadRes = await fetch('https://api.openai.com/v1/threads', {
+      const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
         },
-        body: JSON.stringify({ messages: [{ role: 'user', content }] })
+        body: JSON.stringify({
+          model: 'gpt-4-0125-preview',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: fullPrompt }
+          ],
+          max_tokens: 150,
+          temperature: 0.7
+        })
       });
-      const threadData = await threadRes.json();
-      const threadId = threadData.id;
-
-      // Run the assistant
-      const runRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
-        },
-        body: JSON.stringify({ assistant_id: product.assistant_id })
-      });
-      const runData = await runRes.json();
-      const runId = runData.id;
-
-      // Poll for completion
-      let status = runData.status;
-      let attempts = 0;
-      while (status !== 'completed' && status !== 'failed' && attempts < 20) {
-        await new Promise(r => setTimeout(r, 1000));
-        const pollRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
-          headers: {
-            'Authorization': `Bearer ${openaiApiKey}`,
-            'OpenAI-Beta': 'assistants=v2',
-          }
-        });
-        const pollData = await pollRes.json();
-        status = pollData.status;
-        attempts++;
-      }
-
-      // Get the assistant's reply
-      const messagesRes = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
-        }
-      });
-      const messagesData = await messagesRes.json();
-      const msgArray = Array.isArray(messagesData.data) ? messagesData.data : [];
-      const lastMsg = msgArray.reverse().find((msg: any) => msg.role === 'assistant');
-      const aiReply = lastMsg?.content?.[0]?.text?.value || 'No response from assistant.';
-
-      // Store the team response
-      await supabaseAdmin
-        .from('team_responses')
-        .insert({
-          session_id: session_id,
-          message_id: message.id,
-          product_id: product.id,
-          content: aiReply,
-          created_at: new Date().toISOString(),
-        });
-
-      teamResponses.push({
-        product_id: product.id,
-        product_name: product.name,
-        content: aiReply,
-      });
+      const openaiData = await openaiRes.json();
+      const answer = openaiData.choices?.[0]?.message?.content || '';
+      teamResponses.push({ product: product.name, answer });
+    }
+    // Build a summary response
+    let summary = '';
+    if (teamResponses.length === 0) {
+      summary = `There were no responses provided by any of the teams to the user's question regarding the "${content}".`;
+    } else {
+      summary = teamResponses.map(r => `${r.product}: ${r.answer}`).join('\n');
     }
 
-    // Generate a summary of all responses
-    const summaryPrompt = `Please provide a concise summary of the following team responses to the user's question: "${content}"
-    
-    Team Responses:
-    ${teamResponses.map(r => `${r.product_name}: ${r.content}`).join('\n\n')}
-    
-    Summary:`;
-
-    const summaryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4-turbo-preview',
-        messages: [{ role: 'user', content: summaryPrompt }],
-        max_tokens: 500,
-        temperature: 0.3,
-      }),
-    });
-
-    const summaryData = await summaryResponse.json();
-    const summary = summaryData.choices[0].message.content;
-
-    // Store the summary as an assistant message
-    await supabaseAdmin
+    // Store the Ask Team response in chat_messages as an assistant message
+    const assistantMessagePayload = {
+      session_id: session.id,
+      conversation_id: session.id,
+      user_id: user.id,
+      content: summary,
+      role: 'assistant',
+      product_id: null, // Always null for Ask Team
+      created_at: new Date().toISOString(),
+    };
+    console.log('Inserting Ask Team assistant message:', assistantMessagePayload);
+    const { data: assistantInsertResult, error: assistantInsertError } = await supabaseAdmin
       .from('chat_messages')
-      .insert({
-        session_id: session_id,
-        user_id: user.id,
-        content: `Team Summary:\n\n${summary}\n\nIndividual Responses:\n\n${teamResponses.map(r => `${r.product_name}:\n${r.content}`).join('\n\n')}`,
-        role: 'assistant',
-        created_at: new Date().toISOString(),
-      });
+      .insert(assistantMessagePayload)
+      .select('*')
+      .single();
+    console.log('Inserted assistant message result:', assistantInsertResult, assistantInsertError);
 
-    return NextResponse.json({ 
-      responses: teamResponses,
-      summary,
-      message_id: message.id
-    });
+    return NextResponse.json({ summary });
   } catch (error: any) {
     console.error('Ask team API error:', error);
     return NextResponse.json(
