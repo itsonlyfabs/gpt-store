@@ -22,6 +22,7 @@ export default function BundleDetailsPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showForceAuthModal, setShowForceAuthModal] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [bundleReviews, setBundleReviews] = useState([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -58,6 +59,18 @@ export default function BundleDetailsPage() {
       }
     };
     if (id) fetchBundle();
+    // Fetch reviews for this bundle
+    const fetchReviews = async () => {
+      try {
+        const res = await fetch(`/api/reviews?bundleId=${id}`);
+        if (!res.ok) throw new Error('Failed to fetch reviews');
+        const data = await res.json();
+        setBundleReviews(data.reviews || []);
+      } catch {
+        setBundleReviews([]);
+      }
+    };
+    if (id) fetchReviews();
   }, [id, supabase]);
 
   const handleAddToLibrary = async () => {
@@ -167,36 +180,32 @@ export default function BundleDetailsPage() {
                   <h1 className="mt-6 text-3xl font-bold text-gray-900">{bundle.name}</h1>
                   <p className="mt-2 text-gray-600">{bundle.description}</p>
                 </div>
-                {/* Products in bundle */}
+                {/* Products in bundle - visually appealing card layout */}
                 {Array.isArray(bundle.products) && bundle.products.length > 0 && (
-                  <div className="mt-4 grid grid-cols-2 gap-2 justify-center w-full max-w-md mx-auto">
-                    {bundle.products.map((product: any) => (
-                      <span
-                        key={product.id}
-                        className="px-3 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-medium shadow-sm cursor-default transition-colors duration-150 text-center truncate"
-                      >
-                        {product.name}
-                      </span>
-                    ))}
+                  <div className="mt-8">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">What's Inside This Bundle</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {bundle.products.map((product: any) => (
+                        <div
+                          key={product.id}
+                          className="bg-white border border-primary/10 rounded-xl shadow-md p-6 flex flex-col gap-2 hover:shadow-lg transition-shadow duration-200"
+                        >
+                          <div className="mb-2">
+                            <span className="text-lg font-bold text-primary block truncate">{product.name}</span>
+                          </div>
+                          <p className="text-gray-600 text-sm line-clamp-3">{product.description}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
-                {/* Features */}
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Features</h2>
-                  <ul className="space-y-4">
-                    {(bundle.features || []).map((feature: string, index: number) => (
-                      <li key={index} className="flex items-start">
-                        <Check className="h-6 w-6 text-green-500 flex-shrink-0" />
-                        <span className="ml-3 text-gray-600">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
                 {/* Reviews */}
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">User Reviews</h2>
-                  <Reviews bundleId={bundle.id} className="mt-8" />
-                </div>
+                {Array.isArray(bundleReviews) && bundleReviews.length > 0 && (
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">User Reviews</h2>
+                    <Reviews bundleId={bundle.id} className="mt-8" />
+                  </div>
+                )}
               </div>
               {/* Right column - Add to Library action */}
               <div className="lg:col-span-1">

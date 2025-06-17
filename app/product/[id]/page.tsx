@@ -33,7 +33,7 @@ interface Product {
 }
 
 export default function ProductPage() {
-  const params = useParams() as Record<string, string>
+  const params = (useParams() || {}) as Record<string, string>
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -41,6 +41,7 @@ export default function ProductPage() {
   const [alreadyInLibrary, setAlreadyInLibrary] = useState(false)
   const [addError, setAddError] = useState('')
   const [addLoading, setAddLoading] = useState(false)
+  const [productReviews, setProductReviews] = useState([])
   const supabase = createClientComponentClient()
   const router = useRouter()
 
@@ -63,6 +64,18 @@ export default function ProductPage() {
 
     if (params.id) {
       fetchProduct()
+      // Fetch reviews for this product
+      const fetchReviews = async () => {
+        try {
+          const res = await fetch(`/api/reviews?productId=${params.id}`)
+          if (!res.ok) throw new Error('Failed to fetch reviews')
+          const data = await res.json()
+          setProductReviews(data.reviews || [])
+        } catch {
+          setProductReviews([])
+        }
+      }
+      fetchReviews()
     }
   }, [params.id])
 
@@ -171,21 +184,13 @@ export default function ProductPage() {
                     </ul>
                   </div>
 
-                  {/* Sample Interactions */}
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">User Reviews</h2>
-                    <div className="space-y-4">
-                      {(product.sampleInteractions || []).map((interaction, index) => (
-                        <div key={index} className="bg-white p-4 rounded-lg shadow-sm">
-                          <p className="font-medium text-gray-900 mb-2">Q: {interaction.question}</p>
-                          <p className="text-gray-600">A: {interaction.answer}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Reviews */}
-                  <Reviews productId={product.id} className="mt-8" />
+                  {Array.isArray(productReviews) && productReviews.length > 0 && (
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900 mb-4">User Reviews</h2>
+                      <Reviews productId={product.id} className="mt-8" />
+                    </div>
+                  )}
                 </div>
 
                 {/* Right column - Add to Library action */}

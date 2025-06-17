@@ -23,9 +23,18 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    // Map camelCase to snake_case for DB
+    const insertObj: any = {
+      reviewer_name: body.reviewer_name,
+      comment: body.comment,
+      rating: body.rating,
+    };
+    if (body.productId) insertObj.product_id = body.productId;
+    if (body.bundleId) insertObj.bundle_id = body.bundleId;
+
     const { data, error } = await supabaseAdmin
       .from('reviews')
-      .insert([body])
+      .insert([insertObj])
       .select()
       .single();
     if (error) throw error;
