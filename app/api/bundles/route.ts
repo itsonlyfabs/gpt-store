@@ -110,7 +110,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const data = await req.json();
-  const { name, description, image, tier, productIds, isAdmin } = data;
+  const { name, description, image, tier, productIds, isAdmin, is_signature_collection } = data;
   // Insert bundle
   const { data: bundle, error } = await supabaseAdmin
     .from('bundles')
@@ -120,7 +120,8 @@ export async function POST(req: Request) {
       description,
       image,
       tier,
-      is_admin: !!isAdmin
+      is_admin: !!isAdmin,
+      is_signature_collection: !!is_signature_collection
     })
     .select('*')
     .single();

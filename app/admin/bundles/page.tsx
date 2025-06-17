@@ -16,6 +16,7 @@ interface Bundle {
   products: Product[]
   productsCount: number
   category: string
+  is_signature_collection: boolean
 }
 
 export default function AdminBundlesPage() {
@@ -34,7 +35,7 @@ export default function AdminBundlesPage() {
     'Wellness & Self-Care',
     'Learning & Growth',
     'Communication & Relationships',
-    'Signature Collections',
+    'Signature Collection',
   ];
   const [selectedCategory, setSelectedCategory] = useState('');
 
@@ -149,12 +150,18 @@ export default function AdminBundlesPage() {
           <div>Loading...</div>
         ) : (
           bundles
-            .filter(bundle => !selectedCategory || bundle.category === selectedCategory)
+            .filter(bundle => {
+              if (!selectedCategory) return true;
+              if (selectedCategory === 'Signature Collection') {
+                return bundle.is_signature_collection;
+              }
+              return bundle.category === selectedCategory;
+            })
             .map((bundle) => (
               <div key={bundle.id} className="grid grid-cols-6 gap-4 items-center border-b py-4">
                 <div className="font-medium">{bundle.name}</div>
                 <div className="text-gray-600">{bundle.description}</div>
-                <div className="text-gray-600">{bundle.category || '-'}</div>
+                <div className="text-gray-600">{bundle.is_signature_collection ? 'Signature Collection' : (bundle.category || '-')}</div>
                 <div className="text-gray-600">{typeof bundle.productsCount === 'number' ? `${bundle.productsCount} products` : (bundle.products?.length || 0) + ' products'}</div>
                 <div className="text-gray-600">{bundle.tier}</div>
                 <div className="flex gap-2">

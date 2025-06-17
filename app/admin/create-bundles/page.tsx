@@ -17,6 +17,7 @@ export default function CreateBundlePage() {
   const [error, setError] = useState("");
   const [bundles, setBundles] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
+  const [isSignatureCollection, setIsSignatureCollection] = useState(false);
   const router = useRouter();
   const supabase = createClientComponentClient();
 
@@ -43,6 +44,7 @@ export default function CreateBundlePage() {
     setEditing(bundle);
     setForm({ name: bundle.name, description: bundle.description, image: bundle.image, tier: bundle.tier || 'FREE' });
     setSelected(bundle.products.map((p: any) => p.id));
+    setIsSignatureCollection(!!bundle.is_signature_collection);
     setSuccess("");
     setError("");
   };
@@ -81,7 +83,7 @@ export default function CreateBundlePage() {
           "Content-Type": "application/json",
           ...(accessToken ? { "Authorization": `Bearer ${accessToken}` } : {})
         },
-        body: JSON.stringify({ ...form, productIds: selected }),
+        body: JSON.stringify({ ...form, productIds: selected, is_signature_collection: isSignatureCollection }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -121,6 +123,16 @@ export default function CreateBundlePage() {
           <option value="FREE">FREE</option>
           <option value="PRO">PRO</option>
         </select>
+        <div className="flex items-center mt-2">
+          <input
+            type="checkbox"
+            id="isSignatureCollection"
+            checked={isSignatureCollection}
+            onChange={e => setIsSignatureCollection(e.target.checked)}
+            className="mr-2"
+          />
+          <label htmlFor="isSignatureCollection" className="font-medium text-sm">Signature Collection</label>
+        </div>
         <div>
           <div className="font-semibold mb-2">Select Products for this Bundle:</div>
           <div className="max-h-48 overflow-y-auto border rounded p-2 bg-gray-50">

@@ -27,6 +27,7 @@ export default function Home() {
   const [showBundleAuthModal, setShowBundleAuthModal] = useState(false);
   const [bundleToView, setBundleToView] = useState<any | null>(null);
   const [tierFilter, setTierFilter] = useState<string>('');
+  const [signatureOnly, setSignatureOnly] = useState(false);
   const router = useRouter();
   const supabase = createClientComponentClient();
 
@@ -258,12 +259,14 @@ export default function Home() {
               const filteredProducts = searchLower
                 ? products.filter(p => p.name && p.name.toLowerCase().includes(searchLower))
                 : products;
-              const filteredBundles = searchLower
+              const filteredBundlesRaw = searchLower
                 ? bundles.filter(b => b.name && b.name.toLowerCase().includes(searchLower))
                 : bundles;
               const tierFilteredProducts = tierFilter ? filteredProducts.filter(p => (p.tier || 'FREE') === tierFilter) : filteredProducts;
-              const tierFilteredBundles = tierFilter ? filteredBundles.filter(b => (b.tier || 'FREE') === tierFilter) : filteredBundles;
-              if (tierFilteredProducts.length === 0 && tierFilteredBundles.length === 0) {
+              const tierFilteredBundles = tierFilter ? filteredBundlesRaw.filter(b => (b.tier || 'FREE') === tierFilter) : filteredBundlesRaw;
+              // Apply signatureOnly filter here
+              const filteredBundles = signatureOnly ? tierFilteredBundles.filter(b => b.is_signature_collection) : tierFilteredBundles;
+              if (tierFilteredProducts.length === 0 && filteredBundles.length === 0) {
                 return <div className="text-center text-gray-400 py-10">No results found.</div>;
               }
               return (
@@ -313,15 +316,28 @@ export default function Home() {
                       </div>
                     </div>
                   )}
-                  {tierFilteredBundles.length > 0 && (
+                  {filteredBundles.length > 0 && (
                     <div>
-                      <h2 className="text-xl font-bold mb-4">Bundles</h2>
+                      <div className="flex items-center mb-6">
+                        <h2 className="text-xl font-bold mr-4">Bundles</h2>
+                        <span className="mr-2 text-sm font-medium text-gray-700">Signature Collection</span>
+                        <button
+                          type="button"
+                          onClick={() => setSignatureOnly(v => !v)}
+                          className={`relative inline-flex h-7 w-14 border-2 border-yellow-400 rounded-full transition-colors duration-200 focus:outline-none ${signatureOnly ? 'bg-yellow-300' : 'bg-gray-200'}`}
+                          style={{ boxShadow: signatureOnly ? '0 0 0 2px #FFD700' : undefined }}
+                        >
+                          <span
+                            className={`inline-block h-6 w-6 rounded-full bg-white shadow transform transition-transform duration-200 ${signatureOnly ? 'translate-x-7' : 'translate-x-0'}`}
+                          />
+                        </button>
+                      </div>
                       <div className="relative">
                         <button
                           className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
                           onClick={() => scrollCarousel(bundleCarouselRef, 'left')}
                           aria-label="Scroll left"
-                          style={{ display: tierFilteredBundles.length > 3 ? 'block' : 'none' }}
+                          style={{ display: filteredBundles.length > 3 ? 'block' : 'none' }}
                         >
                           &#8592;
                         </button>
@@ -330,7 +346,7 @@ export default function Home() {
                           className="flex gap-8 overflow-x-auto scrollbar-hide scroll-smooth px-8"
                           style={{ scrollSnapType: 'x mandatory' }}
                         >
-                          {tierFilteredBundles.map(bundle => (
+                          {filteredBundles.map(bundle => (
                             <div
                               key={bundle.id}
                               style={{ minWidth: '320px', maxWidth: '320px', scrollSnapAlign: 'start' }}
@@ -386,7 +402,7 @@ export default function Home() {
                           className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
                           onClick={() => scrollCarousel(bundleCarouselRef, 'right')}
                           aria-label="Scroll right"
-                          style={{ display: tierFilteredBundles.length > 3 ? 'block' : 'none' }}
+                          style={{ display: filteredBundles.length > 3 ? 'block' : 'none' }}
                         >
                           &#8594;
                         </button>

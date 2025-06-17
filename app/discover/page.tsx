@@ -133,6 +133,11 @@ export default function DiscoverPage() {
   const tierFilteredProducts = tierFilter ? products.filter(p => (p.tier || 'FREE') === tierFilter) : products;
   const tierFilteredBundles = tierFilter ? bundles.filter(b => (b.tier || 'FREE') === tierFilter) : bundles;
 
+  const filteredBundles = tierFilteredBundles.filter(b => {
+    if (category === 'Signature Collections') return b.is_signature_collection === true;
+    return !category || b.category === category;
+  });
+
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -274,7 +279,7 @@ export default function DiscoverPage() {
                           tier={product.tier === 'PRO' ? 'PRO' : 'FREE'}
                         />
                       ))}
-                      {(itemType === 'all' || itemType === 'bundles') && tierFilteredBundles.map((bundle) => (
+                      {(itemType === 'all' || itemType === 'bundles') && filteredBundles.map((bundle) => (
                         <div
                           key={bundle.id}
                           className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer relative"

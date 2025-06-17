@@ -26,6 +26,7 @@ export default function BundleCreationPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [category, setCategory] = useState('')
+  const [isSignatureCollection, setIsSignatureCollection] = useState(false)
 
   const categories = [
     'Personal Development',
@@ -74,7 +75,8 @@ export default function BundleCreationPage() {
           image,
           tier,
           category,
-          productIds: selectedProducts
+          productIds: selectedProducts,
+          is_signature_collection: isSignatureCollection
         }),
       })
 
@@ -184,6 +186,18 @@ export default function BundleCreationPage() {
                 ))}
               </select>
               <p className="mt-1 text-sm text-gray-500">Select the category this bundle belongs to. This is required and must match the Supabase 'category' column.</p>
+            </div>
+
+            <div>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={isSignatureCollection}
+                  onChange={e => setIsSignatureCollection(e.target.checked)}
+                  className="mr-2"
+                />
+                Signature Collection
+              </label>
             </div>
 
             <div>
