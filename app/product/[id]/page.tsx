@@ -88,13 +88,17 @@ export default function ProductPage() {
       const session = data?.session
       if (!session) throw new Error('Not authenticated')
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+      const isLocal = backendUrl.includes('localhost') || backendUrl.includes('3000');
+      const body = isLocal
+        ? JSON.stringify({ product_id: product?.id })
+        : JSON.stringify({ productId: product?.id });
       const res = await fetch(`${backendUrl}/user/library`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({ product_id: product?.id })
+        body
       })
       const result = await res.json();
       if (!res.ok) {
