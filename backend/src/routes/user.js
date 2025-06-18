@@ -114,8 +114,6 @@ router.post('/library', authMiddleware, async (req, res) => {
       user_id: userId,
       product_id: productId,
       stripe_session_id: 'manual',
-      amount_paid: 0,
-      currency: 'USD',
       status: 'completed',
       created_at: new Date().toISOString(),
     };
