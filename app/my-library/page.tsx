@@ -408,7 +408,7 @@ export default function MyLibraryPage() {
             </div>
           </div>
 
-          {/* Compact Product Grid */}
+          {/* Products Section */}
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -431,47 +431,95 @@ export default function MyLibraryPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 mb-12">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200 text-xs relative"
-                >
-                  <div className="relative">
-                    <Image
-                      src={product.thumbnail}
-                      alt={product.name}
-                      width={160}
-                      height={90}
-                      className="w-full h-24 object-cover"
-                    />
-                    <button
-                      className="absolute top-1 right-1 bg-white/80 rounded-full p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors z-10"
-                      title="Remove from library"
-                      onClick={() => { setRemovingProductId(product.id); setShowRemoveConfirm(true); }}
-                      style={{ lineHeight: 0 }}
-                    >
-                      <XCircle size={20} weight="bold" />
-                    </button>
-                  </div>
-                  <div className="p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-gray-900 line-clamp-1">{product.name}</h3>
-                      <span className="px-2 py-1 text-[10px] font-medium text-primary bg-primary/10 rounded-full">
-                        {product.category}
-                      </span>
+            <>
+              {/* Desktop Grid View */}
+              <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-12">
+                {products.map((product) => (
+                  <div
+                    key={product.id}
+                    className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200 text-xs relative"
+                  >
+                    <div className="relative">
+                      <Image
+                        src={product.thumbnail}
+                        alt={product.name}
+                        width={160}
+                        height={90}
+                        className="w-full h-24 object-cover"
+                      />
+                      <button
+                        className="absolute top-1 right-1 bg-white/80 rounded-full p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors z-10"
+                        title="Remove from library"
+                        onClick={() => { setRemovingProductId(product.id); setShowRemoveConfirm(true); }}
+                        style={{ lineHeight: 0 }}
+                      >
+                        <XCircle size={20} weight="bold" />
+                      </button>
                     </div>
-                    <p className="text-gray-600 text-xs mb-2 line-clamp-2">{product.description}</p>
-                    <button
-                      onClick={() => handleOpenChat(product.id)}
-                      className="mt-2 w-full flex justify-center items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90"
-                    >
-                      Open Chat
-                    </button>
+                    <div className="p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium text-gray-900 line-clamp-1">{product.name}</h3>
+                        <span className="px-2 py-1 text-[10px] font-medium text-primary bg-primary/10 rounded-full">
+                          {product.category}
+                        </span>
+                      </div>
+                      <p className="text-gray-600 text-xs mb-2 line-clamp-2">{product.description}</p>
+                      <button
+                        onClick={() => handleOpenChat(product.id)}
+                        className="mt-2 w-full flex justify-center items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90"
+                      >
+                        Open Chat
+                      </button>
+                    </div>
                   </div>
+                ))}
+              </div>
+
+              {/* Mobile Horizontal Scroll View */}
+              <div className="md:hidden mb-12">
+                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                  {products.map((product) => (
+                    <div
+                      key={product.id}
+                      className="bg-white rounded-lg shadow-sm p-4 min-w-[280px] max-w-xs flex flex-col justify-between border border-gray-100 relative"
+                    >
+                      <div className="relative mb-3">
+                        <Image
+                          src={product.thumbnail}
+                          alt={product.name}
+                          width={240}
+                          height={135}
+                          className="w-full h-32 object-cover rounded-lg"
+                        />
+                        <button
+                          className="absolute top-2 right-2 bg-white/90 rounded-full p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors z-10"
+                          title="Remove from library"
+                          onClick={() => { setRemovingProductId(product.id); setShowRemoveConfirm(true); }}
+                          style={{ lineHeight: 0 }}
+                        >
+                          <XCircle size={18} weight="bold" />
+                        </button>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-sm font-medium text-gray-900 line-clamp-1 flex-1">{product.name}</h3>
+                          <span className="px-2 py-1 text-[10px] font-medium text-primary bg-primary/10 rounded-full ml-2 flex-shrink-0">
+                            {product.category}
+                          </span>
+                        </div>
+                        <p className="text-gray-600 text-xs mb-3 line-clamp-3">{product.description}</p>
+                      </div>
+                      <button
+                        onClick={() => handleOpenChat(product.id)}
+                        className="w-full flex justify-center items-center px-3 py-2 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90"
+                      >
+                        Open Chat
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            </>
           )}
           {showRemoveConfirm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
