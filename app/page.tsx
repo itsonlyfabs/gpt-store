@@ -276,12 +276,14 @@ export default function Home() {
                       <h2 className="text-xl font-bold mb-4">Products</h2>
                       <div className="relative">
                         <button
-                          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
+                          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/95 backdrop-blur-sm shadow-lg rounded-full p-3 hover:bg-white hover:shadow-xl transition-all duration-200 border border-gray-200/50"
                           onClick={() => scrollCarousel(productCarouselRef, 'left')}
                           aria-label="Scroll left"
                           style={{ display: tierFilteredProducts.length > 3 ? 'block' : 'none' }}
                         >
-                          &#8592;
+                          <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                          </svg>
                         </button>
                         <div
                           ref={productCarouselRef}
@@ -306,12 +308,14 @@ export default function Home() {
                           ))}
                         </div>
                         <button
-                          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
+                          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/95 backdrop-blur-sm shadow-lg rounded-full p-3 hover:bg-white hover:shadow-xl transition-all duration-200 border border-gray-200/50"
                           onClick={() => scrollCarousel(productCarouselRef, 'right')}
                           aria-label="Scroll right"
                           style={{ display: tierFilteredProducts.length > 3 ? 'block' : 'none' }}
                         >
-                          &#8594;
+                          <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -334,12 +338,14 @@ export default function Home() {
                       </div>
                       <div className="relative">
                         <button
-                          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
+                          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/95 backdrop-blur-sm shadow-lg rounded-full p-3 hover:bg-white hover:shadow-xl transition-all duration-200 border border-gray-200/50"
                           onClick={() => scrollCarousel(bundleCarouselRef, 'left')}
                           aria-label="Scroll left"
                           style={{ display: filteredBundles.length > 3 ? 'block' : 'none' }}
                         >
-                          &#8592;
+                          <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                          </svg>
                         </button>
                         <div
                           ref={bundleCarouselRef}
@@ -399,12 +405,14 @@ export default function Home() {
                           ))}
                         </div>
                         <button
-                          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow rounded-full p-2 hover:bg-gray-100"
+                          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/95 backdrop-blur-sm shadow-lg rounded-full p-3 hover:bg-white hover:shadow-xl transition-all duration-200 border border-gray-200/50"
                           onClick={() => scrollCarousel(bundleCarouselRef, 'right')}
                           aria-label="Scroll right"
                           style={{ display: filteredBundles.length > 3 ? 'block' : 'none' }}
                         >
-                          &#8594;
+                          <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                          </svg>
                         </button>
                       </div>
                     </div>
