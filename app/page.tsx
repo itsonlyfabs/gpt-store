@@ -194,11 +194,12 @@ export default function Home() {
               </span>
             </div>
             <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl fade-in-up" style={{ animationDelay: '0.1s' }}>
-              <span className="block">Your Personal AI</span>
-              <span className="block text-primary gradient-underline" style={{ position: 'relative', zIndex: 1 }}>Enhancement Suite</span>
+              <span className="block">Your life coach.</span>
+              <span className="block text-primary italic">In your pocket.</span>
+              <span className="block">Always on.</span>
             </h1>
             <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl fade-in-up" style={{ animationDelay: '0.3s' }}>
-              Discover a curated collection of AI tools designed to enhance your focus, productivity, and personal growth.
+              Get instant access to mindset hacks, clarity exercises, and goal crushers — powered by AI and designed by a real coach.
             </p>
           </div>
         </div>
