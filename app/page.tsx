@@ -28,6 +28,7 @@ export default function Home() {
   const [bundleToView, setBundleToView] = useState<any | null>(null);
   const [tierFilter, setTierFilter] = useState<string>('');
   const [signatureOnly, setSignatureOnly] = useState(false);
+  const [showBundleInfo, setShowBundleInfo] = useState(false);
   const router = useRouter();
   const supabase = createClientComponentClient();
 
@@ -324,7 +325,22 @@ export default function Home() {
                   {filteredBundles.length > 0 && (
                     <div>
                       <div className="flex items-center mb-6">
-                        <h2 className="text-xl font-bold mr-4">Bundles</h2>
+                        <h2 className="text-xl font-bold mr-4 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-100 to-amber-100 border border-yellow-200 shadow-lg" style={{ 
+                          boxShadow: '0 0 20px rgba(251, 191, 36, 0.3), 0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%)'
+                        }}>
+                          Bundles
+                        </h2>
+                        <button
+                          className="ml-2 rounded-full border border-gray-300 bg-white w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                          aria-label="What is a bundle?"
+                          onClick={() => setShowBundleInfo(true)}
+                          type="button"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
                         <span className="mr-2 text-sm font-medium text-gray-700">Signature Collection</span>
                         <button
                           type="button"
@@ -361,6 +377,10 @@ export default function Home() {
                             >
                               <div
                                 className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 ease-in-out p-8 flex flex-col items-center justify-center text-center cursor-pointer relative"
+                                style={{
+                                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 15px rgba(251, 191, 36, 0.15)',
+                                  background: 'linear-gradient(135deg, #ffffff 0%, rgba(251, 191, 36, 0.02) 100%)'
+                                }}
                                 role="button"
                                 tabIndex={0}
                                 onClick={async () => {
@@ -463,6 +483,40 @@ export default function Home() {
                   Sign in
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bundle Info Modal */}
+        {showBundleInfo && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+            <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+              <button
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                onClick={() => setShowBundleInfo(false)}
+                aria-label="Close info"
+              >
+                ×
+              </button>
+              <h2 className="text-lg font-semibold mb-2">What is a Bundle?</h2>
+              <p className="text-sm text-gray-700 mb-2">
+                A <span className="font-semibold">Bundle</span> is a curated collection of AI tools designed to work together as a complete coaching system. Each bundle focuses on a specific mindset or goal, combining multiple AI assistants for comprehensive support.
+              </p>
+              <ul className="text-sm text-gray-700 mb-4 list-disc pl-5">
+                <li>Multiple AI tools working together as a team</li>
+                <li>Focused on specific goals or mindsets</li>
+                <li>Designed by real coaches and experts</li>
+                <li>More powerful than individual tools alone</li>
+              </ul>
+              <button
+                onClick={() => {
+                  setShowBundleInfo(false);
+                  router.push('/auth/register');
+                }}
+                className="w-full px-4 py-2 bg-primary text-white rounded-lg font-semibold hover:opacity-90 transition"
+              >
+                Sign up for access
+              </button>
             </div>
           </div>
         )}
