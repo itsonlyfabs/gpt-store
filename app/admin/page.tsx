@@ -532,7 +532,59 @@ function AdminPage() {
             {/* Users Section */}
             {section === 'users' && (
               <div className="bg-white p-6 rounded-lg shadow">
-                <h2 className="text-xl font-semibold mb-4 text-left">Users</h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-left">Users</h2>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/admin/sync-audience', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            }
+                          });
+                          const data = await response.json();
+                          if (response.ok) {
+                            alert(`Successfully synced ${data.synced} users to Resend audience. Failed: ${data.failed}`);
+                          } else {
+                            alert(data.error || 'Failed to sync audience');
+                          }
+                        } catch (error) {
+                          alert('Failed to sync audience');
+                        }
+                      }}
+                      className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                    >
+                      Sync to Resend Audience
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/admin/fix-missing-profiles', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            }
+                          });
+                          const result = await response.json();
+                          if (result.success) {
+                            alert(`Success! ${result.message}`);
+                            // Refresh the page to show updated data
+                            window.location.reload();
+                          } else {
+                            alert(`Error: ${result.message}`);
+                          }
+                        } catch (error) {
+                          alert('Error fixing missing profiles');
+                        }
+                      }}
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    >
+                      Fix Missing Profiles
+                    </button>
+                  </div>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-left">
                     <thead>

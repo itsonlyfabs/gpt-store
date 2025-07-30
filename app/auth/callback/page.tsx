@@ -33,14 +33,40 @@ function EmailVerificationCallbackInner() {
         }
         if (session?.user) {
           // Create or update user profile
-          await supabase
+          const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .upsert({
               id: session.user.id,
               email: session.user.email,
               name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Anonymous',
+              marketing_emails: true, // Default to true for new users
+              email_notifications: true,
               updated_at: new Date().toISOString()
             }, { onConflict: 'id' })
+            .select()
+            .single()
+          
+          if (profileError) {
+            console.error('Profile update error:', profileError)
+          } else if (profile?.marketing_emails && profile?.email) {
+            // Sync to Resend audience list
+            try {
+              const { addContactToAudience } = await import('@/lib/resend')
+              const result = await addContactToAudience({
+                email: profile.email,
+                name: profile.name,
+                unsubscribed: false
+              })
+              if (result?.error) {
+                console.error('Failed to sync user to Resend audience:', result.error)
+              } else {
+                console.log('User synced to Resend audience:', profile.email)
+              }
+            } catch (error) {
+              console.error('Failed to sync user to Resend audience:', error)
+            }
+          }
+          
           // Redirect to dashboard
           const dashboardUrl = process.env.NEXT_PUBLIC_APP_URL
             ? `${process.env.NEXT_PUBLIC_APP_URL}/discover`
@@ -63,16 +89,38 @@ function EmailVerificationCallbackInner() {
           throw new Error('No session received after verification')
         }
         // Create or update user profile
-        const { error: profileError } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .upsert({
             id: data.session.user.id,
             email: data.session.user.email,
             name: data.session.user.user_metadata?.name || data.session.user.email?.split('@')[0] || 'Anonymous',
+            marketing_emails: true, // Default to true for new users
+            email_notifications: true,
             updated_at: new Date().toISOString()
           }, { onConflict: 'id' })
+          .select()
+          .single()
+        
         if (profileError) {
           console.error('Profile update error:', profileError)
+        } else if (profile?.marketing_emails && profile?.email) {
+          // Sync to Resend audience list
+          try {
+            const { addContactToAudience } = await import('@/lib/resend')
+            const result = await addContactToAudience({
+              email: profile.email,
+              name: profile.name,
+              unsubscribed: false
+            })
+            if (result?.error) {
+              console.error('Failed to sync user to Resend audience:', result.error)
+            } else {
+              console.log('User synced to Resend audience:', profile.email)
+            }
+          } catch (error) {
+            console.error('Failed to sync user to Resend audience:', error)
+          }
         }
         // Redirect to login with success message
         router.push('/auth/login?verified=true')

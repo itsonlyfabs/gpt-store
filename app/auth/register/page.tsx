@@ -233,6 +233,24 @@ export default function RegisterPage() {
           </div>
         </div>
 
+        <div className="flex items-start">
+          <div className="flex items-center h-5">
+            <input
+              id="marketing-emails"
+              name="marketingEmails"
+              type="checkbox"
+              defaultChecked={true}
+              className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+            />
+          </div>
+          <div className="ml-3 text-sm">
+            <label htmlFor="marketing-emails" className="font-medium text-gray-700">
+              Receive marketing emails
+            </label>
+            <p className="text-gray-500">Get updates about new features, tips, and exclusive offers.</p>
+          </div>
+        </div>
+
         <div>
           <button
             type="submit"
