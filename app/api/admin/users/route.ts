@@ -5,12 +5,13 @@ export async function GET(req: NextRequest) {
   try {
     const { data, error } = await supabaseAdmin
       .from('users')
-      .select('id, email, name, created_at, user_profiles(role)')
+      .select('id, email, name, created_at, user_profiles(role, subscription)')
       .order('created_at', { ascending: false });
     if (error) throw error;
     const usersWithRole = (data || []).map((user: any) => ({
       ...user,
       role: user.user_profiles?.role || 'user',
+      subscription: user.user_profiles?.subscription || 'FREE',
     }));
     return NextResponse.json(usersWithRole);
   } catch (error) {

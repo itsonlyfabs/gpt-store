@@ -87,7 +87,7 @@ export default function ProductPage() {
       const { data, error } = await supabase.auth.getSession()
       const session = data?.session
       if (!session) throw new Error('Not authenticated')
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+      const backendUrl = '/api'
       const isLocal = backendUrl.includes('localhost') || backendUrl.includes('3000');
       const body = isLocal
         ? JSON.stringify({ product_id: product?.id })

@@ -351,7 +351,7 @@ router.put(
         return res.status(400).json({ error: "Invalid subscription type" });
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from("user_profiles")
         .update({ subscription })
         .eq("id", id)

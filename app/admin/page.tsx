@@ -165,10 +165,22 @@ function AdminPage() {
         throw new Error('Failed to update user subscription');
       }
 
-      // Update local state
+      // Refresh user data from server to ensure changes persist
+      const usersRes = await fetch('/api/admin/users', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
+      
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        setUsers(usersData);
+      } else {
+        // Fallback to local state update if server refresh fails
       setUsers(users.map(user => 
         user.id === userId ? { ...user, subscription: newSubscription } : user
       ));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update user subscription');
     }

@@ -152,7 +152,7 @@ function BrowsePageInner() {
         sortBy: filters.sortBy
       })
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?${queryParams}`)
+      const response = await fetch(`/api/products?${queryParams}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch products')

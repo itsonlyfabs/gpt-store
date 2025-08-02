@@ -24,7 +24,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/settings`, {
+        const response = await fetch(`/api/user/settings`, {
           credentials: 'include',
         })
 
@@ -53,7 +53,7 @@ export default function SettingsPage() {
     setSuccess('')
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/settings`, {
+      const response = await fetch(`/api/user/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -32,7 +32,7 @@ function CheckoutSuccessPageInner() {
         }
 
         // Verify the purchase
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/verify-session`, {
+        const response = await fetch(`/api/payments/verify-session`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

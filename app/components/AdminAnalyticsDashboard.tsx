@@ -53,7 +53,7 @@ const AdminAnalyticsDashboard = () => {
       setLoading(true);
       setError('');
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+        const backendUrl = '/api';
         const headers: Record<string, string> = {};
         if (session?.access_token) {
           headers['Authorization'] = `Bearer ${session.access_token}`;

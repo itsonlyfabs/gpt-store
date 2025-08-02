@@ -14,20 +14,20 @@ import { useRouter } from 'next/navigation'
 
 // Dynamic Title Component
 const DynamicTitle = () => {
-  const [currentWord, setCurrentWord] = useState('life');
+  const [currentPhrase, setCurrentPhrase] = useState('life coach');
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setIsTransitioning(true);
       setTimeout(() => {
-        setCurrentWord(currentWord === 'life' ? 'team' : 'life');
+        setCurrentPhrase(currentPhrase === 'life coach' ? 'team' : 'life coach');
         setIsTransitioning(false);
       }, 150); // Half of the transition duration
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [currentWord]);
+  }, [currentPhrase]);
 
   return (
     <span 
@@ -35,11 +35,11 @@ const DynamicTitle = () => {
         isTransitioning ? 'opacity-0 transform scale-95' : 'opacity-100 transform scale-100'
       }`}
       style={{ 
-        color: currentWord === 'life' ? '#000000' : '#7F7BBA',
+        color: currentPhrase === 'life coach' ? '#000000' : '#7F7BBA',
         fontWeight: 'inherit'
       }}
     >
-      {currentWord}
+      {currentPhrase}
     </span>
   );
 };
@@ -85,7 +85,7 @@ export default function Home() {
         ...(searchValue && { search: searchValue }),
         ...(categoryValue && { category: categoryValue })
       });
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?${searchParams}`);
+      const response = await fetch(`/api/products?${searchParams}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch products');
@@ -161,8 +161,8 @@ export default function Home() {
   useEffect(() => {
     setBundlesLoading(true);
     const url = isSignedIn
-      ? `${process.env.NEXT_PUBLIC_API_URL}/bundles`
-      : `${process.env.NEXT_PUBLIC_API_URL}/bundles?discover=true`;
+      ? `/api/bundles`
+      : `/api/bundles?discover=true`;
     fetch(url)
       .then(res => {
         if (!res.ok) {
@@ -227,7 +227,7 @@ export default function Home() {
               </span>
             </div>
             <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl fade-in-up" style={{ animationDelay: '0.1s' }}>
-              <span className="block">Your <DynamicTitle /> coach.</span>
+              <span className="block">Your <DynamicTitle />.</span>
               <span className="block text-primary italic">In your pocket.</span>
               <span className="block">Always on.</span>
             </h1>

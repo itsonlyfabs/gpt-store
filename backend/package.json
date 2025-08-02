@@ -15,7 +15,7 @@
     "@supabase/supabase-js": "^2.49.4",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
+    "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",

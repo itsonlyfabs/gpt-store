@@ -70,7 +70,7 @@ export default function DiscoverPage() {
         ...(query && { search: query }),
         ...(sortBy && { sort: sortBy })
       })
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products?${searchParams}`)
+      const response = await fetch(`/api/products?${searchParams}`)
       if (!response.ok) {
         throw new Error('Failed to fetch products')
       }
@@ -88,7 +88,7 @@ export default function DiscoverPage() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bundles?discover=true`);
+      const response = await fetch(`/api/bundles?discover=true`);
       if (!response.ok) throw new Error('Failed to fetch bundles');
       const data = await response.json();
       setBundles(data.filter((b: any) => b.is_admin));

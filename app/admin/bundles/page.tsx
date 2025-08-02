@@ -46,7 +46,7 @@ export default function AdminBundlesPage() {
   const fetchBundles = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bundles?admin=true`)
+      const response = await fetch(`/api/bundles?admin=true`)
       if (!response.ok) {
         throw new Error('Failed to fetch bundles')
       }
@@ -79,7 +79,7 @@ export default function AdminBundlesPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bundles/${bundleId}`, {
+      const response = await fetch(`/api/bundles/${bundleId}`, {
         method: 'DELETE',
       })
 

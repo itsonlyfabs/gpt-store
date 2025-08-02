@@ -34,7 +34,7 @@ export default function CheckoutButton({
         return
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/checkout`, {
+      const response = await fetch(`/api/payments/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

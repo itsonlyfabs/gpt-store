@@ -46,7 +46,7 @@ export default function BundleCreationPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`)
+      const response = await fetch(`/api/products`)
       if (!response.ok) {
         throw new Error('Failed to fetch products')
       }
@@ -64,7 +64,7 @@ export default function BundleCreationPage() {
     setError('')
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bundles?admin=true`, {
+      const response = await fetch(`/api/bundles?admin=true`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
