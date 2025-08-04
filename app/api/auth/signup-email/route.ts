@@ -1,32 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { sendEmail } from '@/lib/resend';
 
 export async function POST(req: NextRequest) {
   const supabase = createRouteHandlerClient({ cookies });
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { email, password, name } = await req.json();
+
+  try {
+    // Create the user
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name: name || email.split('@')[0],
+        },
+      },
+    });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (data.user) {
+      // Create profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          email: data.user.email,
+          name: name || email.split('@')[0],
+          role: 'user',
+          marketing_emails: true,
+          email_notifications: true,
+        });
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError);
+      }
+
+      // Trigger email automation for signup
+      try {
+        const automationResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/admin/automations/trigger`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: data.user.id,
+            trigger_type: 'signup',
+            user_data: {
+              email: data.user.email,
+              name: name || email.split('@')[0],
+            }
+          })
+        });
+
+        if (automationResponse.ok) {
+          const automationResult = await automationResponse.json();
+          console.log('Automation triggered:', automationResult);
+        } else {
+          console.error('Failed to trigger automation:', automationResponse.status);
+        }
+      } catch (automationError) {
+        console.error('Error triggering automation:', automationError);
+      }
+
+      return NextResponse.json({
+        message: 'User created successfully',
+        user: data.user,
+      });
+    }
+
+    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
+  } catch (error) {
+    console.error('Signup error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-  // Get user profile
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('email, email_notifications')
-    .eq('id', session.user.id)
-    .single();
-  if (error || !profile) {
-    return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
-  }
-  if (!profile.email_notifications) {
-    return NextResponse.json({ skipped: true, reason: 'User opted out of email notifications' });
-  }
-  // Send welcome email
-  await sendEmail({
-    to: profile.email,
-    subject: 'Welcome to Genio!',
-    html: `<h1>Welcome to Genio!</h1><p>Thanks for signing up. We\'re excited to have you on board.</p>`,
-    text: `Welcome to Genio! Thanks for signing up. We\'re excited to have you on board.`
-  });
-  return NextResponse.json({ success: true });
 } 

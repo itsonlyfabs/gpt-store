@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const supabase = createRouteHandlerClient({ cookies });
   const { data: { session } } = await supabase.auth.getSession();
   
-  console.log('Admin emails GET - Session:', session ? 'exists' : 'none');
+  console.log('Admin automations GET - Session:', session ? 'exists' : 'none');
   
   // Create admin client for bypassing RLS
   const supabaseAdmin = createClient(
@@ -25,9 +25,8 @@ export async function GET(req: NextRequest) {
   if (session) {
     userId = session.user.id;
     userEmail = session.user.email || null;
-    console.log('Admin emails GET - User ID:', userId, 'Email:', userEmail);
+    console.log('Admin automations GET - User ID:', userId, 'Email:', userEmail);
   } else {
-    // For development/testing, allow access if no session (temporary)
     console.log('No session found, allowing access for development');
   }
   
@@ -42,7 +41,6 @@ export async function GET(req: NextRequest) {
     if (profileError) {
       console.error('Error fetching user profile:', profileError);
       
-      // For now, allow access if user email is ponzonif@gmail.com (temporary fix)
       if (userEmail === 'ponzonif@gmail.com') {
         console.log('Allowing admin access for ponzonif@gmail.com');
       } else {
@@ -56,33 +54,25 @@ export async function GET(req: NextRequest) {
     }
   }
   
-  // Check if emails table exists
-  const { data: tableCheck, error: tableError } = await supabaseAdmin
-    .from('emails')
-    .select('*')
-    .limit(1);
-  
-  if (tableError) {
-    console.error('Error checking emails table:', tableError);
-    if (tableError.code === '42P01') {
-      return NextResponse.json({ error: 'Emails table does not exist' }, { status: 500 });
-    }
-    return NextResponse.json({ error: tableError.message }, { status: 500 });
-  }
-  
-  // List all emails using admin client
-  const { data: emails, error } = await supabaseAdmin
-    .from('emails')
-    .select('*')
+  // Get all automations with their email sequences
+  const { data: automations, error } = await supabaseAdmin
+    .from('email_automations')
+    .select(`
+      *,
+      automation_emails (
+        *,
+        email:emails (*)
+      )
+    `)
     .order('created_at', { ascending: false });
   
   if (error) {
-    console.error('Error fetching emails:', error);
+    console.error('Error fetching automations:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   
-  console.log('Successfully fetched emails:', emails?.length || 0);
-  return NextResponse.json(emails || []);
+  console.log('Successfully fetched automations:', automations?.length || 0);
+  return NextResponse.json(automations || []);
 }
 
 export async function POST(req: NextRequest) {
@@ -114,7 +104,6 @@ export async function POST(req: NextRequest) {
     if (profileError) {
       console.error('Error fetching user profile:', profileError);
       
-      // For now, allow access if user email is ponzonif@gmail.com (temporary fix)
       if (userEmail === 'ponzonif@gmail.com') {
         console.log('Allowing admin access for ponzonif@gmail.com');
       } else {
@@ -127,19 +116,56 @@ export async function POST(req: NextRequest) {
   }
   
   const body = await req.json();
-  const { title, subject, body_html, body_text, type, scheduled_at } = body;
-  if (!title || !subject || !type) {
+  const { name, trigger_type, trigger_conditions, email_sequence } = body;
+  
+  if (!name || !trigger_type) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
   
-  const { data: email, error } = await supabaseAdmin
-    .from('emails')
-    .insert([
-      { title, subject, body_html, body_text, type, scheduled_at, status: scheduled_at ? 'scheduled' : 'draft' }
-    ])
-    .select()
-    .single();
+  try {
+    // Create the automation
+    const { data: automation, error: automationError } = await supabaseAdmin
+      .from('email_automations')
+      .insert({
+        name,
+        trigger_type,
+        trigger_conditions: trigger_conditions || {},
+        is_active: true
+      })
+      .select()
+      .single();
     
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(email);
+    if (automationError) {
+      console.error('Error creating automation:', automationError);
+      return NextResponse.json({ error: automationError.message }, { status: 500 });
+    }
+    
+    // If email sequence is provided, create the automation emails
+    if (email_sequence && Array.isArray(email_sequence)) {
+      for (const emailData of email_sequence) {
+        const { email_id, sequence_order, delay_hours } = emailData;
+        
+        if (email_id && sequence_order !== undefined) {
+          const { error: sequenceError } = await supabaseAdmin
+            .from('automation_emails')
+            .insert({
+              automation_id: automation.id,
+              email_id,
+              sequence_order,
+              delay_hours: delay_hours || 0
+            });
+          
+          if (sequenceError) {
+            console.error('Error creating automation email:', sequenceError);
+          }
+        }
+      }
+    }
+    
+    return NextResponse.json(automation);
+    
+  } catch (error) {
+    console.error('Error in automation creation:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 } 

@@ -182,35 +182,42 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header/Navigation */}
-        <header className="flex items-center justify-between py-6">
+        <header className="flex items-center justify-between py-4 sm:py-6">
           <div className="flex items-center">
-            <Image src="/genio logo dark.png" alt="Genio Logo" width={180} height={40} priority />
+            <Image 
+              src="/genio logo dark.png" 
+              alt="Genio Logo" 
+              width={180} 
+              height={40} 
+              className="w-[140px] h-auto sm:w-[180px]"
+              priority 
+            />
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Link
               href="/pricing"
-              className="text-base font-medium text-gray-500 hover:text-gray-900"
+              className="hidden sm:block text-sm sm:text-base font-medium text-gray-500 hover:text-gray-900 transition-colors"
             >
               Pricing
             </Link>
             {isSignedIn ? (
               <button
                 onClick={handleLogout}
-                className="text-base font-medium text-gray-500 hover:text-gray-900"
+                className="text-sm sm:text-base font-medium text-gray-500 hover:text-gray-900 transition-colors"
               >
                 Logout
               </button>
             ) : (
               <Link
                 href="/auth/login"
-                className="text-base font-medium text-gray-500 hover:text-gray-900"
+                className="text-sm sm:text-base font-medium text-gray-500 hover:text-gray-900 transition-colors whitespace-nowrap"
               >
                 Sign in
               </Link>
             )}
             <Link
               href="/auth/register"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90"
+              className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent text-sm sm:text-base font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90 transition-all duration-200 whitespace-nowrap"
             >
               Get started
             </Link>
@@ -364,26 +371,28 @@ export default function Home() {
                           Bundles
                         </h2>
                         <button
-                          className="ml-2 rounded-full border border-gray-300 bg-white w-6 h-6 flex items-center justify-center text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="ml-3 mr-6 rounded-full border-2 border-blue-300 bg-blue-50 w-7 h-7 flex items-center justify-center text-blue-600 hover:bg-blue-100 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
                           aria-label="What is a bundle?"
                           onClick={() => setShowBundleInfo(true)}
                           type="button"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
                           </svg>
                         </button>
-                        <span className="mr-2 text-sm font-medium text-gray-700">Signature Collection</span>
-                        <button
-                          type="button"
-                          onClick={() => setSignatureOnly(v => !v)}
-                          className={`relative inline-flex h-7 w-14 border-2 border-yellow-400 rounded-full transition-colors duration-200 focus:outline-none ${signatureOnly ? 'bg-yellow-300' : 'bg-gray-200'}`}
-                          style={{ boxShadow: signatureOnly ? '0 0 0 2px #FFD700' : undefined }}
-                        >
-                          <span
-                            className={`inline-block h-6 w-6 rounded-full bg-white shadow transform transition-transform duration-200 ${signatureOnly ? 'translate-x-7' : 'translate-x-0'}`}
-                          />
-                        </button>
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm font-medium text-gray-700">Signature Collection</span>
+                          <button
+                            type="button"
+                            onClick={() => setSignatureOnly(v => !v)}
+                            className={`relative inline-flex h-7 w-14 border-2 border-yellow-400 rounded-full transition-colors duration-200 focus:outline-none ${signatureOnly ? 'bg-yellow-300' : 'bg-gray-200'}`}
+                            style={{ boxShadow: signatureOnly ? '0 0 0 2px #FFD700' : undefined }}
+                          >
+                            <span
+                              className={`inline-block h-6 w-6 rounded-full bg-white shadow transform transition-transform duration-200 ${signatureOnly ? 'translate-x-7' : 'translate-x-0'}`}
+                            />
+                          </button>
+                        </div>
                       </div>
                       <div className="relative">
                         <button
