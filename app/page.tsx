@@ -61,6 +61,7 @@ export default function Home() {
   const [tierFilter, setTierFilter] = useState<string>('');
   const [signatureOnly, setSignatureOnly] = useState(false);
   const [showBundleInfo, setShowBundleInfo] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
   const supabase = createClientComponentClient();
 
@@ -193,36 +194,110 @@ export default function Home() {
               priority 
             />
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
+          
+          {/* Desktop Navigation */}
+          <div className="hidden sm:flex items-center gap-4">
             <Link
               href="/pricing"
-              className="hidden sm:block text-sm sm:text-base font-medium text-gray-500 hover:text-gray-900 transition-colors"
+              className="text-base font-medium text-gray-500 hover:text-gray-900 transition-colors"
             >
               Pricing
             </Link>
             {isSignedIn ? (
               <button
                 onClick={handleLogout}
-                className="text-sm sm:text-base font-medium text-gray-500 hover:text-gray-900 transition-colors"
+                className="text-base font-medium text-gray-500 hover:text-gray-900 transition-colors"
               >
                 Logout
               </button>
             ) : (
               <Link
                 href="/auth/login"
-                className="text-sm sm:text-base font-medium text-gray-500 hover:text-gray-900 transition-colors whitespace-nowrap"
+                className="text-base font-medium text-gray-500 hover:text-gray-900 transition-colors whitespace-nowrap"
               >
                 Sign in
               </Link>
             )}
             <Link
               href="/auth/register"
-              className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 border border-transparent text-sm sm:text-base font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90 transition-all duration-200 whitespace-nowrap"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90 transition-all duration-200 whitespace-nowrap"
             >
               Get started
             </Link>
           </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="sm:hidden p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+            aria-label="Toggle mobile menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {mobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
         </header>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="sm:hidden fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setMobileMenuOpen(false)}>
+            <div className="absolute top-0 right-0 w-64 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out">
+              <div className="flex flex-col p-6 space-y-4">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">Menu</h3>
+                  <button
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <Link
+                  href="/pricing"
+                  className="text-base font-medium text-gray-700 hover:text-gray-900 py-3 px-4 rounded-md hover:bg-gray-50 transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Pricing
+                </Link>
+                
+                {isSignedIn ? (
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="text-left text-base font-medium text-gray-700 hover:text-gray-900 py-3 px-4 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Logout
+                  </button>
+                ) : (
+                  <Link
+                    href="/auth/login"
+                    className="text-base font-medium text-gray-700 hover:text-gray-900 py-3 px-4 rounded-md hover:bg-gray-50 transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Sign in
+                  </Link>
+                )}
+                
+                <Link
+                  href="/auth/register"
+                  className="inline-flex items-center justify-center px-4 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-primary hover:opacity-90 transition-all duration-200 mt-4"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Get started
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Hero Section */}
         <div className="py-12 sm:py-16">
