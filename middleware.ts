@@ -27,6 +27,7 @@ export async function middleware(request: NextRequest) {
     // Define public routes
     const publicRoutes = [
       '/',
+      '/pricing',
       '/auth/login',
       '/auth/register',
       '/auth/forgot-password',

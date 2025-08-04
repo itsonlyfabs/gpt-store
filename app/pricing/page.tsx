@@ -71,12 +71,14 @@ function PricingPage() {
   const handleAction = async (plan: Plan, intervalOverride?: 'month' | 'year') => {
     const { data: { session } } = await supabase.auth.getSession()
     const intervalToUse = intervalOverride || billingInterval
+    
+    // If user is not authenticated, redirect to sign up/login
     if (!session) {
       if (plan.price === 0) {
-        router.push(`/auth/login?redirectTo=/discover`)
+        router.push(`/auth/register?redirectTo=/discover`)
       } else {
         const redirectUrl = `/pricing?plan=${plan.name.toLowerCase()}&interval=${intervalToUse}&startCheckout=1`
-        router.push(`/auth/login?redirectTo=${encodeURIComponent(redirectUrl)}`)
+        router.push(`/auth/register?redirectTo=${encodeURIComponent(redirectUrl)}`)
       }
       return
     }
