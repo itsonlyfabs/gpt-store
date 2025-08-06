@@ -5,6 +5,7 @@ import ChatWidget from './components/ChatWidget'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
+  metadataBase: new URL('https://www.mygenio.xyz'),
   title: 'Genio - Your Personal AI Enhancement Suite',
   description: 'Customise your collection of AI tools designed to enhance your focus, productivity, and personal growth.',
   openGraph: {
