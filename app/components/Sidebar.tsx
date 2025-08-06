@@ -4,10 +4,12 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const supabase = createClientComponentClient()
 
   const navigation = [
     { name: 'Discover', href: '/discover' },
@@ -17,11 +19,20 @@ export default function Sidebar() {
     { name: 'Support', href: '/support' }
   ]
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('jwt')
-      // Add any other logout logic here (e.g., clearing cookies)
-      router.push('/')
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      // Clear any local storage or session storage
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+      // Redirect to home page
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force redirect even if there's an error
+      window.location.href = '/';
     }
   }
 

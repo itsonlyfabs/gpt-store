@@ -114,9 +114,21 @@ export default function Home() {
   }, [supabase]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setIsSignedIn(false);
-    window.location.reload();
+    try {
+      await supabase.auth.signOut();
+      setIsSignedIn(false);
+      // Clear any local storage or session storage
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+      // Redirect to home page instead of reloading
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force redirect even if there's an error
+      window.location.href = '/';
+    }
   };
 
   const handleSearch = (value: string) => {
@@ -185,14 +197,26 @@ export default function Home() {
         {/* Header/Navigation */}
         <header className="flex items-center justify-between py-4 sm:py-6">
           <div className="flex items-center">
-            <Image 
-              src="/genio logo dark.png" 
-              alt="Genio Logo" 
-              width={180} 
-              height={40} 
-              className="w-[140px] h-auto sm:w-[180px]"
-              priority 
-            />
+            <div className="relative">
+              <Image 
+                src="/genio-logo-dark.png" 
+                alt="Genio Logo" 
+                width={180} 
+                height={40} 
+                className="w-[140px] h-auto sm:w-[180px]"
+                priority 
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  // Show fallback text
+                  const fallback = target.parentNode?.querySelector('.logo-fallback') as HTMLElement;
+                  if (fallback) {
+                    fallback.style.display = 'block';
+                  }
+                }}
+              />
+              <span className="logo-fallback hidden text-2xl font-bold text-primary">Genio</span>
+            </div>
           </div>
           
           {/* Desktop Navigation */}

@@ -88,7 +88,7 @@ export default function SubscriptionPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <div className="w-full flex items-center justify-start px-4 pt-6 pb-2">
         <a href="/">
-          <img src="/genio logo dark.png" alt="Genio Logo" width={180} height={40} />
+          <img src="/genio-logo-dark.png" alt="Genio Logo" width={180} height={40} />
         </a>
       </div>
       <main className="flex-1 flex flex-col items-center justify-center">

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { supabaseAdmin } from '../../../lib/supabaseAdmin'
 
 export async function GET(request: Request) {
   try {
@@ -11,26 +12,44 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user's subscription from Supabase
-    const { data: subscription, error: subError } = await supabase
-      .from('subscriptions')
-      .select('*, plan:plan_id(*)')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
+    // Get user's subscription from user_profiles table using supabaseAdmin
+    const { data: userProfile, error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .select('subscription')
+      .eq('id', session.user.id)
       .single()
 
-    if (subError || !subscription) {
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError)
       return NextResponse.json(null)
     }
 
-    // Always include cancel_at_period_end and canceled_at, and plan.price
-    return NextResponse.json({
-      ...subscription,
-      cancel_at_period_end: subscription.cancel_at_period_end || false,
-      canceled_at: subscription.canceled_at || null,
-      plan: subscription.plan ? { ...subscription.plan, price: subscription.plan.price ?? 0 } : null
-    })
+    // If user has no subscription or is on FREE tier, return null
+    if (!userProfile || !userProfile.subscription || userProfile.subscription === 'FREE') {
+      return NextResponse.json(null)
+    }
+
+    // For PRO subscription, return a basic subscription object
+    if (userProfile.subscription === 'PRO') {
+      return NextResponse.json({
+        id: 'pro-subscription',
+        status: 'active',
+        current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+        cancel_at_period_end: false,
+        canceled_at: null,
+        plan: {
+          id: 'pro-plan',
+          name: 'Pro',
+          price: 2900, // $29.00 in cents
+          interval: 'month',
+          description: 'Pro subscription with unlimited access',
+          features: ['Unlimited chats', 'Priority support', 'Advanced features'],
+          is_popular: true
+        }
+      })
+    }
+
+    return NextResponse.json(null)
   } catch (error) {
     console.error('Error fetching subscription:', error)
     return NextResponse.json(

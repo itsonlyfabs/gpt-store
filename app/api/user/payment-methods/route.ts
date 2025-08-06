@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import Stripe from 'stripe'
+import { supabaseAdmin } from '../../../lib/supabaseAdmin'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-03-31.basil'
@@ -14,7 +15,7 @@ async function ensureStripeCustomer(supabase: any, userProfile: any, sessionUser
   if (!email) return null;
   const customer = await stripe.customers.create({ email });
   // Update user_profiles table with both stripe_customer_id and email
-  await supabase.from('user_profiles')
+  await supabaseAdmin.from('user_profiles')
     .update({ stripe_customer_id: customer.id, email })
     .eq('id', userProfile.id);
   return customer.id;
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
     }
 
     // Ensure user_profiles row exists for this user
-    let { data: userProfile, error: userProfileError } = await supabase
+    let { data: userProfile, error: userProfileError } = await supabaseAdmin
       .from('user_profiles')
       .select('id, email, stripe_customer_id')
       .eq('id', session.user.id)
@@ -39,14 +40,14 @@ export async function GET(request: Request) {
 
     if (userProfileError || !userProfile) {
       // Try to create the user_profiles row if missing
-      const { error: insertError } = await supabase
+      const { error: insertError } = await supabaseAdmin
         .from('user_profiles')
         .insert({ id: session.user.id, email: session.user.email })
       if (insertError) {
         return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 })
       }
       // Try to fetch again
-      const { data: newUserProfile, error: newUserProfileError } = await supabase
+      const { data: newUserProfile, error: newUserProfileError } = await supabaseAdmin
         .from('user_profiles')
         .select('id, email, stripe_customer_id')
         .eq('id', session.user.id)
@@ -60,7 +61,7 @@ export async function GET(request: Request) {
     let stripeCustomerId = userProfile?.stripe_customer_id;
     if (!userProfileError && userProfile && !stripeCustomerId) {
       // Create Stripe customer and update user_profiles row
-      stripeCustomerId = await ensureStripeCustomer(supabase, userProfile, session.user);
+      stripeCustomerId = await ensureStripeCustomer(supabaseAdmin, userProfile, session.user);
       userProfile.stripe_customer_id = stripeCustomerId;
     }
 

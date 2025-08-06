@@ -41,6 +41,35 @@ export interface Database {
           tags?: string[]
         }
       }
+      user_profiles: {
+        Row: {
+          id: string
+          role: string
+          subscription: string
+          stripe_customer_id: string | null
+          email: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          role?: string
+          subscription?: string
+          stripe_customer_id?: string | null
+          email?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          role?: string
+          subscription?: string
+          stripe_customer_id?: string | null
+          email?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       user_products: {
         Row: {
           id: string

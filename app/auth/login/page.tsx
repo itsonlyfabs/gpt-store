@@ -24,12 +24,24 @@ function LoginForm() {
   useEffect(() => {
     setIsClient(true)
     
-    // Setup auth state change listener
+    // Check for verification status
+    const verified = searchParams?.get('verified')
+    const verificationError = searchParams?.get('error')
+
+    if (verified === 'true') {
+      setSuccess('Email verified successfully! You can now log in.')
+    } else if (verificationError === 'verification_failed') {
+      setError('Email verification failed. Please try again or contact support.')
+    }
+  }, [searchParams])
+
+  // Separate effect for auth state changes
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed in component:', event, session?.user?.email)
-      if (event === 'SIGNED_IN' && session) {
+      // Only redirect if this is a new sign in and we're not already redirecting
+      if (event === 'SIGNED_IN' && session && redirecting) {
         try {
-          setRedirecting(true)
           const redirectTo = searchParams?.get('redirectTo') || '/discover'
           console.log('Redirecting to:', redirectTo)
           
@@ -46,20 +58,10 @@ function LoginForm() {
       }
     })
 
-    // Check for verification status
-    const verified = searchParams?.get('verified')
-    const verificationError = searchParams?.get('error')
-
-    if (verified === 'true') {
-      setSuccess('Email verified successfully! You can now log in.')
-    } else if (verificationError === 'verification_failed') {
-      setError('Email verification failed. Please try again or contact support.')
-    }
-
     return () => {
       subscription.unsubscribe()
     }
-  }, [searchParams, router])
+  }, [searchParams, redirecting])
 
   if (!isClient) {
     return null
@@ -96,8 +98,9 @@ function LoginForm() {
         throw new Error('Authentication failed. Please try again.')
       }
 
-      // The redirect will be handled by the auth state change listener
-      console.log('Login successful, waiting for redirect...')
+      // Set redirecting state to trigger the redirect
+      setRedirecting(true)
+      console.log('Login successful, setting redirecting state...')
 
     } catch (err) {
       console.error('Login error:', err)

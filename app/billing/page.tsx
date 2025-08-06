@@ -60,14 +60,20 @@ export default function BillingPage() {
     if (user) {
       setProfileName(user.user_metadata?.name || '');
       setProfileEmail(user.email || '');
-      // Fetch notification/marketing preferences from backend
+      // Fetch profile data from backend
       fetch('/api/user/profile')
         .then(res => res.json())
         .then(data => {
-          if (typeof data.email_notifications === 'boolean') setEmailNotifications(data.email_notifications);
-          if (typeof data.marketing_emails === 'boolean') setMarketingEmails(data.marketing_emails);
-          if (typeof data.name === 'string') setProfileName(data.name);
+          if (data.error) {
+            console.error('Profile fetch error:', data.error);
+            return;
+          }
           if (typeof data.email === 'string') setProfileEmail(data.email);
+          // Note: email_notifications and marketing_emails are not available in user_profiles table
+          // These would need to be added to the user_profiles table if needed
+        })
+        .catch(err => {
+          console.error('Error fetching profile:', err);
         });
     }
   }, [billingInterval, user])
@@ -258,6 +264,18 @@ export default function BillingPage() {
     ? plans.filter(plan => plan.name === 'Pro' && plan.interval === 'year')
     : plans.filter(plan => (plan.name === 'Free' || plan.name === 'Pro') && plan.interval === 'month')
 
+  // Calculate yearly discount percentage
+  const monthlyProPlan = plans.find(plan => plan.name === 'Pro' && plan.interval === 'month')
+  const yearlyProPlan = plans.find(plan => plan.name === 'Pro' && plan.interval === 'year')
+  
+  let yearlyDiscountPercentage = 0
+  if (monthlyProPlan && yearlyProPlan && monthlyProPlan.price > 0) {
+    const monthlyPrice = monthlyProPlan.price
+    const yearlyPrice = yearlyProPlan.price
+    const yearlyEquivalent = monthlyPrice * 12
+    yearlyDiscountPercentage = Math.round(((yearlyEquivalent - yearlyPrice) / yearlyEquivalent) * 100)
+  }
+
   // Save handler
   const handleSaveProfile = async () => {
     setProfileSaving(true);
@@ -268,10 +286,9 @@ export default function BillingPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: profileName,
           email: profileEmail,
-          email_notifications: emailNotifications,
-          marketing_emails: marketingEmails,
+          // Note: name, email_notifications, and marketing_emails are not supported by the current API
+          // These would need to be added to the user_profiles table if needed
         })
       });
       const data = await res.json();
@@ -438,7 +455,7 @@ export default function BillingPage() {
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${billingInterval === 'year' ? 'bg-white text-primary shadow' : 'text-gray-600'}`}
                     onClick={() => setBillingInterval('year')}
                   >
-                    YEARLY <span className="ml-1 text-xs text-green-600 font-semibold">(SAVE 30%)</span>
+                    YEARLY <span className="ml-1 text-xs text-green-600 font-semibold">({yearlyDiscountPercentage}% OFF)</span>
                   </button>
                 </div>
               </div>

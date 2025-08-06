@@ -133,7 +133,7 @@ function PricingPage() {
       {/* Logo header */}
       <div className="w-full flex items-center justify-start px-4 pt-6 pb-2">
         <a href="/">
-          <Image src="/genio logo dark.png" alt="Genio Logo" width={180} height={40} priority />
+          <Image src="/genio-logo-dark.png" alt="Genio Logo" width={180} height={40} priority />
         </a>
       </div>
       <main className="flex-1 flex flex-col items-center justify-center">
