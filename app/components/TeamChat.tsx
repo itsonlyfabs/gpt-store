@@ -507,40 +507,40 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-4 md:p-8 pt-16 md:pt-8 overflow-hidden">
-        {/* Mobile Header */}
-        <div className="flex-none border-b bg-white pb-4 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-xl md:text-3xl font-bold text-gray-900">{teamTitle}</h1>
+      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-2 md:p-8 pt-12 md:pt-8 overflow-hidden">
+        {/* Mobile Header - More Compact */}
+        <div className="flex-none border-b bg-white pb-2 md:pb-4 mb-2 md:mb-4">
+          <div className="flex items-center justify-between mb-1 md:mb-2">
+            <h1 className="text-lg md:text-3xl font-bold text-gray-900 truncate">{teamTitle}</h1>
             {/* Mobile Menu Button */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="md:hidden p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="md:hidden p-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex-shrink-0"
             >
-              {showMobileMenu ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+              {showMobileMenu ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
           </div>
-          <div className="text-gray-500 text-xs md:text-sm mb-2">{teamDescription || "No description set for this bundle."}</div>
+          <div className="text-gray-500 text-xs md:text-sm mb-1 md:mb-2 line-clamp-1">{teamDescription || "No description set for this bundle."}</div>
         </div>
 
-        {/* Mobile Collapsible Menu */}
+        {/* Mobile Collapsible Menu - More Compact */}
         {showMobileMenu && (
-          <div className="md:hidden mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
+          <div className="md:hidden mb-2 bg-white rounded-lg shadow-sm border border-gray-200 p-3 space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={handleSaveRecap}
                 disabled={loading}
-                className="flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm"
+                className="flex items-center justify-center gap-1 px-2 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-xs"
               >
-                <Save className="w-4 h-4" />
+                <Save className="w-3 h-3" />
                 {loading ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Recap'}
               </button>
               <button
                 onClick={handleDownload}
                 disabled={loading}
-                className="flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm"
+                className="flex items-center justify-center gap-1 px-2 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-xs"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3 h-3" />
                 {loading ? 'Downloading...' : downloadSuccess ? 'Downloaded!' : 'Download'}
               </button>
             </div>
@@ -548,24 +548,24 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
               <button
                 onClick={handleReset}
                 disabled={loading}
-                className="flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm"
+                className="flex items-center justify-center gap-1 px-2 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-xs"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-3 h-3" />
                 {loading ? 'Resetting...' : resetSuccess ? 'Reset!' : 'Reset'}
               </button>
               <button
                 onClick={() => { setShowNotes(true); setShowSummaries(false); setShowMobileMenu(false); }}
-                className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm"
+                className="flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-xs"
               >
-                <StickyNote className="w-4 h-4" />
+                <StickyNote className="w-3 h-3" />
                 Notes
               </button>
             </div>
             <button
               onClick={() => { setShowSummaries(true); setShowNotes(false); setShowMobileMenu(false); }}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm"
+              className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-xs"
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-3 h-3" />
               Summaries
             </button>
           </div>
@@ -598,17 +598,17 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
           </div>
         )}
 
-        {/* Products Section - Mobile Optimized */}
+        {/* Products Section - More Compact on Mobile */}
         {isBundle && (
-          <div className="mb-4 flex-shrink-0">
+          <div className="mb-2 md:mb-4 flex-shrink-0">
             {products.length > 0 ? (
-              <div className="space-y-2">
-                <span className="font-semibold text-gray-700 text-sm">Active Product:</span>
-                <div className="flex flex-wrap gap-2">
+              <div className="space-y-1 md:space-y-2">
+                <span className="font-semibold text-gray-700 text-xs md:text-sm">Active Product:</span>
+                <div className="flex flex-wrap gap-1 md:gap-2">
                   {products.map((p) => (
                     <button
                       key={p.id}
-                      className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm border transition-colors ${
+                      className={`flex items-center gap-1 px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs md:text-sm border transition-colors ${
                         activeProductId === p.id 
                           ? 'bg-indigo-100 text-indigo-800 border-indigo-400' 
                           : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
@@ -636,27 +636,27 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
                       }}
                       disabled={activeProductId === p.id || loading}
                     >
-                      <span className="truncate max-w-32">{p.name}</span>
+                      <span className="truncate max-w-20 md:max-w-32">{p.name}</span>
                       {activeProductId === p.id && <span className="ml-1">⭐</span>}
                     </button>
                   ))}
                 </div>
               </div>
             ) : (
-              <div className="text-red-500 text-sm">No products found in this bundle.</div>
+              <div className="text-red-500 text-xs md:text-sm">No products found in this bundle.</div>
             )}
           </div>
         )}
 
-        {/* Team Goal Section - Mobile Optimized */}
+        {/* Team Goal Section - More Compact on Mobile */}
         {isBundle && (
-          <div className="mb-4 flex-shrink-0">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold text-gray-700 text-sm md:text-base">Team Goal</span>
+          <div className="mb-2 md:mb-4 flex-shrink-0">
+            <div className="flex items-center justify-between mb-1 md:mb-2">
+              <span className="font-semibold text-gray-700 text-xs md:text-base">Team Goal</span>
               {!editingGoal && (
                 <button
                   onClick={() => { setEditingGoal(true); setGoalDraft(teamGoal); }}
-                  className="px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-xs md:text-sm"
+                  className="px-2 py-1 md:px-3 md:py-1 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-xs md:text-sm"
                   type="button"
                 >
                   Edit
@@ -664,13 +664,13 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
               )}
             </div>
             {!editingGoal ? (
-              <div className="text-gray-600 text-sm md:text-base bg-gray-50 rounded-lg p-3">
+              <div className="text-gray-600 text-xs md:text-base bg-gray-50 rounded-lg p-2 md:p-3 line-clamp-2">
                 {teamGoal || 'No team goal set'}
               </div>
             ) : (
               <div className="space-y-2">
                 <input
-                  className="w-full border rounded-lg px-3 py-2 text-sm md:text-base"
+                  className="w-full border rounded-lg px-2 py-1.5 md:px-3 md:py-2 text-xs md:text-base"
                   value={goalDraft}
                   onChange={e => setGoalDraft(e.target.value)}
                   autoFocus
@@ -679,14 +679,14 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
                 <div className="flex gap-2">
                   <button
                     onClick={async () => { await handleUpdateTeamGoal(goalDraft); }}
-                    className="px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary/90 text-xs md:text-sm"
+                    className="px-2 py-1 md:px-3 md:py-1 bg-primary text-white rounded-lg hover:bg-primary/90 text-xs md:text-sm"
                     type="button"
                   >
                     Save
                   </button>
                   <button
                     onClick={() => setEditingGoal(false)}
-                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-xs md:text-sm"
+                    className="px-2 py-1 md:px-3 md:py-1 bg-gray-200 text-gray-700 rounded-lg text-xs md:text-sm"
                     type="button"
                   >
                     Cancel
@@ -697,13 +697,13 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
           </div>
         )}
 
-        {/* Chat Input - Mobile Optimized */}
-        <form onSubmit={handleSendMessage} className="flex gap-2 mb-4 flex-shrink-0">
+        {/* Chat Input - More Compact on Mobile */}
+        <form onSubmit={handleSendMessage} className="flex gap-2 mb-2 md:mb-4 flex-shrink-0">
           <input
             value={input}
             onChange={handleInputChange}
             placeholder="Type your message..."
-            className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm md:text-base"
+            className="flex-1 border rounded-lg px-2 py-1.5 md:px-3 md:py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-xs md:text-base"
             disabled={isLoading || waitingForResponse}
           />
           {isBundle && (
@@ -711,7 +711,7 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
               type="button"
               onClick={handleAskTeam}
               disabled={isLoading || waitingForResponse || !input.trim()}
-              className="px-3 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 disabled:opacity-50 text-sm md:text-base whitespace-nowrap"
+              className="px-2 py-1.5 md:px-3 md:py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 disabled:opacity-50 text-xs md:text-base whitespace-nowrap"
             >
               Ask Team
             </button>
@@ -719,53 +719,59 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
           <button
             type="submit"
             disabled={isLoading || waitingForResponse || !input.trim()}
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm md:text-base"
+            className="px-3 py-1.5 md:px-4 md:py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-xs md:text-base"
           >
             Send
           </button>
         </form>
 
-        {/* Chat Messages - Mobile Optimized with Proper Scrolling */}
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="space-y-3 pb-4">
-            {chatHistory.map(msg => {
-              const isAskTeam = msg.role === 'assistant' && !msg.product_id;
-              const product = msg.role === 'assistant' && msg.product_id ? products.find(p => p.id === msg.product_id) : null;
-              const formatted = formatAssistantMessage(msg.content);
-              return (
-              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`rounded-lg px-3 py-2 max-w-[85%] md:max-w-xl ${
-                  msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-gray-900'
-                }`}>
-                  {msg.role === 'assistant' ? (
-                      <div>
-                        {isAskTeam ? (
-                          <div className="font-bold mb-1 text-indigo-700 text-sm">Team</div>
-                        ) : product ? (
-                          <div className="font-bold mb-1 text-indigo-700 text-sm">{product.name}</div>
-                        ) : null}
-                        {typeof formatted === 'string' ? (
-                          <div
-                            className="prose prose-sm max-w-none whitespace-pre-line text-sm"
-                            dangerouslySetInnerHTML={{ __html: renderMarkdown(formatted) }}
-                          />
-                        ) : (
-                          <div className="prose prose-sm max-w-none whitespace-pre-line text-sm">
-                            {formatted}
-                          </div>
-                        )}
-                      </div>
-                  ) : (
-                    <span className="text-sm">{msg.content}</span>
-                  )}
-                </div>
+        {/* Chat Messages - Now Gets Proper Space */}
+        <div className="flex-1 overflow-y-auto min-h-0 bg-white rounded-lg border border-gray-200">
+          <div className="space-y-2 md:space-y-3 p-2 md:p-4">
+            {chatHistory.length === 0 ? (
+              <div className="text-center text-gray-500 text-sm py-8">
+                Start your conversation by typing a message below
               </div>
-              );
-            })}
+            ) : (
+              chatHistory.map(msg => {
+                const isAskTeam = msg.role === 'assistant' && !msg.product_id;
+                const product = msg.role === 'assistant' && msg.product_id ? products.find(p => p.id === msg.product_id) : null;
+                const formatted = formatAssistantMessage(msg.content);
+                return (
+                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`rounded-lg px-2 py-1.5 md:px-3 md:py-2 max-w-[85%] md:max-w-xl ${
+                    msg.role === 'user' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-900'
+                  }`}>
+                    {msg.role === 'assistant' ? (
+                        <div>
+                          {isAskTeam ? (
+                            <div className="font-bold mb-1 text-indigo-700 text-xs md:text-sm">Team</div>
+                          ) : product ? (
+                            <div className="font-bold mb-1 text-indigo-700 text-xs md:text-sm">{product.name}</div>
+                          ) : null}
+                          {typeof formatted === 'string' ? (
+                            <div
+                              className="prose prose-sm max-w-none whitespace-pre-line text-xs md:text-sm"
+                              dangerouslySetInnerHTML={{ __html: renderMarkdown(formatted) }}
+                            />
+                          ) : (
+                            <div className="prose prose-sm max-w-none whitespace-pre-line text-xs md:text-sm">
+                              {formatted}
+                            </div>
+                          )}
+                        </div>
+                    ) : (
+                      <span className="text-xs md:text-sm">{msg.content}</span>
+                    )}
+                  </div>
+                </div>
+                );
+              })
+            )}
             <div ref={messagesEndRef} />
             {waitingForResponse && (
               <div className="flex justify-center items-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <div className="animate-spin rounded-full h-4 w-4 md:h-6 md:w-6 border-b-2 border-primary"></div>
               </div>
             )}
           </div>
