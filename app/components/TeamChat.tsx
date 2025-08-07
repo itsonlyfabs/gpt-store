@@ -6,6 +6,7 @@ import NotesPanel from './NotesPanel'
 import SummariesPanel from './SummariesPanel'
 import Sidebar from './Sidebar'
 import { marked } from 'marked'
+import { ChevronDown, ChevronUp, Save, Download, RotateCcw, FileText, StickyNote } from 'lucide-react'
 
 interface Message {
   id: string
@@ -62,6 +63,10 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
   const [goalDraft, setGoalDraft] = useState('')
   const [isBundle, setIsBundle] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [downloadSuccess, setDownloadSuccess] = useState(false)
+  const [resetSuccess, setResetSuccess] = useState(false)
 
   const {
     messages,
@@ -259,11 +264,72 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
         await fetchSessionInfo();
         await fetchChatHistory();
         setChatHistory([])
+        setResetSuccess(true)
+        setTimeout(() => setResetSuccess(false), 2000)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to reset chat')
       } finally {
         setLoading(false)
       }
+    }
+  }
+
+  const handleSaveRecap = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const { data: { session: supaSession } } = await supabase.auth.getSession()
+      const accessToken = supaSession?.access_token
+      const res = await fetch(`/api/chat/session/${toolId}/recap`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        },
+        body: JSON.stringify({
+          chat_history: chatHistory,
+          team_title: teamTitle,
+          team_description: teamDescription,
+          is_bundle: isBundle
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setError(null)
+        setSaveSuccess(true)
+        setTimeout(() => setSaveSuccess(false), 2000)
+      } else {
+        setError(data.error || 'Failed to save chat recap')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save chat recap')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDownload = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      let recap = ''
+      recap += `Bundle: ${teamTitle}\nDescription: ${teamDescription}\n\n`
+      recap += chatHistory.map((msg) => `${msg.role === 'user' ? 'You' : 'Assistant'}: ${msg.content}`).join('\n')
+      const blob = new Blob([recap], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `bundle-chat-recap-${toolId}.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setDownloadSuccess(true)
+      setTimeout(() => setDownloadSuccess(false), 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download recap')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -441,178 +507,207 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-8 md:p-8 pt-20 md:pt-8">
+      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-4 md:p-8 pt-16 md:pt-8">
+        {/* Mobile Header */}
         <div className="flex-none border-b bg-white pb-4 mb-4">
-          <h1 className="text-3xl font-bold text-gray-900 mb-1">{teamTitle}</h1>
-          <div className="text-gray-500 text-sm mb-2">{teamDescription || "No description set for this bundle."}</div>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-xl md:text-3xl font-bold text-gray-900">{teamTitle}</h1>
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className="md:hidden p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              {showMobileMenu ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            </button>
+          </div>
+          <div className="text-gray-500 text-xs md:text-sm mb-2">{teamDescription || "No description set for this bundle."}</div>
         </div>
+
+        {/* Mobile Collapsible Menu */}
+        {showMobileMenu && (
+          <div className="md:hidden mb-4 bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleSaveRecap}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm"
+              >
+                <Save className="w-4 h-4" />
+                {loading ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Recap'}
+              </button>
+              <button
+                onClick={handleDownload}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm"
+              >
+                <Download className="w-4 h-4" />
+                {loading ? 'Downloading...' : downloadSuccess ? 'Downloaded!' : 'Download'}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleReset}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm"
+              >
+                <RotateCcw className="w-4 h-4" />
+                {loading ? 'Resetting...' : resetSuccess ? 'Reset!' : 'Reset'}
+              </button>
+              <button
+                onClick={() => { setShowNotes(!showNotes); setShowSummaries(false); }}
+                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm ${
+                  showNotes ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <StickyNote className="w-4 h-4" />
+                Notes
+              </button>
+            </div>
+            <button
+              onClick={() => { setShowSummaries(!showSummaries); setShowNotes(false); }}
+              className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm ${
+                showSummaries ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Summaries
+            </button>
+          </div>
+        )}
+
+        {/* Desktop Action Buttons - Hidden on mobile */}
         {isBundle && (
-          <>
-            <div className="flex gap-3 mb-4">
+          <div className="hidden md:flex gap-3 mb-4">
             <button
               className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
-              onClick={async () => {
-                setLoading(true)
-                setError(null)
-                try {
-                  const { data: { session: supaSession } } = await supabase.auth.getSession()
-                  const accessToken = supaSession?.access_token
-                  const res = await fetch(`/api/chat/session/${toolId}/recap`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-                    },
-                    body: JSON.stringify({
-                      chat_history: chatHistory,
-                      team_title: teamTitle,
-                      team_description: teamDescription,
-                      is_bundle: isBundle
-                    })
-                  })
-                  const data = await res.json()
-                  if (data.success) {
-                    setError(null)
-                  } else {
-                    setError(data.error || 'Failed to save chat recap')
-                  }
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : 'Failed to save chat recap')
-                } finally {
-                  setLoading(false)
-                }
-              }}
+              onClick={handleSaveRecap}
               disabled={loading}
             >
-              {loading ? 'Saving...' : 'Save Recap'}
+              {loading ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Recap'}
             </button>
             <button
               className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
-              onClick={async () => {
-                setLoading(true)
-                setError(null)
-                try {
-                  let recap = ''
-                  recap += `Bundle: ${teamTitle}\nDescription: ${teamDescription}\n\n`
-                  recap += chatHistory.map((msg) => `${msg.role === 'user' ? 'You' : 'Assistant'}: ${msg.content}`).join('\n')
-                  const blob = new Blob([recap], { type: 'text/plain' })
-                  const url = URL.createObjectURL(blob)
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = `bundle-chat-recap-${toolId}.txt`
-                  document.body.appendChild(a)
-                  a.click()
-                  document.body.removeChild(a)
-                  URL.revokeObjectURL(url)
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : 'Failed to download recap')
-                } finally {
-                  setLoading(false)
-                }
-              }}
+              onClick={handleDownload}
               disabled={loading}
             >
-              Download
+              {loading ? 'Downloading...' : downloadSuccess ? 'Downloaded!' : 'Download'}
             </button>
             <button
               className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"
               onClick={handleReset}
               disabled={loading}
             >
-              {loading ? 'Resetting...' : 'Reset'}
+              {loading ? 'Resetting...' : resetSuccess ? 'Reset!' : 'Reset'}
             </button>
           </div>
-            {/* Products list below the buttons */}
-            <div className="mb-4">
-              {products.length > 0 ? (
-                <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-700 text-sm">Active Product:</span>
-            {products.map((p) => (
-              <button
-                key={p.id}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-sm border ${activeProductId === p.id ? 'bg-indigo-100 text-indigo-800 border-indigo-400' : 'bg-white text-gray-700 border-gray-300'}`}
-                onClick={async () => {
-                  if (activeProductId !== p.id && sessionId) {
-                    setLoading(true)
-                    setError(null)
-                    try {
-                      const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
-                      const res = await fetch(`/api/chat/switch-product`, {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify({ sessionId, toProductId: p.id })
-                      })
-                      const data = await res.json()
-                      if (data.error) throw new Error(data.error)
-                      setActiveProductId(p.id)
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : 'Failed to switch product')
-                    } finally {
-                      setLoading(false)
-                    }
-                  }
-                }}
-                disabled={activeProductId === p.id || loading}
-              >
-                <span>{p.name}</span>
-                {activeProductId === p.id && <span className="ml-1">⭐</span>}
-              </button>
-            ))}
+        )}
+
+        {/* Products Section - Mobile Optimized */}
+        {isBundle && (
+          <div className="mb-4">
+            {products.length > 0 ? (
+              <div className="space-y-2">
+                <span className="font-semibold text-gray-700 text-sm">Active Product:</span>
+                <div className="flex flex-wrap gap-2">
+                  {products.map((p) => (
+                    <button
+                      key={p.id}
+                      className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm border transition-colors ${
+                        activeProductId === p.id 
+                          ? 'bg-indigo-100 text-indigo-800 border-indigo-400' 
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                      onClick={async () => {
+                        if (activeProductId !== p.id && sessionId) {
+                          setLoading(true)
+                          setError(null)
+                          try {
+                            const headers = { ...(await getAuthHeaders()), 'Content-Type': 'application/json' }
+                            const res = await fetch(`/api/chat/switch-product`, {
+                              method: 'POST',
+                              headers,
+                              body: JSON.stringify({ sessionId, toProductId: p.id })
+                            })
+                            const data = await res.json()
+                            if (data.error) throw new Error(data.error)
+                            setActiveProductId(p.id)
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : 'Failed to switch product')
+                          } finally {
+                            setLoading(false)
+                          }
+                        }
+                      }}
+                      disabled={activeProductId === p.id || loading}
+                    >
+                      <span className="truncate max-w-32">{p.name}</span>
+                      {activeProductId === p.id && <span className="ml-1">⭐</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-red-500 text-sm">No products found in this bundle.</div>
+            )}
           </div>
-              ) : (
-                <div className="text-red-500 text-sm">No products found in this bundle.</div>
+        )}
+
+        {/* Team Goal Section - Mobile Optimized */}
+        {isBundle && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-gray-700 text-sm md:text-base">Team Goal</span>
+              {!editingGoal && (
+                <button
+                  onClick={() => { setEditingGoal(true); setGoalDraft(teamGoal); }}
+                  className="px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-xs md:text-sm"
+                  type="button"
+                >
+                  Edit
+                </button>
               )}
             </div>
-          </>
-        )}
-        {isBundle && (
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center w-full">
-              <span className="font-semibold text-lg mr-2">Team Goal</span>
-              {!editingGoal ? (
-                <>
-                  <span className="text-gray-600 flex-1">{teamGoal || 'No team goal set'}</span>
-                  <button
-                    onClick={() => { setEditingGoal(true); setGoalDraft(teamGoal); }}
-                    className="ml-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm"
-                    type="button"
-                  >
-                    Edit
-                  </button>
-                </>
-              ) : (
-                <>
-                  <input
-                    className="border rounded-lg px-2 py-1 flex-1 mr-2"
-                    value={goalDraft}
-                    onChange={e => setGoalDraft(e.target.value)}
-                    autoFocus
-                  />
+            {!editingGoal ? (
+              <div className="text-gray-600 text-sm md:text-base bg-gray-50 rounded-lg p-3">
+                {teamGoal || 'No team goal set'}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <input
+                  className="w-full border rounded-lg px-3 py-2 text-sm md:text-base"
+                  value={goalDraft}
+                  onChange={e => setGoalDraft(e.target.value)}
+                  autoFocus
+                  placeholder="Enter team goal..."
+                />
+                <div className="flex gap-2">
                   <button
                     onClick={async () => { await handleUpdateTeamGoal(goalDraft); }}
-                    className="px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm mr-2"
+                    className="px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary/90 text-xs md:text-sm"
                     type="button"
                   >
                     Save
                   </button>
                   <button
                     onClick={() => setEditingGoal(false)}
-                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-sm"
+                    className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg text-xs md:text-sm"
                     type="button"
                   >
                     Cancel
                   </button>
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
-        <form onSubmit={handleSendMessage} className="flex gap-2 mt-2 mb-4">
+
+        {/* Chat Input - Mobile Optimized */}
+        <form onSubmit={handleSendMessage} className="flex gap-2 mb-4">
           <input
             value={input}
             onChange={handleInputChange}
             placeholder="Type your message..."
-            className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm md:text-base"
             disabled={isLoading || waitingForResponse}
           />
           {isBundle && (
@@ -620,7 +715,7 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
               type="button"
               onClick={handleAskTeam}
               disabled={isLoading || waitingForResponse || !input.trim()}
-              className="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 disabled:opacity-50"
+              className="px-3 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 disabled:opacity-50 text-sm md:text-base whitespace-nowrap"
             >
               Ask Team
             </button>
@@ -628,41 +723,43 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
           <button
             type="submit"
             disabled={isLoading || waitingForResponse || !input.trim()}
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm md:text-base"
           >
             Send
           </button>
         </form>
-        <div className="space-y-4 flex-1 overflow-y-auto">
+
+        {/* Chat Messages - Mobile Optimized */}
+        <div className="space-y-3 flex-1 overflow-y-auto">
           {chatHistory.map(msg => {
             const isAskTeam = msg.role === 'assistant' && !msg.product_id;
             const product = msg.role === 'assistant' && msg.product_id ? products.find(p => p.id === msg.product_id) : null;
             const formatted = formatAssistantMessage(msg.content);
             return (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`rounded-lg px-4 py-2 max-w-xl ${
+              <div className={`rounded-lg px-3 py-2 max-w-[85%] md:max-w-xl ${
                 msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-gray-900'
               }`}>
                 {msg.role === 'assistant' ? (
                     <div>
                       {isAskTeam ? (
-                        <div className="font-bold mb-1 text-indigo-700">Team</div>
+                        <div className="font-bold mb-1 text-indigo-700 text-sm">Team</div>
                       ) : product ? (
-                        <div className="font-bold mb-1 text-indigo-700">{product.name}</div>
+                        <div className="font-bold mb-1 text-indigo-700 text-sm">{product.name}</div>
                       ) : null}
                       {typeof formatted === 'string' ? (
                         <div
-                          className="prose prose-sm max-w-none whitespace-pre-line"
+                          className="prose prose-sm max-w-none whitespace-pre-line text-sm"
                           dangerouslySetInnerHTML={{ __html: renderMarkdown(formatted) }}
                         />
                       ) : (
-                        <div className="prose prose-sm max-w-none whitespace-pre-line">
+                        <div className="prose prose-sm max-w-none whitespace-pre-line text-sm">
                           {formatted}
                         </div>
                       )}
                     </div>
                 ) : (
-                  <span>{msg.content}</span>
+                  <span className="text-sm">{msg.content}</span>
                 )}
               </div>
             </div>
@@ -675,8 +772,31 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
             </div>
           )}
         </div>
+
+        {/* Mobile Notes/Summaries Panels */}
+        {(showNotes || showSummaries) && (
+          <div className="md:hidden mt-4">
+            {showNotes && (
+              <NotesPanel
+                notes={notes}
+                onAddNote={handleAddNote}
+                onDeleteNote={handleDeleteNote}
+              />
+            )}
+            {showSummaries && (
+              <SummariesPanel
+                summaries={summaries}
+                onGenerateSummary={handleGenerateSummary}
+                onDeleteSummary={handleDeleteSummary}
+                isLoading={loading}
+              />
+            )}
+          </div>
+        )}
       </main>
-      <div className="flex flex-col h-full">
+
+      {/* Desktop Side Panels - Hidden on mobile */}
+      <div className="hidden md:flex flex-col h-full">
         <div className="flex gap-0">
           <button
             onClick={() => setShowNotes(!showNotes)}
@@ -707,8 +827,10 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
           />
         )}
       </div>
+
+      {/* Success/Error Messages */}
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm">
           {error}
         </div>
       )}
