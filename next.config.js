@@ -27,6 +27,14 @@ const nextConfig = {
       'picsum.photos',
       'fastly.picsum.photos',
     ],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'tcmkyzcbndmaqxfjvpfs.supabase.co',
+        port: '',
+        pathname: '/**',
+      },
+    ],
   },
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,

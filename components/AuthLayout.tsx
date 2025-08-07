@@ -1,5 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface AuthLayoutProps {
   children: React.ReactNode
@@ -13,7 +14,17 @@ export default function AuthLayout({ children, title, subtitle, type }: AuthLayo
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link href="/" className="flex justify-center">
-          <span className="text-3xl font-bold text-blue-600">GPT Store</span>
+          <div className="flex items-center space-x-2">
+            <Image
+              src="/genio-logo-dark.png"
+              alt="Genio"
+              width={120}
+              height={40}
+              className="h-10 w-auto"
+              priority
+              unoptimized
+            />
+          </div>
         </Link>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">{title}</h2>
         <p className="mt-2 text-center text-sm text-gray-600">{subtitle}</p>
