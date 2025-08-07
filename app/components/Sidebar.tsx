@@ -68,17 +68,19 @@ export default function Sidebar() {
           >
             <div className="flex flex-col h-full">
               <div className="flex justify-between items-center p-4 border-b border-gray-200">
-                <Link href="/" onClick={closeMobileMenu}>
-                  <span
-                    className="flex items-center px-4 py-2 rounded-full border border-[#E5E7EB] bg-white text-[#7F7BBA] font-sora text-base font-semibold shadow-sm hover:bg-gray-50 transition"
-                    style={{ fontFamily: 'Sora, sans-serif' }}
-                  >
-                    Genio
-                  </span>
-                </Link>
+                <div className="flex-1 flex justify-center">
+                  <Link href="/" onClick={closeMobileMenu}>
+                    <span
+                      className="flex items-center px-4 py-2 rounded-full border border-[#E5E7EB] bg-white text-[#7F7BBA] font-sora text-base font-semibold shadow-sm hover:bg-gray-50 transition"
+                      style={{ fontFamily: 'Sora, sans-serif' }}
+                    >
+                      Genio
+                    </span>
+                  </Link>
+                </div>
                 <button
                   onClick={closeMobileMenu}
-                  className="p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                  className="p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors flex-shrink-0"
                   aria-label="Close menu"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
