@@ -94,17 +94,6 @@ export default function BillingPage() {
       if (!subscriptionRes.ok) throw new Error('Failed to fetch subscription')
       const subscriptionData = await subscriptionRes.json()
 
-      if (subscriptionData && subscriptionData.plan && subscriptionData.plan.amount !== undefined) {
-        subscriptionData.plan = {
-          id: '',
-          name: subscriptionData.plan.name,
-          price: subscriptionData.plan.amount,
-          interval: subscriptionData.plan.interval,
-          description: '',
-          features: [],
-          is_popular: false
-        }
-      }
       setSubscription(subscriptionData)
 
       // Fetch payment methods
@@ -137,6 +126,7 @@ export default function BillingPage() {
       const plansData = await plansRes.json()
       setPlans(plansData)
     } catch (err) {
+      console.error('Error fetching plans:', err)
       setPlans([])
     }
   }
@@ -264,6 +254,11 @@ export default function BillingPage() {
     ? plans.filter(plan => plan.name === 'Pro' && plan.interval === 'year')
     : plans.filter(plan => (plan.name === 'Free' || plan.name === 'Pro') && plan.interval === 'month')
 
+  // Ensure we always have plans to show
+  if (filteredPlans.length === 0) {
+    console.warn('No plans found for interval:', billingInterval)
+  }
+
   // Calculate yearly discount percentage
   const monthlyProPlan = plans.find(plan => plan.name === 'Pro' && plan.interval === 'month')
   const yearlyProPlan = plans.find(plan => plan.name === 'Pro' && plan.interval === 'year')
@@ -382,6 +377,9 @@ export default function BillingPage() {
                       <div>
                         <p className="text-sm text-gray-500">Current Plan</p>
                         <p className="text-lg font-medium text-gray-900">{subscription.plan?.name || 'Unknown'}</p>
+                        {subscription.plan?.description && (
+                          <p className="text-sm text-gray-600 mt-1">{subscription.plan.description}</p>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-500">Price</p>
@@ -389,10 +387,26 @@ export default function BillingPage() {
                           {subscription.plan && typeof subscription.plan.price === 'number' ? (
                             subscription.plan.price === 0 ? 'Free' : `$${(subscription.plan.price / 100).toFixed(2)}`
                           ) : '-'}
-                          {subscription.plan && typeof subscription.plan.price === 'number' && subscription.plan.price !== 0 ? (billingInterval === 'month' ? '/month' : '/user/year') : ''}
+                          {subscription.plan && typeof subscription.plan.price === 'number' && subscription.plan.price !== 0 ? (subscription.plan.interval === 'month' ? '/month' : '/year') : ''}
                         </p>
                       </div>
                     </div>
+                    
+                    {/* Plan Features */}
+                    {subscription.plan?.features && subscription.plan.features.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-sm text-gray-500 mb-2">Plan Features</p>
+                        <ul className="space-y-1">
+                          {subscription.plan.features.map((feature: string, index: number) => (
+                            <li key={index} className="flex items-center text-sm text-gray-700">
+                              <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                              {feature}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-sm text-gray-500">Status</p>
@@ -438,6 +452,7 @@ export default function BillingPage() {
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-gray-500 mb-4">You don't have an active subscription</p>
+                    <p className="text-sm text-gray-400">You are currently on the Free plan</p>
                   </div>
                 )}
               </div>
@@ -463,10 +478,24 @@ export default function BillingPage() {
               {/* Available Plans */}
               <div className="bg-white shadow rounded-lg p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Available Plans</h2>
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredPlans.map((plan) => {
-                    const isCurrent = subscription && plan.id === subscription.plan?.id
-                    return (
+                {filteredPlans.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 mb-4">No plans available for the selected interval</p>
+                    <button
+                      onClick={() => setBillingInterval(billingInterval === 'month' ? 'year' : 'month')}
+                      className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+                    >
+                      Switch to {billingInterval === 'month' ? 'Yearly' : 'Monthly'} Plans
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {filteredPlans.map((plan) => {
+                      const isCurrent = subscription && (
+                        plan.id === subscription.plan?.id || 
+                        (plan.name === subscription.plan?.name && plan.interval === subscription.plan?.interval)
+                      )
+                      return (
                       <div
                         key={plan.id}
                         className={`relative rounded-lg border ${
@@ -517,13 +546,16 @@ export default function BillingPage() {
                           >
                             {plan.price > (subscription ? subscription.plan?.price || 0 : 0)
                               ? 'Upgrade'
-                              : 'Downgrade'}
+                              : plan.price < (subscription ? subscription.plan?.price || 0 : 0)
+                              ? 'Downgrade'
+                              : 'Switch Plan'}
                           </button>
                         )}
                       </div>
                     )
                   })}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

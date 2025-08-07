@@ -1,84 +1,103 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Initialize Supabase client with service role key
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Mapping of test price IDs to production price IDs
-// Update this mapping with your actual production price IDs
-const priceIdMapping = {
-  // Example: 'price_test_123' -> 'price_live_456'
-  // Add your actual mappings here
-};
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Missing required environment variables');
+  console.log('Please set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(1);
+}
 
-async function updateStripePriceIds() {
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+async function updateStripePrices() {
   try {
-    console.log('🔄 Updating Stripe price IDs from test to production...\n');
-    
-    // First, check if stripe_price_id column exists in products table
-    console.log('🔍 Checking database schema...');
-    
-    // Get all products
-    const { data: products, error: productsError } = await supabase
-      .from('products')
-      .select('id, name, price, currency, price_type');
-    
-    if (productsError) {
-      console.error('❌ Error fetching products:', productsError);
-      return;
-    }
-    
-    // Get all plans
-    const { data: plans, error: plansError } = await supabase
+    console.log('🔍 Checking current plans...');
+
+    // Get current plans
+    const { data: plans, error } = await supabase
       .from('plans')
-      .select('id, name, price, currency, stripe_price_id');
-    
-    if (plansError) {
-      console.error('❌ Error fetching plans:', plansError);
+      .select('*')
+      .order('price', { ascending: true });
+
+    if (error) {
+      console.error('❌ Error fetching plans:', error);
       return;
     }
-    
-    console.log(`📦 Found ${products.length} products and ${plans.length} plans`);
-    
-    // Update plans (they already have stripe_price_id column)
-    console.log('\n📋 Updating plans...');
-    for (const plan of plans) {
-      if (plan.stripe_price_id && priceIdMapping[plan.stripe_price_id]) {
-        const newPriceId = priceIdMapping[plan.stripe_price_id];
-        
-        const { error: updateError } = await supabase
-          .from('plans')
-          .update({ stripe_price_id: newPriceId })
-          .eq('id', plan.id);
-        
-        if (updateError) {
-          console.error(`❌ Error updating plan ${plan.name}:`, updateError);
-        } else {
-          console.log(`✅ Updated plan ${plan.name}: ${plan.stripe_price_id} → ${newPriceId}`);
-        }
-      } else {
-        console.log(`⚠️  No mapping found for plan ${plan.name} (${plan.stripe_price_id || 'NOT SET'})`);
-      }
+
+    if (!plans || plans.length === 0) {
+      console.log('❌ No plans found. Run setup first: node scripts/setup-plans-table.js');
+      return;
     }
+
+    console.log('📋 Current plans:');
+    plans.forEach((plan, index) => {
+      console.log(`${index + 1}. ${plan.name} (${plan.interval}) - $${(plan.price/100).toFixed(2)}`);
+      console.log(`   ID: ${plan.id}`);
+      console.log(`   Stripe Price ID: ${plan.stripe_price_id || 'Not set'}`);
+      console.log('');
+    });
+
+    console.log('📝 To update Stripe price IDs:');
+    console.log('1. Go to your Stripe Dashboard → Products');
+    console.log('2. Create products for each plan with the correct prices:');
+    console.log('   - Free: $0/month');
+    console.log('   - Pro: $25/month');
+    console.log('   - Pro: $250/year');
+    console.log('3. Copy the price IDs (start with price_live_)');
+    console.log('4. Update the plans using the script below');
+    console.log('');
+
+    // Example update commands
+    console.log('💡 Example update commands:');
+    plans.forEach((plan, index) => {
+      console.log(`// Update ${plan.name} (${plan.interval}) plan`);
+      console.log(`await supabase`);
+      console.log(`  .from('plans')`);
+      console.log(`  .update({ stripe_price_id: 'price_live_YOUR_PRICE_ID_HERE' })`);
+      console.log(`  .eq('id', '${plan.id}');`);
+      console.log('');
+    });
+
+    console.log('🔧 Or use this function to update all at once:');
+    console.log(`
+async function updateAllStripePrices() {
+  const updates = [
+    {
+      planId: '${plans.find(p => p.name === 'Free')?.id || 'FREE_PLAN_ID'}',
+      stripePriceId: 'price_live_FREE_PLAN_PRICE_ID'
+    },
+    {
+      planId: '${plans.find(p => p.name === 'Pro' && p.interval === 'month')?.id || 'PRO_MONTHLY_PLAN_ID'}',
+      stripePriceId: 'price_live_PRO_MONTHLY_PRICE_ID'
+    },
+    {
+      planId: '${plans.find(p => p.name === 'Pro' && p.interval === 'year')?.id || 'PRO_YEARLY_PLAN_ID'}',
+      stripePriceId: 'price_live_PRO_YEARLY_PRICE_ID'
+    }
+  ];
+
+  for (const update of updates) {
+    const { error } = await supabase
+      .from('plans')
+      .update({ stripe_price_id: update.stripePriceId })
+      .eq('id', update.planId);
     
-    // For products, we need to create the stripe_price_id column first
-    console.log('\n📦 Products need stripe_price_id column to be added manually');
-    console.log('Run this SQL in your Supabase dashboard:');
-    console.log('ALTER TABLE products ADD COLUMN IF NOT EXISTS stripe_price_id VARCHAR(255);');
-    
-    console.log('\n🎉 Price ID update completed!');
-    console.log('\n📝 Next steps:');
-    console.log('1. Add stripe_price_id column to products table');
-    console.log('2. Create production products/prices in Stripe Dashboard');
-    console.log('3. Update the priceIdMapping with your production price IDs');
-    console.log('4. Run this script again');
-    
+    if (error) {
+      console.error('Error updating plan:', update.planId, error);
+    } else {
+      console.log('Updated plan:', update.planId);
+    }
+  }
+}
+    `);
+
   } catch (error) {
-    console.error('❌ Script error:', error);
+    console.error('❌ Error in updateStripePrices:', error);
+    process.exit(1);
   }
 }
 
-// Run the script
-updateStripePriceIds(); 
+updateStripePrices(); 
