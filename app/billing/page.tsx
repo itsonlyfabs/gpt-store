@@ -76,7 +76,7 @@ export default function BillingPage() {
           console.error('Error fetching profile:', err);
         });
     }
-  }, [billingInterval, user])
+  }, [user])
 
   const fetchSubscriptionData = async () => {
     try {
@@ -117,7 +117,9 @@ export default function BillingPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('Not authenticated')
-      const plansRes = await fetch(`/api/plans?interval=${billingInterval}`, {
+      
+      // Fetch all plans (both monthly and yearly) to enable discount calculation
+      const plansRes = await fetch('/api/plans', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
         }
@@ -269,6 +271,19 @@ export default function BillingPage() {
     const yearlyPrice = yearlyProPlan.price
     const yearlyEquivalent = monthlyPrice * 12
     yearlyDiscountPercentage = Math.round(((yearlyEquivalent - yearlyPrice) / yearlyEquivalent) * 100)
+    
+    // Debug logging to verify calculation
+    console.log('Discount calculation:', {
+      monthlyPrice: monthlyPrice / 100, // Convert from cents to dollars
+      yearlyPrice: yearlyPrice / 100,
+      yearlyEquivalent: yearlyEquivalent / 100,
+      discountPercentage: yearlyDiscountPercentage
+    })
+  } else {
+    console.log('Missing plans for discount calculation:', {
+      monthlyProPlan: monthlyProPlan ? { name: monthlyProPlan.name, price: monthlyProPlan.price / 100 } : null,
+      yearlyProPlan: yearlyProPlan ? { name: yearlyProPlan.name, price: yearlyProPlan.price / 100 } : null
+    })
   }
 
   // Save handler
