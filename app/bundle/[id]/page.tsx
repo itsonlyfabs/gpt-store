@@ -114,9 +114,9 @@ export default function BundleDetailsPage() {
     }
   };
 
-  if (loading) return <div className="flex h-screen bg-gray-50"><Sidebar /><main className="flex-1 overflow-y-auto p-8 text-center">Loading...</main></div>;
-  if (error) return <div className="flex h-screen bg-gray-50"><Sidebar /><main className="flex-1 overflow-y-auto p-8 text-center text-red-500">{error}</main></div>;
-  if (!bundle) return <div className="flex h-screen bg-gray-50"><Sidebar /><main className="flex-1 overflow-y-auto p-8 text-center text-gray-500">Bundle not found.</main></div>;
+  if (loading) return <div className="flex h-screen bg-gray-50"><Sidebar /><main className="flex-1 overflow-y-auto p-8 md:p-8 pt-20 md:pt-8 text-center">Loading...</main></div>;
+  if (error) return <div className="flex h-screen bg-gray-50"><Sidebar /><main className="flex-1 overflow-y-auto p-8 md:p-8 pt-20 md:pt-8 text-center text-red-500">{error}</main></div>;
+  if (!bundle) return <div className="flex h-screen bg-gray-50"><Sidebar /><main className="flex-1 overflow-y-auto p-8 md:p-8 pt-20 md:pt-8 text-center text-gray-500">Bundle not found.</main></div>;
 
   // If not signed in, do not render this page at all (let the homepage or previous page remain), just show the modal if needed
   if (!isSignedIn && showAuthModal) {
@@ -167,7 +167,7 @@ export default function BundleDetailsPage() {
     <>
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-8 md:p-8 pt-20 md:pt-8">
           <div className="max-w-5xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left/Main column */}

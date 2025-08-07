@@ -441,7 +441,7 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-8">
+      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-8 md:p-8 pt-20 md:pt-8">
         <div className="flex-none border-b bg-white pb-4 mb-4">
           <h1 className="text-3xl font-bold text-gray-900 mb-1">{teamTitle}</h1>
           <div className="text-gray-500 text-sm mb-2">{teamDescription || "No description set for this bundle."}</div>

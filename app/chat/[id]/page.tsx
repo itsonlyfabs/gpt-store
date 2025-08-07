@@ -128,7 +128,7 @@ export default function ChatPage() {
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
       <main className="flex-1 flex flex-col items-center justify-start p-0 relative">
-        <div className="absolute top-0 right-0 mt-10 mr-10 z-20">
+        <div className="absolute top-0 right-0 mt-10 mr-10 z-20 md:z-20 z-30">
           <div className="flex gap-0">
             <button
               onClick={() => { setShowNotes(!showNotes); setShowSummaries(false); }}
@@ -209,7 +209,7 @@ export default function ChatPage() {
             />
           )}
         </div>
-        <div className="w-full max-w-2xl mx-auto px-6 pt-10">
+        <div className="w-full max-w-2xl mx-auto px-6 pt-20 md:pt-10">
           <div className="flex gap-3 mb-6">
               <button
               className="bg-primary text-white px-4 py-2 rounded font-semibold hover:bg-primary-dark transition"

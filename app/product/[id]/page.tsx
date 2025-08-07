@@ -124,7 +124,7 @@ export default function ProductPage() {
     return (
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-8 md:p-8 pt-20 md:pt-8">
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
             <div className="h-4 bg-gray-200 rounded w-3/4 mb-8"></div>
@@ -139,7 +139,7 @@ export default function ProductPage() {
     return (
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-8 md:p-8 pt-20 md:pt-8">
           <div className="text-center text-red-600">
             {error || 'Product not found'}
           </div>
@@ -153,7 +153,7 @@ export default function ProductPage() {
       <div className="flex h-full">
         <Sidebar />
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-8 pt-20 md:pt-8">
             {loading ? (
               <div>Loading...</div>
             ) : error ? (

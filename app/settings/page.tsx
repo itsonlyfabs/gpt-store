@@ -106,7 +106,7 @@ export default function SettingsPage() {
     return (
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 flex items-center justify-center pt-20 md:pt-0">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </main>
       </div>
@@ -117,7 +117,7 @@ export default function SettingsPage() {
     return (
       <div className="flex h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 flex items-center justify-center">
+        <main className="flex-1 flex items-center justify-center pt-20 md:pt-0">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-900">Settings not available</h2>
             <p className="mt-2 text-gray-600">Please try again later.</p>
@@ -130,7 +130,7 @@ export default function SettingsPage() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-6 md:p-6 pt-20 md:pt-6">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
 
