@@ -6,7 +6,7 @@ import NotesPanel from './NotesPanel'
 import SummariesPanel from './SummariesPanel'
 import Sidebar from './Sidebar'
 import { marked } from 'marked'
-import { ChevronDown, ChevronUp, Save, Download, RotateCcw, FileText, StickyNote } from 'lucide-react'
+import { ChevronDown, ChevronUp, Save, Download, RotateCcw, FileText, StickyNote, X } from 'lucide-react'
 
 interface Message {
   id: string
@@ -507,7 +507,7 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-4 md:p-8 pt-16 md:pt-8">
+      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full p-4 md:p-8 pt-16 md:pt-8 overflow-hidden">
         {/* Mobile Header */}
         <div className="flex-none border-b bg-white pb-4 mb-4">
           <div className="flex items-center justify-between mb-2">
@@ -554,20 +554,16 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
                 {loading ? 'Resetting...' : resetSuccess ? 'Reset!' : 'Reset'}
               </button>
               <button
-                onClick={() => { setShowNotes(!showNotes); setShowSummaries(false); }}
-                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm ${
-                  showNotes ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                onClick={() => { setShowNotes(true); setShowSummaries(false); setShowMobileMenu(false); }}
+                className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm"
               >
                 <StickyNote className="w-4 h-4" />
                 Notes
               </button>
             </div>
             <button
-              onClick={() => { setShowSummaries(!showSummaries); setShowNotes(false); }}
-              className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm ${
-                showSummaries ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              onClick={() => { setShowSummaries(true); setShowNotes(false); setShowMobileMenu(false); }}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm"
             >
               <FileText className="w-4 h-4" />
               Summaries
@@ -604,7 +600,7 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
 
         {/* Products Section - Mobile Optimized */}
         {isBundle && (
-          <div className="mb-4">
+          <div className="mb-4 flex-shrink-0">
             {products.length > 0 ? (
               <div className="space-y-2">
                 <span className="font-semibold text-gray-700 text-sm">Active Product:</span>
@@ -654,7 +650,7 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
 
         {/* Team Goal Section - Mobile Optimized */}
         {isBundle && (
-          <div className="mb-4">
+          <div className="mb-4 flex-shrink-0">
             <div className="flex items-center justify-between mb-2">
               <span className="font-semibold text-gray-700 text-sm md:text-base">Team Goal</span>
               {!editingGoal && (
@@ -702,7 +698,7 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
         )}
 
         {/* Chat Input - Mobile Optimized */}
-        <form onSubmit={handleSendMessage} className="flex gap-2 mb-4">
+        <form onSubmit={handleSendMessage} className="flex gap-2 mb-4 flex-shrink-0">
           <input
             value={input}
             onChange={handleInputChange}
@@ -729,70 +725,51 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
           </button>
         </form>
 
-        {/* Chat Messages - Mobile Optimized */}
-        <div className="space-y-3 flex-1 overflow-y-auto">
-          {chatHistory.map(msg => {
-            const isAskTeam = msg.role === 'assistant' && !msg.product_id;
-            const product = msg.role === 'assistant' && msg.product_id ? products.find(p => p.id === msg.product_id) : null;
-            const formatted = formatAssistantMessage(msg.content);
-            return (
-            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`rounded-lg px-3 py-2 max-w-[85%] md:max-w-xl ${
-                msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-gray-900'
-              }`}>
-                {msg.role === 'assistant' ? (
-                    <div>
-                      {isAskTeam ? (
-                        <div className="font-bold mb-1 text-indigo-700 text-sm">Team</div>
-                      ) : product ? (
-                        <div className="font-bold mb-1 text-indigo-700 text-sm">{product.name}</div>
-                      ) : null}
-                      {typeof formatted === 'string' ? (
-                        <div
-                          className="prose prose-sm max-w-none whitespace-pre-line text-sm"
-                          dangerouslySetInnerHTML={{ __html: renderMarkdown(formatted) }}
-                        />
-                      ) : (
-                        <div className="prose prose-sm max-w-none whitespace-pre-line text-sm">
-                          {formatted}
-                        </div>
-                      )}
-                    </div>
-                ) : (
-                  <span className="text-sm">{msg.content}</span>
-                )}
+        {/* Chat Messages - Mobile Optimized with Proper Scrolling */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="space-y-3 pb-4">
+            {chatHistory.map(msg => {
+              const isAskTeam = msg.role === 'assistant' && !msg.product_id;
+              const product = msg.role === 'assistant' && msg.product_id ? products.find(p => p.id === msg.product_id) : null;
+              const formatted = formatAssistantMessage(msg.content);
+              return (
+              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`rounded-lg px-3 py-2 max-w-[85%] md:max-w-xl ${
+                  msg.role === 'user' ? 'bg-primary text-white' : 'bg-white text-gray-900'
+                }`}>
+                  {msg.role === 'assistant' ? (
+                      <div>
+                        {isAskTeam ? (
+                          <div className="font-bold mb-1 text-indigo-700 text-sm">Team</div>
+                        ) : product ? (
+                          <div className="font-bold mb-1 text-indigo-700 text-sm">{product.name}</div>
+                        ) : null}
+                        {typeof formatted === 'string' ? (
+                          <div
+                            className="prose prose-sm max-w-none whitespace-pre-line text-sm"
+                            dangerouslySetInnerHTML={{ __html: renderMarkdown(formatted) }}
+                          />
+                        ) : (
+                          <div className="prose prose-sm max-w-none whitespace-pre-line text-sm">
+                            {formatted}
+                          </div>
+                        )}
+                      </div>
+                  ) : (
+                    <span className="text-sm">{msg.content}</span>
+                  )}
+                </div>
               </div>
-            </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
-          {waitingForResponse && (
-            <div className="flex justify-center items-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-            </div>
-          )}
-        </div>
-
-        {/* Mobile Notes/Summaries Panels */}
-        {(showNotes || showSummaries) && (
-          <div className="md:hidden mt-4">
-            {showNotes && (
-              <NotesPanel
-                notes={notes}
-                onAddNote={handleAddNote}
-                onDeleteNote={handleDeleteNote}
-              />
-            )}
-            {showSummaries && (
-              <SummariesPanel
-                summaries={summaries}
-                onGenerateSummary={handleGenerateSummary}
-                onDeleteSummary={handleDeleteSummary}
-                isLoading={loading}
-              />
+              );
+            })}
+            <div ref={messagesEndRef} />
+            {waitingForResponse && (
+              <div className="flex justify-center items-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              </div>
             )}
           </div>
-        )}
+        </div>
       </main>
 
       {/* Desktop Side Panels - Hidden on mobile */}
@@ -827,6 +804,55 @@ export default function TeamChat({ toolId, toolName, toolDescription }: TeamChat
           />
         )}
       </div>
+
+      {/* Mobile Notes Popup Modal */}
+      {showNotes && (
+        <div className="md:hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Notes</h2>
+              <button
+                onClick={() => setShowNotes(false)}
+                className="p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <NotesPanel
+                notes={notes}
+                onAddNote={handleAddNote}
+                onDeleteNote={handleDeleteNote}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Summaries Popup Modal */}
+      {showSummaries && (
+        <div className="md:hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Summaries</h2>
+              <button
+                onClick={() => setShowSummaries(false)}
+                className="p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <SummariesPanel
+                summaries={summaries}
+                onGenerateSummary={handleGenerateSummary}
+                onDeleteSummary={handleDeleteSummary}
+                isLoading={loading}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Success/Error Messages */}
       {error && (
