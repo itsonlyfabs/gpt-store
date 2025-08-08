@@ -32,6 +32,10 @@ export async function middleware(request: NextRequest) {
       '/auth/register',
       '/auth/forgot-password',
       '/auth/reset-password',
+      '/legal/privacy',
+      '/legal/terms',
+      '/legal/cookies',
+      '/legal/data-processing',
     ]
     const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/auth/')
     if (isPublicRoute) {

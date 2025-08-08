@@ -1,5 +1,7 @@
 import './globals.css'
 import { Inter } from 'next/font/google'
+import CookieConsent from './components/CookieConsent'
+import Footer from './components/Footer'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -51,9 +53,13 @@ export default function RootLayout({
         <meta name="twitter:image" content="/og-image.png" />
       </head>
       <body className={`${inter.className} h-full antialiased`}>
-        <div className="min-h-screen bg-gray-50">
-          {children}
+        <div className="min-h-screen bg-gray-50 flex flex-col">
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
         </div>
+        <CookieConsent />
       </body>
     </html>
   )
