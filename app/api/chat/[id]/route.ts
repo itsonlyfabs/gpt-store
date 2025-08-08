@@ -722,7 +722,7 @@ export async function POST(request: Request, context: any) {
           body: JSON.stringify({
             model: 'gpt-4-turbo-preview',
             messages,
-            max_tokens: 1000,
+            max_tokens: 300, // Reduced for conciseness - approximately 200 characters
             temperature: 0.8, // Increased temperature for more personality
           }),
         });
@@ -831,7 +831,7 @@ export async function POST(request: Request, context: any) {
         body: JSON.stringify({
           model: 'gpt-4-turbo-preview',
           messages,
-          max_tokens: 1000,
+          max_tokens: 300, // Reduced for conciseness - approximately 200 characters
           temperature: 0.8, // Increased temperature for more personality
         }),
       });

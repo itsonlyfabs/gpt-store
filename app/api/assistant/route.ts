@@ -63,6 +63,10 @@ export async function POST(req: NextRequest) {
     let reply = lastMsg?.content?.[0]?.text?.value || '';
     // Remove OpenAI source citations
     reply = reply.replace(/【\d+:\d+†source】/g, '').replace(/\[source\]/gi, '').replace(/\[\d+\]/g, '').trim();
+    // Enforce conciseness - limit to 200 characters
+    if (reply.length > 200) {
+      reply = reply.substring(0, 197) + '...';
+    }
     return new Response(JSON.stringify({ reply }), { status: 200 });
   } catch (err) {
     return new Response(JSON.stringify({ error: 'Failed to contact OpenAI Assistant' }), { status: 500 });

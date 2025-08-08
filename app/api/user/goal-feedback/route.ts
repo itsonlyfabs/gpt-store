@@ -105,7 +105,11 @@ Recent products used: ${JSON.stringify(products)}
     const messagesData = await messagesRes.json();
     // Find the latest assistant message
     const assistantMsg = messagesData.data?.reverse().find((msg: any) => msg.role === 'assistant');
-    const feedback = assistantMsg?.content?.[0]?.text?.value || 'No feedback generated.';
+    let feedback = assistantMsg?.content?.[0]?.text?.value || 'No feedback generated.';
+    // Enforce conciseness - limit to 200 characters
+    if (feedback.length > 200) {
+      feedback = feedback.substring(0, 197) + '...';
+    }
     return NextResponse.json({ feedback });
   } catch (error) {
     console.error('Error in goal-feedback endpoint:', error);

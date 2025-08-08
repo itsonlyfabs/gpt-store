@@ -105,7 +105,7 @@ async function chatWithAI(userId, productId, messages, options = {}) {
 
       const response = await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
-        max_tokens: 1024,
+        max_tokens: 300, // Reduced for conciseness - approximately 200 characters
         messages: messages.map(m => ({
           role: m.role,
           content: m.content
@@ -132,6 +132,7 @@ async function chatWithAI(userId, productId, messages, options = {}) {
           role: m.role,
           content: m.content
         })),
+        max_tokens: 300, // Reduced for conciseness - approximately 200 characters
         temperature
       });
 

@@ -25,6 +25,8 @@ IMPORTANT: You MUST maintain these specific attributes in EVERY response:
 - Your personality: ${product.personality}
 - Your communication style: ${product.style}
 
+CRITICAL CONCISENESS REQUIREMENT: Keep your responses short and concise (maximum 200 characters). Be direct and to the point while maintaining your personality and expertise. This saves tokens and enables faster, more fluid conversations.
+
 You should reference your expertise and personality only when it is relevant to the user's question or if the user asks about it. Do not introduce yourself or your expertise unless asked. Focus your response strictly on the user's question and the chat context.`;
 
     if (isBundle) {
@@ -42,14 +44,15 @@ You should reference your expertise and personality only when it is relevant to 
 11. ALWAYS read and consider the full chat history to maintain context
 12. ALWAYS acknowledge and build upon other team members' contributions if relevant
 13. ALWAYS maintain awareness of the team's progress towards the goal
-14. ALWAYS provide insights that complement rather than duplicate others' responses`;
+14. ALWAYS provide insights that complement rather than duplicate others' responses
+15. ALWAYS keep responses concise (max 200 characters) for faster team collaboration`;
     }
 
     if (product.prompt && product.prompt.trim().length > 0) {
       // Combine persona fields and custom prompt
-      return `${persona}\n\nAdditional instructions:\n${product.prompt}\n\nREMEMBER: Only mention your expertise, personality, or background if the user asks about it or if it is directly relevant to the user's question. Otherwise, focus strictly on the user's question and the chat context.`;
+      return `${persona}\n\nAdditional instructions:\n${product.prompt}\n\nREMEMBER: Only mention your expertise, personality, or background if the user asks about it or if it is directly relevant to the user's question. Otherwise, focus strictly on the user's question and the chat context. Keep responses concise (max 200 characters).`;
     }
-    return `${persona}\n\nREMEMBER: Only mention your expertise, personality, or background if the user asks about it or if it is directly relevant to the user's question. Otherwise, focus strictly on the user's question and the chat context.`;
+    return `${persona}\n\nREMEMBER: Only mention your expertise, personality, or background if the user asks about it or if it is directly relevant to the user's question. Otherwise, focus strictly on the user's question and the chat context. Keep responses concise (max 200 characters).`;
   }
 
   /**
@@ -61,8 +64,8 @@ You should reference your expertise and personality only when it is relevant to 
     // Add strong system message for team/bundle context
     const isTeam = !!context.isBundle;
     const systemMessage = isTeam
-      ? `You are ${context.product.name}, one of several experts in a team chat.\n\nIMPORTANT:\n- Only answer as ${context.product.name}.\n- Do NOT claim to be another expert.\n- Only mention your expertise, personality, or background if the user asks about it or if it is directly relevant to the user's question.\n- Otherwise, focus your response strictly on the user's question and the current chat context.\n- You are part of a team. Reference the chat history below in your response.\n- If another team member has already answered, do not repeat their answer; instead, add your unique perspective.\n- If you are asked about the team, list the other team members by name.\n- If you are asked about previous responses, summarize or reference them.\n- Always be aware you are collaborating in a team chat.`
-      : `You are ${context.product.name}. Only answer as yourself. Maintain your unique expertise, personality, and style, but only mention them if the user asks or if it is directly relevant to the user's question. Do not introduce yourself unless asked.`;
+      ? `You are ${context.product.name}, one of several experts in a team chat.\n\nIMPORTANT:\n- Only answer as ${context.product.name}.\n- Do NOT claim to be another expert.\n- Only mention your expertise, personality, or background if the user asks about it or if it is directly relevant to the user's question.\n- Otherwise, focus your response strictly on the user's question and the current chat context.\n- You are part of a team. Reference the chat history below in your response.\n- If another team member has already answered, do not repeat their answer; instead, add your unique perspective.\n- If you are asked about the team, list the other team members by name.\n- If you are asked about previous responses, summarize or reference them.\n- Always be aware you are collaborating in a team chat.\n- Keep responses concise (max 200 characters) for faster team collaboration.`
+      : `You are ${context.product.name}. Only answer as yourself. Maintain your unique expertise, personality, and style, but only mention them if the user asks or if it is directly relevant to the user's question. Do not introduce yourself unless asked. Keep responses concise (max 200 characters) for faster conversations.`;
     messages.push({ role: 'system', content: systemMessage })
 
     // Add product persona/prompt
