@@ -302,19 +302,22 @@ export default function Chat({ toolId, toolName, toolDescription }: ChatProps) {
     <div className="flex flex-col h-full max-h-screen">
       {/* Mobile Header - More Compact */}
       <div className="flex-none border-b bg-white pb-2 md:pb-4 mb-2 md:mb-4">
-        <div className="flex items-center justify-between mb-1 md:mb-2 p-2 md:p-6">
-          <h1 className="text-lg md:text-3xl font-bold text-gray-900 truncate">{chatTitle}</h1>
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setShowMobileMenu(!showMobileMenu)}
-            className="md:hidden p-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex-shrink-0"
-          >
-            {showMobileMenu ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
+        {/* Mobile: Add top padding to account for pancake menu */}
+        <div className="pt-16 md:pt-0">
+          <div className="flex items-center justify-between mb-1 md:mb-2 p-2 md:p-6">
+            <h1 className="text-lg md:text-3xl font-bold text-gray-900 truncate">{chatTitle}</h1>
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className="md:hidden p-1.5 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex-shrink-0"
+            >
+              {showMobileMenu ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+          {chatDescription && (
+            <div className="text-gray-500 text-xs md:text-sm mb-1 md:mb-2 px-2 md:px-6 line-clamp-1">{chatDescription}</div>
+          )}
         </div>
-        {chatDescription && (
-          <div className="text-gray-500 text-xs md:text-sm mb-1 md:mb-2 px-2 md:px-6 line-clamp-1">{chatDescription}</div>
-        )}
       </div>
 
       {/* Mobile Collapsible Menu - More Compact */}
